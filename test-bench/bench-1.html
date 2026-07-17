@@ -1,0 +1,342 @@
+<title>Presales Skills Test Bench — Chunk 1</title>
+<style>
+  :root {
+    --paper: #F4F6F8; --card: #FFFFFF; --ink: #1C2733; --ink-2: #4C5A68; --ink-3: #7A8794;
+    --line: #D9DFE5; --accent: #1F4E9C; --accent-ink: #FFFFFF; --brass: #9A7B2D; --brass-bg: #F5EEDC;
+    --tailored-bg: #E3EBF7; --ok: #2E7D4F; --warn: #B07C10; --bad: #B3373D;
+    --prompt-bg: #EEF1F4; --meter-track: #E2E7EC;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #141A20; --card: #1C242D; --ink: #E6EBF0; --ink-2: #A8B4BF; --ink-3: #76828E;
+      --line: #2C3742; --accent: #7FA8E8; --accent-ink: #10151B; --brass: #CBA84E; --brass-bg: #2E2818;
+      --tailored-bg: #20304A; --ok: #5CB884; --warn: #D9A537; --bad: #D9737A;
+      --prompt-bg: #161D24; --meter-track: #2C3742;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #141A20; --card: #1C242D; --ink: #E6EBF0; --ink-2: #A8B4BF; --ink-3: #76828E;
+    --line: #2C3742; --accent: #7FA8E8; --accent-ink: #10151B; --brass: #CBA84E; --brass-bg: #2E2818;
+    --tailored-bg: #20304A; --ok: #5CB884; --warn: #D9A537; --bad: #D9737A;
+    --prompt-bg: #161D24; --meter-track: #2C3742;
+  }
+  :root[data-theme="light"] {
+    --paper: #F4F6F8; --card: #FFFFFF; --ink: #1C2733; --ink-2: #4C5A68; --ink-3: #7A8794;
+    --line: #D9DFE5; --accent: #1F4E9C; --accent-ink: #FFFFFF; --brass: #9A7B2D; --brass-bg: #F5EEDC;
+    --tailored-bg: #E3EBF7; --ok: #2E7D4F; --warn: #B07C10; --bad: #B3373D;
+    --prompt-bg: #EEF1F4; --meter-track: #E2E7EC;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--paper); color: var(--ink);
+    font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    margin: 0; padding: 2.5rem 1.25rem 5rem;
+  }
+  .wrap { max-width: 1060px; margin: 0 auto; }
+  header.mast { border-bottom: 3px double var(--line); padding-bottom: 1.5rem; margin-bottom: 2rem; }
+  .eyebrow { font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 .4rem; }
+  h1 { font-family: Charter, Georgia, "Times New Roman", serif; font-size: clamp(1.7rem, 4vw, 2.4rem); margin: 0 0 .75rem; text-wrap: balance; }
+  .loop { display: flex; flex-wrap: wrap; gap: .5rem 1.75rem; margin: 0; padding: 0; list-style: none; color: var(--ink-2); font-size: .9rem; }
+  .loop li { display: flex; align-items: baseline; gap: .5rem; }
+  .loop .n { font-family: Charter, Georgia, serif; font-style: italic; color: var(--accent); }
+  .bench-meta { margin-top: .9rem; font-size: .82rem; color: var(--ink-3); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 6px; margin-bottom: 1.75rem; overflow: hidden; }
+  .card-head { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem 1rem; padding: 1rem 1.4rem; border-bottom: 1px solid var(--line); }
+  .card-head h2 { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 1.05rem; margin: 0; font-weight: 600; }
+  .chip { font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; padding: .18rem .55rem; border-radius: 3px; font-weight: 600; }
+  .chip.tailored { background: var(--tailored-bg); color: var(--accent); }
+  .chip.mvp { background: var(--brass-bg); color: var(--brass); }
+  .card-head .what { flex-basis: 100%; color: var(--ink-2); font-size: .9rem; margin: 0; }
+  .card-body { display: grid; grid-template-columns: 1fr 1fr; }
+  @media (max-width: 800px) { .card-body { grid-template-columns: 1fr; } .col + .col { border-top: 1px solid var(--line); } }
+  @media (min-width: 801px) { .col + .col { border-left: 1px solid var(--line); } }
+  .col { padding: 1.15rem 1.4rem 1.4rem; min-width: 0; }
+  .col h3 { font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 .75rem; font-weight: 600; }
+  .triggers { display: flex; flex-wrap: wrap; gap: .45rem; margin-bottom: 1.1rem; }
+  .trig { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .78rem; background: var(--prompt-bg); border: 1px solid var(--line); border-radius: 4px; padding: .25rem .55rem; color: var(--ink-2); }
+  .prompt { position: relative; background: var(--prompt-bg); border: 1px solid var(--line); border-radius: 5px; }
+  .prompt pre { margin: 0; padding: .9rem 1rem 1rem; font: .78rem/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; overflow-x: auto; color: var(--ink-2); }
+  .copy { position: absolute; top: .5rem; right: .5rem; font: 600 .72rem/1 system-ui, sans-serif; letter-spacing: .04em; background: var(--accent); color: var(--accent-ink); border: none; border-radius: 4px; padding: .38rem .7rem; cursor: pointer; }
+  .copy:hover { filter: brightness(1.12); }
+  .copy:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .checks { list-style: none; margin: 0 0 1rem; padding: 0; display: flex; flex-direction: column; gap: .45rem; }
+  .checks li { display: flex; gap: .6rem; align-items: baseline; font-size: .88rem; color: var(--ink-2); }
+  .checks input { accent-color: var(--accent); transform: translateY(2px); flex-shrink: 0; }
+  .checks input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .meter-row { display: flex; align-items: center; gap: .75rem; border-top: 1px dashed var(--line); padding-top: .85rem; }
+  .meter { flex: 1; height: 6px; background: var(--meter-track); border-radius: 3px; overflow: hidden; }
+  .meter > div { height: 100%; width: 0%; background: var(--bad); border-radius: 3px; transition: width .25s ease, background .25s ease; }
+  @media (prefers-reduced-motion: reduce) { .meter > div { transition: none; } }
+  .meter-label { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .78rem; color: var(--ink-3); min-width: 8.5ch; text-align: right; font-variant-numeric: tabular-nums; }
+  footer { color: var(--ink-3); font-size: .82rem; border-top: 1px solid var(--line); padding-top: 1.25rem; margin-top: .5rem; }
+</style>
+
+<div class="wrap">
+  <header class="mast">
+    <p class="eyebrow">Presales Operations · Skills Library</p>
+    <h1>Skill Test Bench — Chunk 1 of 5</h1>
+    <ul class="loop">
+      <li><span class="n">i.</span> The checklist is the test — read it before you run anything</li>
+      <li><span class="n">ii.</span> Copy the scenario prompt into a fresh Claude session</li>
+      <li><span class="n">iii.</span> Score the response against each check; the meter tracks the pass rate</li>
+    </ul>
+    <p class="bench-meta">Checks persist in this browser between visits. A skill passes the bench at 100% — anything less is a tailoring finding.</p>
+  </header>
+
+  <!-- ============ deal-strategy ============ -->
+  <section class="card" data-skill="deal-strategy">
+    <div class="card-head">
+      <h2>deal-strategy</h2>
+      <span class="chip tailored">Tailored</span>
+      <p class="what">Two-axis deal assessment — MEDDPICC sales position + account-team execution quality — with procurement-stage awareness and coaching notes.</p>
+    </div>
+    <div class="card-body">
+      <div class="col">
+        <h3>Invoke</h3>
+        <div class="triggers">
+          <span class="trig">deal strategy for [account]</span>
+          <span class="trig">MEDDPICC this deal</span>
+          <span class="trig">coach me on this deal</span>
+        </div>
+        <div class="prompt">
+          <button class="copy" type="button">Copy</button>
+          <pre>Deal strategy for the City of Fairview permitting-modernization opportunity.
+
+Deal: $450K, stage: proposal development. Close target: end of Q2 (their fiscal year ends June 30).
+Account team: AE Dana R., SC Marcus T. (ran discovery + demo), no SA assigned yet, proposal support TBD.
+Procurement: RFP dropped 2 weeks ago; responses due in 3 weeks. Incumbent is CivicServe (contract expires Dec).
+Champion: deputy director of community development (met twice). Economic buyer: city manager — never engaged.
+Discovery notes: permitting backlog of 6 weeks, council pressure after local press story. Demo went well per Marcus, but it was our standard demo flow.
+Concerns raised: data migration effort, staff training capacity.</pre>
+        </div>
+      </div>
+      <div class="col">
+        <h3>Checks — response must…</h3>
+        <ul class="checks">
+          <li><input type="checkbox" id="ds1"><label for="ds1">Score all 8 MEDDPICC elements, including Paper Process and Competition, with evidence per row</label></li>
+          <li><input type="checkbox" id="ds2"><label for="ds2">Identify the procurement stage (active solicitation) and forbid blackout-violating moves — no new champion outreach, official Q&amp;A only</label></li>
+          <li><input type="checkbox" id="ds3"><label for="ds3">Rate execution quality with evidence discipline — flags the generic demo, marks unobserved elements ➖ instead of guessing</label></li>
+          <li><input type="checkbox" id="ds4"><label for="ds4">Flag economic buyer (never engaged) as ❌, not ⚠️ — and the missing SA on a technical deal</label></li>
+          <li><input type="checkbox" id="ds5"><label for="ds5">Treat the incumbent as competition and ask who shaped the RFP requirements</label></li>
+          <li><input type="checkbox" id="ds6"><label for="ds6">Keep the action plan to 3-5 moves and route RFP execution to proposal-manager</label></li>
+          <li><input type="checkbox" id="ds7"><label for="ds7">Close with coaching notes: questions (not verdicts) addressed per person, escalation call, pattern flag</label></li>
+        </ul>
+        <div class="meter-row"><div class="meter"><div></div></div><span class="meter-label">0/7</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ territory-analyzer ============ -->
+  <section class="card" data-skill="territory-analyzer">
+    <div class="card-head">
+      <h2>territory-analyzer</h2>
+      <span class="chip tailored">Tailored</span>
+      <p class="what">Territory-level view of pipeline and presales capacity — SC / SA / proposal-management supply vs. demand, coverage gaps, whitespace, metric-tied recommendations.</p>
+    </div>
+    <div class="card-body">
+      <div class="col">
+        <h3>Invoke</h3>
+        <div class="triggers">
+          <span class="trig">analyze my territory</span>
+          <span class="trig">capacity planning</span>
+          <span class="trig">who should own what</span>
+        </div>
+        <div class="prompt">
+          <button class="copy" type="button">Copy</button>
+          <pre>Analyze my territory. State &amp; local segment, quarter ends June 30.
+
+Reps: Dana (quota $1.2M, attainment 61%, 14 opps, $2.1M pipe), Priya (quota $1.2M, attainment 88%, 9 opps, $1.4M pipe — two deals are 70% of it), Cole (quota $900K, attainment 24%, 5 opps, $600K pipe — started in February).
+
+Presales load: 2 SCs covering all three reps — 11 demos scheduled over the next 6 weeks, 2 open POCs. 1 SA shared with another team. Proposal manager has 3 active RFP responses and we expect 4-6 more before fiscal year-end.
+
+High-risk deals I'm coaching: Priya's two big ones.</pre>
+        </div>
+      </div>
+      <div class="col">
+        <h3>Checks — response must…</h3>
+        <ul class="checks">
+          <li><input type="checkbox" id="ta1"><label for="ta1">Produce a rep scoreboard with coverage ratios and 🟢🟡🔴 status per rep</label></li>
+          <li><input type="checkbox" id="ta2"><label for="ta2">Ask for context on Cole (ramping since February) before labeling him behind</label></li>
+          <li><input type="checkbox" id="ta3"><label for="ta3">Flag Priya's concentration risk (two deals = 70% of pipe) explicitly</label></li>
+          <li><input type="checkbox" id="ta4"><label for="ta4">Build the capacity-vs-demand table for all three functions and name the bottleneck (proposal management heading into fiscal year-end)</label></li>
+          <li><input type="checkbox" id="ta5"><label for="ta5">Call out the demand collision: RFP surge + fiscal year-end + open POCs, and what gets protected</label></li>
+          <li><input type="checkbox" id="ta6"><label for="ta6">Tie every recommendation to win rate, cycle time, or solution quality</label></li>
+          <li><input type="checkbox" id="ta7"><label for="ta7">Skip analyses it lacks data for (win rate, cycle length) instead of inventing them</label></li>
+        </ul>
+        <div class="meter-row"><div class="meter"><div></div></div><span class="meter-label">0/7</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ proposal-manager ============ -->
+  <section class="card" data-skill="proposal-manager">
+    <div class="card-head">
+      <h2>proposal-manager</h2>
+      <span class="chip mvp">MVP</span>
+      <p class="what">End-to-end government RFP response management — shred, bid/no-bid, compliance matrix, win themes, Pink/Red/Gold review calendar, submission checklist.</p>
+    </div>
+    <div class="card-body">
+      <div class="col">
+        <h3>Invoke</h3>
+        <div class="triggers">
+          <span class="trig">new RFP</span>
+          <span class="trig">bid/no-bid</span>
+          <span class="trig">shred this solicitation</span>
+        </div>
+        <div class="prompt">
+          <button class="copy" type="button">Copy</button>
+          <pre>New RFP just dropped: Jefferson County RFP #2026-114, "Agenda &amp; Meeting Management System."
+
+Due in 4 weeks (May 29, 2:00 PM MT, county procurement portal). Q&amp;A closes in 9 days. Evaluation: 40% technical approach, 25% price, 20% past performance, 15% implementation plan. Page limit 25. Mandatory: signed addenda, insurance cert, three government references.
+
+We had zero contact with this county before release. Requirements mention "must integrate with existing Tyler ERP" and "shall provide closed-captioning compliant with WCAG 2.1 AA."
+
+We have a strong meeting-management product, 40+ county references, but I'm not sure about the Tyler integration. What do we do?</pre>
+        </div>
+      </div>
+      <div class="col">
+        <h3>Checks — response must…</h3>
+        <ul class="checks">
+          <li><input type="checkbox" id="pm1"><label for="pm1">Shred correctly: dates, portal mechanics, page limit, mandatory forms, evaluation weights</label></li>
+          <li><input type="checkbox" id="pm2"><label for="pm2">Bid/no-bid scorecard that honestly weighs zero pre-RFP contact (and cites the preferred-vendor reality)</label></li>
+          <li><input type="checkbox" id="pm3"><label for="pm3">Frame bid/no-bid as a recommendation for the deal team, not a decision</label></li>
+          <li><input type="checkbox" id="pm4"><label for="pm4">Compliance matrix rows cite exact solicitation sections; Tyler integration marked "Needs SME confirmation," never claimed</label></li>
+          <li><input type="checkbox" id="pm5"><label for="pm5">Draft 3-5 win themes aligned to the 40% technical weight, with proof points (the county references)</label></li>
+          <li><input type="checkbox" id="pm6"><label for="pm6">Backward-schedule Pink/Red/Gold gates inside 4 weeks with a submission buffer</label></li>
+          <li><input type="checkbox" id="pm7"><label for="pm7">Produce Q&amp;A questions for procurement (Tyler version/scope) before the 9-day window closes — and suggest no other buyer contact</label></li>
+        </ul>
+        <div class="meter-row"><div class="meter"><div></div></div><span class="meter-label">0/7</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ enablement-planner ============ -->
+  <section class="card" data-skill="enablement-planner">
+    <div class="card-head">
+      <h2>enablement-planner</h2>
+      <span class="chip mvp">MVP</span>
+      <p class="what">Evidence-based enablement design for presales teams — gap diagnosis, ramp plans, certification rubrics, capacity-aware rollout, deal-linked measurement.</p>
+    </div>
+    <div class="card-body">
+      <div class="col">
+        <h3>Invoke</h3>
+        <div class="triggers">
+          <span class="trig">enablement plan</span>
+          <span class="trig">demo certification</span>
+          <span class="trig">why are demos underperforming</span>
+        </div>
+        <div class="prompt">
+          <button class="copy" type="button">Copy</button>
+          <pre>Our demo-to-close rate dropped from 34% to 22% over two quarters and I want to fix it with training.
+
+What I know: Gong shows discovery calls averaging 11 minutes before the demo gets scheduled. Two of our five SCs joined in the last 6 months. The product shipped a major new module in January that changed the demo flow. Next quarter is our heaviest RFP season.
+
+Build me an enablement program.</pre>
+        </div>
+      </div>
+      <div class="col">
+        <h3>Checks — response must…</h3>
+        <ul class="checks">
+          <li><input type="checkbox" id="ep1"><label for="ep1">Challenge the framing: 11-minute discovery suggests a process/skill question upstream of demo training</label></li>
+          <li><input type="checkbox" id="ep2"><label for="ep2">Name the gap type (skill vs. content vs. process) and note the confound: new module + new hires + the drop happened together</label></li>
+          <li><input type="checkbox" id="ep3"><label for="ep3">Anchor the design to the evidence given (Gong pattern, tenure mix), not generic "demo best practices"</label></li>
+          <li><input type="checkbox" id="ep4"><label for="ep4">Schedule around RFP season, and state the program's selling-capacity cost — flagging if it exceeds 10-15%</label></li>
+          <li><input type="checkbox" id="ep5"><label for="ep5">Include a certification rubric with behavioral anchors, not adjectives</label></li>
+          <li><input type="checkbox" id="ep6"><label for="ep6">Measure leading + lagging (deal-linked) metrics — and never completion rates as success</label></li>
+          <li><input type="checkbox" id="ep7"><label for="ep7">Define what managers reinforce after rollout</label></li>
+        </ul>
+        <div class="meter-row"><div class="meter"><div></div></div><span class="meter-label">0/7</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ career-development ============ -->
+  <section class="card" data-skill="career-development">
+    <div class="card-head">
+      <h2>career-development</h2>
+      <span class="chip mvp">MVP</span>
+      <p class="what">Dual-track career ladders, competency frameworks with behavioral anchors, IDPs, and evidence-based promotion cases for presales teams.</p>
+    </div>
+    <div class="card-body">
+      <div class="col">
+        <h3>Invoke</h3>
+        <div class="triggers">
+          <span class="trig">IDP for [name]</span>
+          <span class="trig">career ladder</span>
+          <span class="trig">promotion case</span>
+        </div>
+        <div class="prompt">
+          <button class="copy" type="button">Copy</button>
+          <pre>Build an IDP for one of my senior SCs targeting Principal.
+
+Evidence: led technical strategy on 3 of our 5 biggest wins this year; demo certification scores top of team; owned the technical volume on 2 winning RFP responses. Gaps I see: has never presented to a city council or exec sponsor without the AE leading, and hasn't mentored anyone yet.
+
+She's also asked me whether she should consider the management track instead. We have no written career ladder — nothing documented at all.</pre>
+        </div>
+      </div>
+      <div class="col">
+        <h3>Checks — response must…</h3>
+        <ul class="checks">
+          <li><input type="checkbox" id="cd1"><label for="cd1">Notice there's no ladder and draft the dual-track framework first (or alongside), since "Principal" needs a definition</label></li>
+          <li><input type="checkbox" id="cd2"><label for="cd2">Frame everything as a draft for the manager — never written to hand directly to the SC</label></li>
+          <li><input type="checkbox" id="cd3"><label for="cd3">Rate only on the evidence given; mark unobserved competencies "insufficient evidence" with what to observe next</label></li>
+          <li><input type="checkbox" id="cd4"><label for="cd4">Weight the IDP toward experiences (lead an orals presentation, mentor a new hire) over courses — roughly 70/20/10</label></li>
+          <li><input type="checkbox" id="cd5"><label for="cd5">Handle the IC-vs-management question with a structured comparison and trial opportunities, treating both tracks as equal</label></li>
+          <li><input type="checkbox" id="cd6"><label for="cd6">Offer no compensation recommendations and no comparisons to named teammates</label></li>
+          <li><input type="checkbox" id="cd7"><label for="cd7">Note that promotion runs through HR/calibration — this prepares the case, it doesn't decide it</label></li>
+        </ul>
+        <div class="meter-row"><div class="meter"><div></div></div><span class="meter-label">0/7</span></div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Bench 1 covers the first five skills: two tailored, three MVPs awaiting joint tailoring. Failed checks are tailoring findings — bring them back to the session that maintains <code>skills/</code>. Benches 2-5 will follow as the next chunks of the library are tailored.
+  </footer>
+</div>
+
+<script>
+(function () {
+  var KEY = 'presales-bench-1';
+  var state = {};
+  try { state = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { state = {}; }
+
+  document.querySelectorAll('.card').forEach(function (card) {
+    var skill = card.getAttribute('data-skill');
+    var boxes = card.querySelectorAll('.checks input');
+    var fill = card.querySelector('.meter > div');
+    var label = card.querySelector('.meter-label');
+
+    function render() {
+      var done = 0;
+      boxes.forEach(function (b) { if (b.checked) done++; });
+      var pct = boxes.length ? (done / boxes.length) * 100 : 0;
+      fill.style.width = pct + '%';
+      fill.style.background = pct === 100 ? 'var(--ok)' : pct >= 50 ? 'var(--warn)' : 'var(--bad)';
+      label.textContent = done + '/' + boxes.length + (pct === 100 ? ' PASS' : '');
+    }
+
+    boxes.forEach(function (b, i) {
+      var k = skill + ':' + i;
+      b.checked = !!state[k];
+      b.addEventListener('change', function () {
+        state[k] = b.checked;
+        try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+        render();
+      });
+    });
+    render();
+  });
+
+  document.querySelectorAll('.copy').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var text = btn.parentElement.querySelector('pre').textContent;
+      navigator.clipboard.writeText(text).then(function () {
+        var old = btn.textContent;
+        btn.textContent = 'Copied';
+        setTimeout(function () { btn.textContent = old; }, 1400);
+      });
+    });
+  });
+})();
+</script>
