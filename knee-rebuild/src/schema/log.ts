@@ -63,6 +63,8 @@ export const SetLog = z.strictObject({
   /** Index into the exercise's stages for the `stage` rule. */
   stage: z.number().int().nonnegative().optional(),
   loggedAt: IsoDateTime.optional(),
+}).refine((set) => (set.reps === undefined) !== (set.seconds === undefined), {
+  message: 'a set logs reps or seconds, exactly one of them',
 })
 export type SetLog = z.infer<typeof SetLog>
 
@@ -96,7 +98,8 @@ export const Run = z.strictObject({
   maxPain: Pain,
   strides: z.boolean().default(false),
   tempo: z.boolean().default(false),
-  stravaUrl: z.string().url().optional(),
+  /** https only: this gets rendered as a link. */
+  stravaUrl: z.url({ protocol: /^https$/ }).optional(),
   notes: z.string().optional(),
 })
 export type Run = z.infer<typeof Run>

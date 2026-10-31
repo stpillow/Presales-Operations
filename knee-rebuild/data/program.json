@@ -286,7 +286,7 @@
             "copenhagen-plank-short"
           ],
           "rpeTarget": 7,
-          "pairWithSlot": "p1a-6"
+          "groupId": "p1a-5-6-7"
         },
         {
           "id": "p1a-6",
@@ -304,7 +304,8 @@
           "substitutionIds": [
             "seated-calf-raise",
             "single-leg-calf-raise-step"
-          ]
+          ],
+          "groupId": "p1a-5-6-7"
         },
         {
           "id": "p1a-7",
@@ -323,7 +324,7 @@
           "repUnit": "seconds",
           "unilateral": true,
           "injuredOnly": true,
-          "pairWithSlot": "p1a-6"
+          "groupId": "p1a-5-6-7"
         },
         {
           "id": "p1a-8",
@@ -485,7 +486,7 @@
           "substitutionIds": [],
           "repUnit": "seconds",
           "perSideLabel": "each side",
-          "pairWithSlot": "p1b-8"
+          "groupId": "p1b-7-8"
         },
         {
           "id": "p1b-8",
@@ -501,7 +502,8 @@
           ],
           "progressionRule": "double-progression",
           "substitutionIds": [],
-          "perSideLabel": "each side"
+          "perSideLabel": "each side",
+          "groupId": "p1b-7-8"
         }
       ]
     },
@@ -685,9 +687,9 @@
           ],
           "progressionRule": "fixed",
           "substitutionIds": [],
-          "weeks": [
-            6,
-            7
+          "phaseWeeks": [
+            3,
+            null
           ]
         },
         {
@@ -783,7 +785,7 @@
             "copenhagen-plank-short"
           ],
           "rpeTarget": 7,
-          "pairWithSlot": "p2a-6"
+          "groupId": "p2a-5-6-7"
         },
         {
           "id": "p2a-6",
@@ -804,7 +806,8 @@
           ],
           "perSideLabel": "each",
           "unilateral": true,
-          "loadNote": "Bodyweight; a dumbbell arrives in Phase 3"
+          "loadNote": "Bodyweight; a dumbbell arrives in Phase 3",
+          "groupId": "p2a-5-6-7"
         },
         {
           "id": "p2a-7",
@@ -825,7 +828,7 @@
           "repUnit": "seconds",
           "unilateral": true,
           "injuredOnly": true,
-          "pairWithSlot": "p2a-6"
+          "groupId": "p2a-5-6-7"
         },
         {
           "id": "p2a-8",
@@ -995,7 +998,7 @@
           "substitutionIds": [],
           "repUnit": "seconds",
           "perSideLabel": "each side",
-          "pairWithSlot": "p2b-8"
+          "groupId": "p2b-7-8"
         },
         {
           "id": "p2b-8",
@@ -1011,7 +1014,8 @@
           ],
           "progressionRule": "double-progression",
           "substitutionIds": [],
-          "perSideLabel": "each side"
+          "perSideLabel": "each side",
+          "groupId": "p2b-7-8"
         }
       ]
     },
@@ -1034,9 +1038,9 @@
           ],
           "progressionRule": "fixed",
           "substitutionIds": [],
-          "weeks": [
-            6,
-            7
+          "phaseWeeks": [
+            3,
+            null
           ]
         },
         {
@@ -1194,7 +1198,7 @@
           ],
           "repUnit": "steps",
           "perSideLabel": "each way",
-          "pairWithSlot": "p2c-8b"
+          "groupId": "p2c-8a-8b"
         },
         {
           "id": "p2c-8b",
@@ -1216,7 +1220,7 @@
           ],
           "perSideLabel": "each side",
           "unilateral": true,
-          "pairWithSlot": "p2c-8a"
+          "groupId": "p2c-8a-8b"
         }
       ]
     },
@@ -1240,9 +1244,9 @@
           "progressionRule": "fixed",
           "substitutionIds": [],
           "repUnit": "seconds",
-          "weeks": [
-            8,
-            9
+          "phaseWeeks": [
+            1,
+            2
           ]
         },
         {
@@ -1259,9 +1263,9 @@
           ],
           "progressionRule": "fixed",
           "substitutionIds": [],
-          "weeks": [
-            8,
-            9
+          "phaseWeeks": [
+            1,
+            2
           ]
         },
         {
@@ -1279,9 +1283,9 @@
           "progressionRule": "fixed",
           "substitutionIds": [],
           "repUnit": "seconds",
-          "weeks": [
-            8,
-            9
+          "phaseWeeks": [
+            1,
+            2
           ]
         },
         {
@@ -1301,9 +1305,9 @@
           "repUnit": "seconds",
           "perSideLabel": "each leg",
           "unilateral": true,
-          "weeks": [
-            10,
-            11
+          "phaseWeeks": [
+            3,
+            4
           ]
         },
         {
@@ -1321,9 +1325,9 @@
           ],
           "progressionRule": "fixed",
           "substitutionIds": [],
-          "weeks": [
-            10,
-            11
+          "phaseWeeks": [
+            3,
+            4
           ]
         },
         {
@@ -1341,9 +1345,9 @@
           "progressionRule": "fixed",
           "substitutionIds": [],
           "perSideLabel": "each side",
-          "weeks": [
-            10,
-            11
+          "phaseWeeks": [
+            3,
+            4
           ]
         },
         {
@@ -1363,9 +1367,9 @@
           "substitutionIds": [],
           "perSideLabel": "each leg",
           "unilateral": true,
-          "weeks": [
-            10,
-            11
+          "phaseWeeks": [
+            3,
+            4
           ]
         },
         {
@@ -1383,9 +1387,9 @@
           ],
           "progressionRule": "fixed",
           "substitutionIds": [],
-          "weeks": [
-            12,
-            12
+          "phaseWeeks": [
+            5,
+            null
           ]
         },
         {
@@ -1404,9 +1408,9 @@
           "substitutionIds": [],
           "perSideLabel": "each leg",
           "unilateral": true,
-          "weeks": [
-            12,
-            12
+          "phaseWeeks": [
+            5,
+            null
           ]
         },
         {
@@ -1423,9 +1427,9 @@
           ],
           "progressionRule": "fixed",
           "substitutionIds": [],
-          "weeks": [
-            12,
-            12
+          "phaseWeeks": [
+            5,
+            null
           ]
         },
         {
@@ -1444,9 +1448,9 @@
           "progressionRule": "fixed",
           "substitutionIds": [],
           "perSideLabel": "each way",
-          "weeks": [
-            12,
-            12
+          "phaseWeeks": [
+            5,
+            null
           ]
         },
         {
@@ -1561,7 +1565,7 @@
             "copenhagen-plank-short"
           ],
           "rpeTarget": 7,
-          "pairWithSlot": "p3a-6"
+          "groupId": "p3a-5-6-7"
         },
         {
           "id": "p3a-6",
@@ -1581,7 +1585,8 @@
             "standing-calf-raise"
           ],
           "perSideLabel": "each",
-          "unilateral": true
+          "unilateral": true,
+          "groupId": "p3a-5-6-7"
         },
         {
           "id": "p3a-7",
@@ -1602,7 +1607,7 @@
           "repUnit": "seconds",
           "unilateral": true,
           "injuredOnly": true,
-          "pairWithSlot": "p3a-6"
+          "groupId": "p3a-5-6-7"
         },
         {
           "id": "p3a-8",
@@ -1810,7 +1815,7 @@
           "substitutionIds": [],
           "repUnit": "seconds",
           "perSideLabel": "each side",
-          "pairWithSlot": "p3b-8"
+          "groupId": "p3b-7-8"
         },
         {
           "id": "p3b-8",
@@ -1826,7 +1831,8 @@
           ],
           "progressionRule": "double-progression",
           "substitutionIds": [],
-          "perSideLabel": "each side"
+          "perSideLabel": "each side",
+          "groupId": "p3b-7-8"
         },
         {
           "id": "p3b-upper4",
@@ -1869,9 +1875,9 @@
           "progressionRule": "fixed",
           "substitutionIds": [],
           "repUnit": "seconds",
-          "weeks": [
-            8,
-            9
+          "phaseWeeks": [
+            1,
+            2
           ]
         },
         {
@@ -1888,9 +1894,9 @@
           ],
           "progressionRule": "fixed",
           "substitutionIds": [],
-          "weeks": [
-            8,
-            9
+          "phaseWeeks": [
+            1,
+            2
           ]
         },
         {
@@ -1908,9 +1914,9 @@
           "progressionRule": "fixed",
           "substitutionIds": [],
           "repUnit": "seconds",
-          "weeks": [
-            8,
-            9
+          "phaseWeeks": [
+            1,
+            2
           ]
         },
         {
@@ -1930,9 +1936,9 @@
           "repUnit": "seconds",
           "perSideLabel": "each leg",
           "unilateral": true,
-          "weeks": [
-            10,
-            11
+          "phaseWeeks": [
+            3,
+            4
           ]
         },
         {
@@ -1950,9 +1956,9 @@
           ],
           "progressionRule": "fixed",
           "substitutionIds": [],
-          "weeks": [
-            10,
-            11
+          "phaseWeeks": [
+            3,
+            4
           ]
         },
         {
@@ -1970,9 +1976,9 @@
           "progressionRule": "fixed",
           "substitutionIds": [],
           "perSideLabel": "each side",
-          "weeks": [
-            10,
-            11
+          "phaseWeeks": [
+            3,
+            4
           ]
         },
         {
@@ -1992,9 +1998,9 @@
           "substitutionIds": [],
           "perSideLabel": "each leg",
           "unilateral": true,
-          "weeks": [
-            10,
-            11
+          "phaseWeeks": [
+            3,
+            4
           ]
         },
         {
@@ -2012,9 +2018,9 @@
           ],
           "progressionRule": "fixed",
           "substitutionIds": [],
-          "weeks": [
-            12,
-            12
+          "phaseWeeks": [
+            5,
+            null
           ]
         },
         {
@@ -2033,9 +2039,9 @@
           "substitutionIds": [],
           "perSideLabel": "each leg",
           "unilateral": true,
-          "weeks": [
-            12,
-            12
+          "phaseWeeks": [
+            5,
+            null
           ]
         },
         {
@@ -2052,9 +2058,9 @@
           ],
           "progressionRule": "fixed",
           "substitutionIds": [],
-          "weeks": [
-            12,
-            12
+          "phaseWeeks": [
+            5,
+            null
           ]
         },
         {
@@ -2073,9 +2079,9 @@
           "progressionRule": "fixed",
           "substitutionIds": [],
           "perSideLabel": "each way",
-          "weeks": [
-            12,
-            12
+          "phaseWeeks": [
+            5,
+            null
           ]
         },
         {
@@ -2233,7 +2239,7 @@
           ],
           "repUnit": "steps",
           "perSideLabel": "each way",
-          "pairWithSlot": "p3c-8b"
+          "groupId": "p3c-8a-8b"
         },
         {
           "id": "p3c-8b",
@@ -2255,7 +2261,7 @@
           ],
           "perSideLabel": "each side",
           "unilateral": true,
-          "pairWithSlot": "p3c-8a"
+          "groupId": "p3c-8a-8b"
         },
         {
           "id": "p3c-upper4",
@@ -2411,73 +2417,61 @@
   "mileagePlan": [
     {
       "week": 1,
-      "starts": "2026-11-02",
       "targetMiles": 10,
       "isDown": false
     },
     {
       "week": 2,
-      "starts": "2026-11-09",
       "targetMiles": 11,
       "isDown": false
     },
     {
       "week": 3,
-      "starts": "2026-11-16",
       "targetMiles": 12,
       "isDown": false
     },
     {
       "week": 4,
-      "starts": "2026-11-23",
       "targetMiles": 9,
       "isDown": true
     },
     {
       "week": 5,
-      "starts": "2026-11-30",
       "targetMiles": 13,
       "isDown": false
     },
     {
       "week": 6,
-      "starts": "2026-12-07",
       "targetMiles": 14,
       "isDown": false
     },
     {
       "week": 7,
-      "starts": "2026-12-14",
       "targetMiles": 15,
       "isDown": false
     },
     {
       "week": 8,
-      "starts": "2026-12-21",
       "targetMiles": 11,
       "isDown": true
     },
     {
       "week": 9,
-      "starts": "2026-12-28",
       "targetMiles": 16,
       "isDown": false
     },
     {
       "week": 10,
-      "starts": "2027-01-04",
       "targetMiles": 17,
       "isDown": false
     },
     {
       "week": 11,
-      "starts": "2027-01-11",
       "targetMiles": 18,
       "isDown": false
     },
     {
       "week": 12,
-      "starts": "2027-01-18",
       "targetMiles": 14,
       "isDown": true
     }

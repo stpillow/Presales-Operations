@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import raw from '../../data/program.json'
 import { program, templateFor } from '../program/program.ts'
+import { DELOAD_WEEKS } from '../rules/calendar.ts'
 import { Program } from './program.ts'
 
 describe('data/program.json', () => {
@@ -22,9 +23,12 @@ describe('data/program.json', () => {
       for (const slot of template.slots) {
         expect(exerciseIds, `${slot.id} exercise`).toContain(slot.exerciseId)
         for (const sub of slot.substitutionIds) expect(exerciseIds, `${slot.id} substitution`).toContain(sub)
-        if (slot.pairWithSlot) expect(slotIds, `${slot.id} pair`).toContain(slot.pairWithSlot)
         expect(slot.repsMax).toBeGreaterThanOrEqual(slot.repsMin)
       }
+      expect(slotIds.size).toBe(template.slots.length)
+      const groups = new Map<string, number>()
+      for (const slot of template.slots) if (slot.groupId) groups.set(slot.groupId, (groups.get(slot.groupId) ?? 0) + 1)
+      for (const [groupId, size] of groups) expect(size, `${template.id} group ${groupId}`).toBeGreaterThanOrEqual(2)
       const orders = template.slots.map((s) => s.order)
       expect(orders).toEqual([...orders].sort((a, b) => a - b))
       expect(new Set(orders).size).toBe(orders.length)
@@ -44,7 +48,17 @@ describe('data/program.json', () => {
     const miles = program.mileagePlan.map((w) => w.targetMiles)
     expect(miles).toEqual([10, 11, 12, 9, 13, 14, 15, 11, 16, 17, 18, 14])
     expect(program.mileagePlan.filter((w) => w.isDown).map((w) => w.week)).toEqual([4, 8, 12])
-    expect(program.mileagePlan[0]?.starts).toBe('2026-11-02')
+    expect(program.mileagePlan.map((w) => w.week)).toEqual(Array.from({ length: 12 }, (_, i) => i + 1))
+  })
+
+  it('the mileage down weeks are the lifting deload weeks', () => {
+    expect(program.mileagePlan.filter((w) => w.isDown).map((w) => w.week)).toEqual([...DELOAD_WEEKS])
+  })
+
+  it('bands: Phase 2 snap-downs from phase week 3, Phase 3 plyo blocks in phase weeks 1–2, 3–4, 5 on', () => {
+    expect(templateFor(2, 'A').slots.find((s) => s.id === 'p2a-prep')?.phaseWeeks).toEqual([3, null])
+    const bands = templateFor(3, 'C').slots.filter((s) => s.phaseWeeks).map((s) => s.phaseWeeks)
+    expect(new Set(bands.map((b) => JSON.stringify(b)))).toEqual(new Set(['[1,2]', '[3,4]', '[5,null]']))
   })
 
   it('gates: 1 wants 80% symmetry, 2 and 3 want 90%', () => {

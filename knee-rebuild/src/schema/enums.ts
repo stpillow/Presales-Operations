@@ -101,12 +101,20 @@ export const GateEvaluator = z.enum([
 ])
 export type GateEvaluator = z.infer<typeof GateEvaluator>
 
-/** Calendar date in America/New_York, as YYYY-MM-DD. */
-export const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'expected YYYY-MM-DD')
+/** Calendar date in America/New_York, as YYYY-MM-DD, and a real date on the calendar. */
+export const IsoDate = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'expected YYYY-MM-DD')
+  .refine((text) => {
+    const [y, m, d] = text.split('-').map(Number)
+    if (y === undefined || m === undefined || d === undefined) return false
+    const date = new Date(Date.UTC(y, m - 1, d))
+    return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d
+  }, 'not a real calendar date')
 export type IsoDate = z.infer<typeof IsoDate>
 
-/** Instant, as an ISO 8601 timestamp. */
-export const IsoDateTime = z.string().datetime({ offset: true })
+/** Instant, as an ISO 8601 timestamp with an offset. */
+export const IsoDateTime = z.iso.datetime({ offset: true })
 export type IsoDateTime = z.infer<typeof IsoDateTime>
 
 export const Pain = z.number().int().min(0).max(10)

@@ -68,12 +68,19 @@ export const Slot = z.strictObject({
   progressionRule: ProgressionRule,
   /** Exercise ids to swap to, in order. */
   substitutionIds: z.array(kebab),
-  /** Grouped as a superset with this slot id. */
-  pairWithSlot: kebab.optional(),
+  /** Slots sharing a groupId run together (a superset or tri-set); every group has at least two members. */
+  groupId: kebab.optional(),
   /** Shown, skippable, never part of a reading. */
   optional: z.boolean().default(false),
-  /** Inclusive program-week range the slot applies to. Absent means the whole phase. */
-  weeks: z.tuple([z.number().int().min(1).max(12), z.number().int().min(1).max(12)]).optional(),
+  /**
+   * The weeks of the phase the slot runs in, counted from the week the phase was entered (1-based),
+   * inclusive; a null top means "to the end of the phase". Absent means the whole phase. Phases
+   * advance on gate confirmation, so these cannot be calendar weeks (PROGRAM-QUESTIONS 46).
+   */
+  phaseWeeks: z
+    .tuple([z.number().int().min(1), z.number().int().min(1).nullable()])
+    .refine(([from, to]) => to === null || to >= from, 'phaseWeeks must not run backwards')
+    .optional(),
   /** Step-height slots: where the step starts and where the phase caps it. */
   heightIn: z.number().positive().optional(),
   heightMaxIn: z.number().positive().optional(),
@@ -145,8 +152,6 @@ export const MileageWeek = z.strictObject({
   week: z.number().int().min(1).max(12),
   targetMiles: z.number().positive(),
   isDown: z.boolean(),
-  /** Monday of that week, from the chart. */
-  starts: IsoDate,
 })
 export type MileageWeek = z.infer<typeof MileageWeek>
 
