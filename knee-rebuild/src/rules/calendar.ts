@@ -1,6 +1,100 @@
+import type { Day, DaySession, IsoDate, SessionMove, WeeklyTemplate } from '../schema/index.ts'
+
 /** Deload weeks, counted from startDate (PROMPT rule 6). Phase 4's schedule isn't written yet. */
 export const DELOAD_WEEKS: readonly number[] = [4, 8, 12]
 
 export function isDeloadWeek(week: number): boolean {
   return DELOAD_WEEKS.includes(week)
+}
+
+/** Weeks start Monday (PROMPT section 2). */
+export const DAYS: readonly Day[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+export const NEW_YORK = 'America/New_York'
+const MS_PER_DAY = 86_400_000
+
+/**
+ * Calendar arithmetic on YYYY-MM-DD strings, done on whole UTC days so a DST change in
+ * America/New_York (Nov 1, 2026, the day before week 1) can never shift a week boundary.
+ */
+function dayNumber(date: IsoDate): number {
+  const [y, m, d] = date.split('-').map(Number)
+  if (y === undefined || m === undefined || d === undefined || Number.isNaN(y + m + d)) {
+    throw new RangeError(`not a YYYY-MM-DD date: ${date}`)
+  }
+  return Date.UTC(y, m - 1, d) / MS_PER_DAY
+}
+
+function fromDayNumber(n: number): IsoDate {
+  return new Date(n * MS_PER_DAY).toISOString().slice(0, 10)
+}
+
+export function daysBetween(from: IsoDate, to: IsoDate): number {
+  return dayNumber(to) - dayNumber(from)
+}
+
+export function addDays(date: IsoDate, days: number): IsoDate {
+  return fromDayNumber(dayNumber(date) + days)
+}
+
+/** Program week of a date (PROMPT rule 10): week 1 starts on startDate; 0 or less before the program. */
+export function weekOf(date: IsoDate, startDate: IsoDate): number {
+  return Math.floor(daysBetween(startDate, date) / 7) + 1
+}
+
+export function dayOf(date: IsoDate): Day {
+  const utcDay = new Date(dayNumber(date) * MS_PER_DAY).getUTCDay() // 0 = Sunday
+  return DAYS[(utcDay + 6) % 7] ?? 'mon'
+}
+
+export function isMonday(date: IsoDate): boolean {
+  return dayOf(date) === 'mon'
+}
+
+/** The date of a day in a program week. */
+export function dateOf(startDate: IsoDate, week: number, day: Day): IsoDate {
+  return addDays(startDate, (week - 1) * 7 + DAYS.indexOf(day))
+}
+
+/** Today's calendar date in a time zone, from a clock instant. The only place the engine touches a time zone. */
+export function todayIn(now: Date, timeZone: string = NEW_YORK): IsoDate {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now)
+  const part = (type: string) => parts.find((p) => p.type === type)?.value
+  const y = part('year')
+  const m = part('month')
+  const d = part('day')
+  if (!y || !m || !d) throw new Error(`could not format a date for ${timeZone}`)
+  return `${y}-${m}-${d}`
+}
+
+/** The seven days of a program week with the template's sessions, after any moves. A move swaps two days. */
+export function weekSchedule(template: WeeklyTemplate, week: number, moves: readonly SessionMove[]): Record<Day, DaySession> {
+  const schedule: Record<Day, DaySession> = { ...template }
+  for (const move of moves) {
+    if (move.week !== week || move.dayA === move.dayB) continue
+    const a = schedule[move.dayA]
+    schedule[move.dayA] = schedule[move.dayB]
+    schedule[move.dayB] = a
+  }
+  return schedule
+}
+
+export interface ScheduledDay {
+  date: IsoDate
+  week: number
+  day: Day
+  /** Null before the program starts. */
+  session: DaySession | null
+}
+
+/** What a date holds: its program week, weekday, and the session scheduled there after moves. */
+export function scheduledSession(
+  date: IsoDate,
+  startDate: IsoDate,
+  template: WeeklyTemplate,
+  moves: readonly SessionMove[],
+): ScheduledDay {
+  const week = weekOf(date, startDate)
+  const day = dayOf(date)
+  if (week < 1) return { date, week, day, session: null }
+  return { date, week, day, session: weekSchedule(template, week, moves)[day] }
 }

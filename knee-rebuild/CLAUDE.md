@@ -45,7 +45,7 @@ knee-rebuild/
   public/                  icons, static assets
   src/
     main.tsx  App.tsx  index.css (tokens live here)
-    rules/                 the engine: pure functions + tests, nothing else decides anything
+    rules/                 the engine: calendar, reading, unilateral, prescription, mileage, gates, redFlags, history; pure functions + tests, nothing else decides anything
     schema/                Zod schemas for the domain model (enums, program, logs)
     program/               the validated seed and lookups (exerciseById, templateFor, nominalPhaseForWeek)
     db/                    Dexie database and versions
@@ -69,6 +69,9 @@ knee-rebuild/
 - **Injured side first**: on unilateral slots the injured leg is logged first and sets the rep budget for the healthy leg.
 - **Red-flag state**: any ticked red flag on a morning check. Today shows "Stop. Call the ortho or PT." and progression is suspended until cleared from Settings with a note.
 - **Swap**: replacing a slot's exercise with the next substitution in its ordered list; the slot's job stays the same.
+- **Effective reading**: what the last two combined readings add up to for one exercise: clean twice, clean once, hold, or back-off (two holds in a row read back-off).
+- **Pain per exercise**: when `Settings.painPerSet` is false, the runner stores the exercise's one pain value on every set it logs; the engine reads pain per set either way.
+- **Today**: screens compute the date once with `todayIn(new Date())` in America/New_York and pass it to the engine; nothing in `src/rules/` reads the clock.
 
 ## Design
 

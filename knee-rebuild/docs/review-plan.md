@@ -63,3 +63,15 @@ Low observations, below the bar:
 | 17 | `script-src 'self'` will block Vercel's preview toolbar (it loads from vercel.live) on preview deploys | Accepted: the toolbar is noise on a phone test. Allow-list `vercel.live` for previews only if it is ever wanted |
 | 18 | `style-src 'unsafe-inline'` | Accepted: React and Tailwind set style attributes; with no inline script allowed, CSS injection has no meaningful impact here |
 | 19 | Seed validation throwing at import blanks the app | Same as finding 13; M3 adds the readable error state |
+
+## Findings, M2 (Oct 31, 2026)
+
+Correctness pass: eight review angles over `src/rules/`, then the boundary walk from the standing list. Security pass: a read-only reviewer traced every untrusted field (red-flag ids, stop reasons, dates, numbers, template ids, move days) through the engine; no sink exists (the engine returns text and numbers, the guard test forbids DOM, storage, network and clock), `Map`/`Set` keys and enum-constrained object keys rule out prototype pollution; nothing above the bar. It recommends re-running when M3 and M6 add the first rendering and parsing sinks.
+
+| # | Finding | Verdict | Status |
+|---|---|---|---|
+| 20 | A morning check dated the same day as a session attached to it, so a Thursday-morning check (about Wednesday's run) read Thursday evening's lift before it happened | Real | Fixed: only the morning after applies, or an explicit link; test flipped |
+| 21 | Sets from an abandoned session (the sharp-pain stop being the obvious case) fed neither readings nor the next prescription | Real | Fixed: abandoned sessions count; test added |
+| 22 | `backOff` carried an unused `side` parameter | Cleanup | Fixed |
+| 23 | Two readings of one exercise count as consecutive whatever the calendar gap between them | Accepted: "twice in a row" is about that slot's sessions, and a slot can skip a week on a move or a swap | Logged |
+| 24 | The per-exercise pain storage convention lived only in a comment | Convention | Fixed: stated in CLAUDE.md's glossary |

@@ -2,7 +2,7 @@
 
 The status page. Ticked when done, not when started. Questions about the program live in [PROGRAM-QUESTIONS.md](PROGRAM-QUESTIONS.md); the questions for Shawn before M1 are at the bottom.
 
-**Now:** M0 merged. M1 (seed data) is built, reviewed and up as its own PR; Claude merges it once green, then stops for Shawn's go on M2.
+**Now:** M1 merged. M2 (rules engine) is built with 114 tests and up as its own PR; Claude merges it once reviewed and green, then stops for Shawn's go on M3.
 **Last updated:** Oct 31, 2026
 
 ## Milestones
@@ -34,15 +34,17 @@ Done when the schema validates, the script output matches program.md on a spot c
 ### M2 · Rules engine
 Done when tests are green and no rule lives outside `src/rules/`.
 
-- [ ] `calendar`: week and day from startDate in America/New_York, the scheduled session per date, move-session (deload weeks landed in M1)
-- [ ] `reading`: session reading, morning reading, combined reading, the 36-hour unknown-is-hold rule
-- [ ] `prescription`: next prescription per exercise and side for every progression rule; back-off; the dumbbell cap (deload sets and week-banded slots landed in M1)
-- [ ] `unilateral`: injured-first rep budget, symmetry percent
-- [ ] `mileage`: weekly target, the hold cap, the long-run split, swaps
-- [ ] `gates`: auto and manual items, hop-test best of three, pass logic, confirm-to-advance
-- [ ] `redFlags`: red-flag state and clearing with a note
-- [ ] Vitest for every rule, plus the six worked examples as named tests
-- [ ] A guard test that fails if decision logic appears outside `src/rules/`
+- [x] `calendar`: week and day from startDate in America/New_York, the scheduled session per date, move-session (deload weeks landed in M1)
+- [x] `reading`: session reading, morning reading, combined reading, the 36-hour unknown-is-hold rule
+- [x] `prescription`: next prescription per exercise and side for every progression rule; back-off; the dumbbell cap (deload sets and week-banded slots landed in M1)
+- [x] `unilateral`: injured-first rep budget, symmetry percent
+- [x] `mileage`: weekly target, the hold cap, the long-run split, swaps
+- [x] `gates`: auto and manual items, hop-test best of three, pass logic, confirm-to-advance
+- [x] `redFlags`: red-flag state and clearing with a note
+- [x] Vitest for every rule, plus the six worked examples as named tests
+- [x] A guard test that keeps `src/rules/` pure (no React, Dexie, DOM or clock) and fully tested
+- [x] `history`: joins workouts, sets and morning checks into per-exercise reading timelines, workout and run readings
+- [x] Adversarial review before merge: 5 findings, 4 fixed, 1 accepted (see `docs/review-plan.md`)
 
 ### M3 · The daily loop
 Done when Shawn can run Session A on his phone end to end, do a morning check, and watch the next Session A's prescriptions change according to the reading.
@@ -106,6 +108,11 @@ Done when export, wipe, import restores everything, and a full Session B gets lo
 | 2026-10-31 | Supersets are a shared `groupId` on every member slot, replacing the one-way `pairWithSlot` | A5/A6/A7 is a three-way group; a single pointer couldn't say so, and one-way links drifted |
 | 2026-10-31 | The mileage plan carries no dates; week dates derive from `Settings.startDate` | startDate is editable, so seeded Mondays would go stale |
 | 2026-10-31 | `vercel.json` sets a CSP (`default-src 'self'`, no inline scripts), nosniff, no-referrer and a permissions policy | Belt and braces against injected notes or a bad import; nothing in the app needs anything else |
+| 2026-10-31 | `SetLog.stopReason` is an enum; a stop for sharp joint-line pain reads back-off, any other stop reads hold | Rule 1 names only the joint-line case; unknown is not clean (PROGRAM-QUESTIONS 48) |
+| 2026-10-31 | Back-off on bodyweight work moves to the slot's first substitution; with none written it drops a set | PROGRAM-QUESTIONS 49 |
+| 2026-10-31 | The `time` rule climbs to the top of its range, then waits for the next phase's version; back-off drops 5 s | PROGRAM-QUESTIONS 45 |
+| 2026-10-31 | Runs have readings (max pain on rule 1's thresholds, combined with the morning check) | Rule 7 and rule 8 both speak of runs reading hold or clean (PROGRAM-QUESTIONS 53) |
+| 2026-10-31 | The engine never reads the clock; screens pass `today` in, computed once by `todayIn(new Date())` | Testability, and one place to get the time zone right |
 | 2026-10-31 | Section 9 answers from Shawn: right knee; week 1 starts Monday Nov 2, 2026; dumbbells to 80 lb; both a seated and a 45° leg press; pain logged once per exercise (per set stays available in Settings); MBR is always Monday; Vercel URL for now; rest timer 60 s for every slot. Rower yes and spdc-design on, both confirmed in a follow-up | Answered in chat on Oct 31 |
 | 2026-10-31 | `dumbbellMax` is a number with presets 60, 75 and 80, not the 75-or-60 pair in PROMPT section 3 | His rack goes to 80 |
 | 2026-10-31 | Leg press: the seated machine is the default (program.md's setup cue is written for it); the 45° press is its first substitution | Both exist at his club |

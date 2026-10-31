@@ -117,5 +117,13 @@ export type IsoDate = z.infer<typeof IsoDate>
 export const IsoDateTime = z.iso.datetime({ offset: true })
 export type IsoDateTime = z.infer<typeof IsoDateTime>
 
+/** Why a set was stopped early. Sharp joint-line pain reads back-off on its own (PROMPT rule 1). */
+export const StopReason = z.enum(['sharp-joint-line-pain', 'pain', 'form', 'fatigue', 'equipment', 'time', 'other'])
+export type StopReason = z.infer<typeof StopReason>
+
+/** Days of the week, Monday first. */
+export const Day = z.enum(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'])
+export type Day = z.infer<typeof Day>
+
 export const Pain = z.number().int().min(0).max(10)
 export const Rpe = z.number().min(1).max(10)

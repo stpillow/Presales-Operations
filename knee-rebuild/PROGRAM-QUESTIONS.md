@@ -64,3 +64,13 @@ Status key: **confirm** = reading taken, Shawn to confirm or overrule · **open*
 44. **"Dumbbells cap at 75 lb"** in the setup notes stays verbatim; the app's cap is the 80 lb from Settings. **FYI**
 45. **The `time` progression rule has a name but no semantics in PROMPT rule 4.** It applies to the Copenhagen planks (3 × 15–20 s each side). Reading for M2: clean twice adds 5 s per set up to the slot's top (20 s); at the top the next notch is the longer lever written for Phase 3; back-off drops 5 s. **confirm**
 46. **"From week 6" and "weeks 8–9, 10–11, 12" are calendar weeks in program.md, but phases advance on gate confirmation, not the calendar.** If Gate 1 passes a week late, Phase 2's snap-downs would otherwise never appear and Phase 3's plyo ladder would skip a rung. Reading: the bands count from the week the phase is entered: snap-downs from the third week of Phase 2 onward; plyo block 1 in the first two weeks of Phase 3, block 2 in the next two, block 3 from the fifth week on. On the nominal schedule this reproduces the program's weeks exactly. **confirm**
+
+## Found while building the rules engine (M2)
+
+47. **The mileage cap with no real miles.** Rule 7 caps next week at this week's actual miles when anything read hold or back-off. A week of swaps (which add no miles) plus one hold would cap the next week at 0. Reading: the rule as written, since a week that needed swaps and still read hold is a week the knee is talking. **confirm**
+48. **A set stopped for a reason other than sharp joint-line pain** (form, fatigue, equipment, time) reads hold, not clean: unknown is not clean. Sharp joint-line pain reads back-off as written. **FYI**
+49. **Back-off on bodyweight work** goes to the slot's first substitution, the easier version in the program's own order (Nordics to leg curls, single-leg hip thrust to the Smith version, step-ups to the lowest stair). Where nothing is written (snap-downs, plyos), the back-off is one set fewer. **confirm**
+50. **"Clean once: same load, same target."** Targets aren't stored, so the target is read as the reps achieved last time, clamped to the slot's range. **FYI**
+51. **"Two consecutive clean weeks"** requires at least one reading in each of the two weeks; an empty fortnight is not clean. **FYI**
+52. **Rule 3's 36-hour window** works at the day granularity checks are logged in: a check dated the same day or the next day applies to a session; an explicit link wins. **FYI**
+53. **Runs get readings too.** A run's max pain uses rule 1's thresholds (3 and 5) and combines with its morning check like a workout does, so runs can trip the hold cap and the gate's clean-weeks item. **FYI**
