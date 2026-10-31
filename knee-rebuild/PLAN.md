@@ -44,7 +44,7 @@ Done when tests are green and no rule lives outside `src/rules/`.
 - [x] Vitest for every rule, plus the six worked examples as named tests
 - [x] A guard test that keeps `src/rules/` pure (no React, Dexie, DOM or clock) and fully tested
 - [x] `history`: joins workouts, sets and morning checks into per-exercise reading timelines, workout and run readings
-- [ ] Adversarial review before merge
+- [x] Adversarial review before merge: 5 findings, 4 fixed, 1 accepted (see `docs/review-plan.md`)
 
 ### M3 · The daily loop
 Done when Shawn can run Session A on his phone end to end, do a morning check, and watch the next Session A's prescriptions change according to the reading.
