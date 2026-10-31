@@ -29,7 +29,7 @@ npm run test         # vitest run (rules engine)
 npm run check        # typecheck + lint + test
 npm run build        # tsc -b && vite build → dist/ (includes sw.js and manifest)
 npm run preview      # serve dist/ locally; test the service worker here, not in dev
-npm run program -- --week 5 --session B   # prints a session from the seed data (M1)
+npm run program -- --week 5 --session B   # prints a session from the seed data, deload-aware
 ```
 
 Deploy: Vercel project `knee-rebuild` (SPDC team), root directory `knee-rebuild/`, framework Vite. Every push gets a preview deploy; `main` is production. Builds are skipped when this folder didn't change.
@@ -40,12 +40,14 @@ Deploy: Vercel project `knee-rebuild` (SPDC team), root directory `knee-rebuild/
 knee-rebuild/
   PROMPT.md  PLAN.md  PROGRAM-QUESTIONS.md  CLAUDE.md
   docs/program.md          the program (source of truth for training content), images in docs/media/
-  data/program.json        seed data transcribed from docs/program.md (M1)
+  data/program.json        seed data transcribed by hand from docs/program.md; validated by src/schema/program.test.ts
+  scripts/program.ts       prints a session (npm run program)
   public/                  icons, static assets
   src/
     main.tsx  App.tsx  index.css (tokens live here)
     rules/                 the engine: pure functions + tests, nothing else decides anything
-    schema/                Zod schemas for the domain model (M1)
+    schema/                Zod schemas for the domain model (enums, program, logs)
+    program/               the validated seed and lookups (exerciseById, templateFor, nominalPhaseForWeek)
     db/                    Dexie database and versions
     screens/               Today, Session runner, Morning check, Run logger, Week, Progress, Gates, Program, Settings (M3+)
     components/            shared UI (steppers, tab bar, timers)
@@ -76,4 +78,4 @@ Gym rules on top of that: text-first; 44 px minimum tap targets (`tap` utility);
 
 ## Working agreements, short form
 
-One commit per task, one PR per milestone, conventional commit messages. Each PR carries the preview URL and a three-line demo note: what to tap, what to expect, what's not done. Stop at the end of each milestone for Shawn's go. If something can't be done as specified (an iOS PWA limit, a Dexie quirk, a rule the logs can't support), say so in the PR with two options and a recommendation; don't quietly simplify.
+One commit per task, one PR per milestone, conventional commit messages. Claude merges a milestone PR once CI and the preview are green, after an adversarial review pass (`docs/review-plan.md`), then stops for Shawn's go on the next milestone. Each PR carries the preview URL and a three-line demo note: what to tap, what to expect, what's not done. Stop at the end of each milestone for Shawn's go. If something can't be done as specified (an iOS PWA limit, a Dexie quirk, a rule the logs can't support), say so in the PR with two options and a recommendation; don't quietly simplify.

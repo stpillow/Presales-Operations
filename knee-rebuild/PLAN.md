@@ -2,7 +2,7 @@
 
 The status page. Ticked when done, not when started. Questions about the program live in [PROGRAM-QUESTIONS.md](PROGRAM-QUESTIONS.md); the questions for Shawn before M1 are at the bottom.
 
-**Now:** M0 is up as a draft PR with the section 9 answers recorded. Merging it is the go for M1, which lands as its own PR.
+**Now:** M0 merged. M1 (seed data) is built, reviewed and up as its own PR; Claude merges it once green, then stops for Shawn's go on M2.
 **Last updated:** Oct 31, 2026
 
 ## Milestones
@@ -17,25 +17,26 @@ Done when the app installs to an iPhone home screen and loads in airplane mode a
 - [x] Vitest wired, one smoke test
 - [x] `CLAUDE.md` for the app (stack, commands, layout, glossary, the two non-negotiable rules)
 - [x] Vercel project with a preview deploy on every push, builds skipped when `knee-rebuild/` is untouched
-- [ ] Shawn: add to the home screen, reload in airplane mode, say go
+- [x] Shawn: add to the home screen, reload in airplane mode, say go (merged Oct 31; phone result not reported yet)
 
 ### M1 · Seed data
 Done when the schema validates, the script output matches program.md on a spot check of all three phases, and PROGRAM-QUESTIONS.md lists anything ambiguous.
 
-- [ ] Zod schemas for every section 3 entity in `src/schema/`, plus the model additions from PROGRAM-QUESTIONS (week range, optional, `stage` rule, distanceYards, rpeTargetEnd)
-- [ ] Exercise catalog: id, name, pattern, equipment, loadType, increment, unilateral
-- [ ] `data/program.json`: phases 1–4, gates 1–3, the nine templates, every slot's cues and ordered substitutions
-- [ ] Mileage plan for 12 weeks, the red-flag list, the warm-up and pre-run checklists
-- [ ] `npm run program -- --week 5 --session B` prints a session, deload-aware
-- [ ] Spot-check A, B and C once per phase against program.md
-- [ ] Refresh PROGRAM-QUESTIONS.md with anything new
+- [x] Zod schemas for every section 3 entity in `src/schema/`, plus the model additions from PROGRAM-QUESTIONS (week range, optional, `stage` rule, repUnit, rpeTargetEnd)
+- [x] Exercise catalog: id, name, pattern, equipment, loadType, increment, unilateral
+- [x] `data/program.json`: phases 1–4, gates 1–3, the nine templates, every slot's cues and ordered substitutions
+- [x] Mileage plan for 12 weeks, the red-flag list, the warm-up and pre-run checklists
+- [x] `npm run program -- --week 5 --session B` prints a session, deload-aware
+- [x] Spot-check A, B and C once per phase against program.md
+- [x] Refresh PROGRAM-QUESTIONS.md with anything new
+- [x] Adversarial review before merge: security and correctness passes on the diff, findings fixed or logged (see `docs/review-plan.md`)
 
 ### M2 · Rules engine
 Done when tests are green and no rule lives outside `src/rules/`.
 
-- [ ] `calendar`: week and day from startDate in America/New_York, deload weeks, the scheduled session per date, move-session
+- [ ] `calendar`: week and day from startDate in America/New_York, the scheduled session per date, move-session (deload weeks landed in M1)
 - [ ] `reading`: session reading, morning reading, combined reading, the 36-hour unknown-is-hold rule
-- [ ] `prescription`: next prescription per exercise and side for every progression rule; back-off; deload sets; the dumbbell cap
+- [ ] `prescription`: next prescription per exercise and side for every progression rule; back-off; the dumbbell cap (deload sets and week-banded slots landed in M1)
 - [ ] `unilateral`: injured-first rep budget, symmetry percent
 - [ ] `mileage`: weekly target, the hold cap, the long-run split, swaps
 - [ ] `gates`: auto and manual items, hop-test best of three, pass logic, confirm-to-advance
@@ -97,6 +98,10 @@ Done when export, wipe, import restores everything, and a full Session B gets lo
 | 2026-10-31 | TypeScript 7 and oxlint, as create-vite ships them | typescript-eslint doesn't support TS 7 yet; oxlint is zero-config and small |
 | 2026-10-31 | Model additions rather than content changes: week-banded slots, optional slots, a `stage` progression rule, `distanceYards`, `rpeTargetEnd` | Working agreement 6 |
 | 2026-10-31 | Two consecutive hold readings on one exercise escalate to back-off | program.md's "two off sessions in a row" row; the conservative reading. Built in M2 unless Shawn overrules (PROGRAM-QUESTIONS 4) |
+| 2026-10-31 | Claude merges milestone PRs once CI and the preview are green, then stops for Shawn's go on the next milestone | Shawn's ask after merging M0: "in the future, I want you to just handle merges" |
+| 2026-10-31 | Every milestone PR gets an adversarial review pass (security and correctness) before merge; the standing plan is `docs/review-plan.md` | Shawn's ask on M1 |
+| 2026-10-31 | Model additions in M1, none of them content changes: `loadUnit` (stacks log the plate number), `dumbbell-single` and `plates` load types, `quad` and `cardio` patterns, `repUnit`, `perSideLabel` (the program's own "each leg" / "each side"), `prescriptionText` kept verbatim per slot, `loadBeforeHeightLb`, `rangeStopDeg`, `heightIn`/`heightMaxIn` | Working agreement 6: change the model, not the content |
+| 2026-10-31 | `data/program.json` was produced once by a throwaway generator so carried-over slots were copied rather than retyped; the JSON is the committed source and edits go there | One source of truth |
 | 2026-10-31 | Section 9 answers from Shawn: right knee; week 1 starts Monday Nov 2, 2026; dumbbells to 80 lb; both a seated and a 45° leg press; pain logged once per exercise (per set stays available in Settings); MBR is always Monday; Vercel URL for now; rest timer 60 s for every slot. Rower yes and spdc-design on, both confirmed in a follow-up | Answered in chat on Oct 31 |
 | 2026-10-31 | `dumbbellMax` is a number with presets 60, 75 and 80, not the 75-or-60 pair in PROMPT section 3 | His rack goes to 80 |
 | 2026-10-31 | Leg press: the seated machine is the default (program.md's setup cue is written for it); the 45° press is its first substitution | Both exist at his club |
