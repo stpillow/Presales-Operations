@@ -1,0 +1,79 @@
+# Knee Rebuild
+
+Single-user PWA that runs Shawn's 12-week knee return-to-sport program on his iPhone: says what to do today, logs what happened, reads the knee's response, decides the next session. Read these before changing anything:
+
+- `PROMPT.md`: owns app behavior (model, rules, screens, build plan, working agreements).
+- `docs/program.md`: owns training content. Transcribed into seed data once; never parsed at runtime, never "improved" in code.
+- Where they disagree: program.md wins on training content, PROMPT.md wins on app behavior.
+- `PLAN.md`: the status page. Tick tasks when they finish, not when they start. Keep it truthful and short.
+- `PROGRAM-QUESTIONS.md`: every ambiguity in the program, with the reading taken (the one more conservative for the knee). Add to it; don't resolve it in code.
+
+## Two rules that are not negotiable
+
+1. **Logic only in `src/rules/`.** Every decision the app makes (readings, prescriptions, the unilateral budget, deloads, mileage, gates, red flags, week and day) is a pure function there with a Vitest case. Components render and collect input; they ask the engine. Nothing in `src/rules/` imports React, Dexie, or the DOM. A rule change without a test change is a bug. Tests come before UI for anything in PROMPT section 4.
+2. **No color-only meaning in the UI.** Shawn is colorblind. Every state gets a word or a shape; color is a second channel, never the only one. Clean, hold and back-off are words on screen.
+
+## Stack
+
+Vite 8 · React 19 · TypeScript 7 (strict, `noUncheckedIndexedAccess`) · Tailwind 4 (spdc tokens in `src/index.css`) · vite-plugin-pwa (offline-first service worker, update on prompt) · Dexie (IndexedDB, local-first, no server) · Zod (schemas, from M1) · Vitest · Playwright (one smoke test, M6) · oxlint.
+
+Dependencies: only what PROMPT section 2 names plus small, well-maintained utilities. No analytics, no telemetry, no external calls at runtime. Fonts are vendored through fontsource for that reason.
+
+## Commands
+
+```bash
+npm run dev          # Vite dev server
+npm run typecheck    # tsc -b
+npm run lint         # oxlint
+npm run test         # vitest run (rules engine)
+npm run check        # typecheck + lint + test
+npm run build        # tsc -b && vite build → dist/ (includes sw.js and manifest)
+npm run preview      # serve dist/ locally; test the service worker here, not in dev
+npm run program -- --week 5 --session B   # prints a session from the seed data (M1)
+```
+
+Deploy: Vercel project `knee-rebuild` (SPDC team), root directory `knee-rebuild/`, framework Vite. Every push gets a preview deploy; `main` is production. Builds are skipped when this folder didn't change.
+
+## Folder layout
+
+```
+knee-rebuild/
+  PROMPT.md  PLAN.md  PROGRAM-QUESTIONS.md  CLAUDE.md
+  docs/program.md          the program (source of truth for training content), images in docs/media/
+  data/program.json        seed data transcribed from docs/program.md (M1)
+  public/                  icons, static assets
+  src/
+    main.tsx  App.tsx  index.css (tokens live here)
+    rules/                 the engine: pure functions + tests, nothing else decides anything
+    schema/                Zod schemas for the domain model (M1)
+    db/                    Dexie database and versions
+    screens/               Today, Session runner, Morning check, Run logger, Week, Progress, Gates, Program, Settings (M3+)
+    components/            shared UI (steppers, tab bar, timers)
+  vite.config.ts           Vite, Tailwind, PWA manifest and workbox, Vitest
+  vercel.json              SPA rewrite
+```
+
+## Glossary
+
+- **Slot**: one ordered line in a session template: an exercise plus its prescription (sets, reps or seconds, RPE target, cues, progression rule, ordered substitutions). Logs hang off slots.
+- **Prescription**: what the engine says to do for a slot today: load, sets, reps, per side when unilateral.
+- **Reading**: the knee's verdict on a subject (an exercise, a workout, a run), computed, never stored: clean, hold, or back-off, with reasons.
+- **Clean**: pain 3 or under and not climbing during the session; next morning back to baseline with stiffness gone inside 30 minutes. Clean twice in a row earns progression.
+- **Hold**: pain 4–5 or climbing 2+ points set to set, or a morning that is worse than the day before without swelling. Repeat the last session exactly. Unknown is hold, never clean.
+- **Back-off**: pain over 5, a set stopped for sharp joint-line pain, or swelling, warmth, or pain up 2+ points the next morning. Load × 0.75 rounded down to the increment, or the previous substitution.
+- **Gate**: the checklist between phases. Auto items evaluate from logged data; manual items are toggles. The phase advances only when every item passes and Shawn confirms.
+- **Deload**: weeks 4, 8 and 12 from the start date. Sets × 2/3 rounded down (minimum 2), loads unchanged, no progression; the mileage plan's down weeks fall on the same weeks.
+- **Symmetry**: injured side divided by the other side, as a percent. Gate 1 wants 80%, gates 2 and 3 want 90%.
+- **Injured side first**: on unilateral slots the injured leg is logged first and sets the rep budget for the healthy leg.
+- **Red-flag state**: any ticked red flag on a morning check. Today shows "Stop. Call the ortho or PT." and progression is suspended until cleared from Settings with a note.
+- **Swap**: replacing a slot's exercise with the next substitution in its ordered list; the slot's job stays the same.
+
+## Design
+
+spdc-design is installed and applied: Duke navy ground, Fraunces display (SOFT 0, WONK 0, upright), IBM Plex Sans body, IBM Plex Mono for short labels only, the 4px spacing scale, radii 0/2/4, one green accent word per surface. Tailwind's default palette, fonts, sizes and radii are cleared in `src/index.css`, so an off-system value won't compile into a utility.
+
+Gym rules on top of that: text-first; 44 px minimum tap targets (`tap` utility); numeric keypads (`inputmode="decimal"`) and steppers, not free text; no modals that trap; every logging interaction under 10 seconds without reading. Units: pounds, miles, seconds. Dates in America/New_York; weeks start Monday.
+
+## Working agreements, short form
+
+One commit per task, one PR per milestone, conventional commit messages. Each PR carries the preview URL and a three-line demo note: what to tap, what to expect, what's not done. Stop at the end of each milestone for Shawn's go. If something can't be done as specified (an iOS PWA limit, a Dexie quirk, a rule the logs can't support), say so in the PR with two options and a recommendation; don't quietly simplify.
