@@ -14,7 +14,7 @@ export const Settings = z.strictObject({
   painPerSet: z.boolean(),
   /** Set by any ticked red flag on a morning check; cleared from Settings with a note. */
   redFlag: z
-    .object({
+    .strictObject({
       active: z.boolean(),
       since: IsoDate.optional(),
       items: z.array(id),
@@ -73,7 +73,7 @@ export const MorningCheck = z.strictObject({
   id,
   date: IsoDate,
   appliesTo: z
-    .object({ kind: z.enum(['workout', 'run']), id })
+    .strictObject({ kind: z.enum(['workout', 'run']), id })
     .nullable(),
   stiffnessUnder30Min: z.boolean(),
   worseThanYesterday: z.boolean(),
@@ -98,8 +98,8 @@ export const Run = z.strictObject({
   maxPain: Pain,
   strides: z.boolean().default(false),
   tempo: z.boolean().default(false),
-  /** https only: this gets rendered as a link. */
-  stravaUrl: z.url({ protocol: /^https$/ }).optional(),
+  /** https and strava.com only: this gets rendered as a link. */
+  stravaUrl: z.url({ protocol: /^https$/, hostname: /^(www\.)?strava\.com$/ }).optional(),
   notes: z.string().optional(),
 })
 export type Run = z.infer<typeof Run>
