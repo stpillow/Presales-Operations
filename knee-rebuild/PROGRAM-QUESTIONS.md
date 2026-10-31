@@ -46,3 +46,21 @@ Status key: **confirm** = reading taken, Shawn to confirm or overrule · **open*
 29. **"One faster Friday every other week from Phase 2."** Which Fridays, and does it survive deload weeks? Reading: a suggestion in the run logger, never a rule; starts week 5, skips deload weeks, and is superseded by the week-10 tempo. **open**
 30. **Strides and tempo in Phase 3** (Wednesday strides from week 8; Friday 2 × 5 min from week 10 if Gate 2 was clean). The run logger pre-sets the toggles on those days; the tempo suggestion requires gate 2 to have passed. **FYI**
 31. **Long run "at most 40%"** vs PROMPT's "40% rounded to the nearest half mile." PROMPT wins on app behavior. **FYI**
+
+## Found while transcribing the seed data (M1)
+
+32. **Phase 3's "fourth upper slot" has no sets × reps.** Reading: an optional slot at the upper-body pattern, 3 × 10–12 at RPE 8, shown with "(not written)" in front of it. **confirm**
+33. **Leg press substitutions.** The 45° press is listed first, as the same movement on the other machine, ahead of the program's own row (Smith box squat, then goblet squat to a bench). **confirm**
+34. **Nordic negatives have no RPE or progression written.** Modeled as fixed 3 × 3–5: reps move within the range, nothing is loaded. **FYI**
+35. **Week 8 is both the first plyo week and a deload.** The deload rule trims the plyo block too (3 × 15 s becomes 2 × 15 s): fewer ground contacts is the conservative side. Week 12's block is written for a down week already and comes out unchanged. **confirm**
+36. **Phase 3 C step-up "to a high step"** has no height. Reading: starts at 16 in., the top of Phase 2's range, with no ceiling written (a flat bench is 17–18 in.). **confirm**
+37. **Carries are 3 × 40 yd.** Modeled as double progression on a fixed 40-yard "rep": every set completing 40 yd at RPE 8 or under, twice, adds 5 lb per hand. **FYI**
+38. **Single-leg calf raise in Phase 2 is bodyweight;** "holding a dumbbell" starts in Phase 3 at 5 lb steps. Phase 2's slot progresses reps only. **FYI**
+39. **Balance stage ladders.** Phase 1: eyes open → eyes closed → folded mat. Phase 2 on: folded mat → slow head turns → eyes closed → bosu → bosu with head turns → bosu eyes closed. The program says "folded mat or bosu"; the mat-before-bosu order is my sequencing. **confirm**
+40. **Assisted pull-up:** the stack is assistance, so progression is one plate less, not one more. **FYI**
+41. **The optional elliptical finisher** carries into Phases 2 and 3 as an optional slot; the program lists it only in Phase 1 A and says the pressing, pulling, carries and core carry over. **confirm**
+42. **Single-leg hip thrust (Phase 2 B2)** has no load written: fixed 3 × 10 each leg, bodyweight. **FYI**
+43. **Slots with no row in the substitutions table** (shoulder press, dead bug, side plank, Pallof press, snap-downs, every plyo) have no swaps; the Swap button will show nothing for them. **FYI**
+44. **"Dumbbells cap at 75 lb"** in the setup notes stays verbatim; the app's cap is the 80 lb from Settings. **FYI**
+45. **The `time` progression rule has a name but no semantics in PROMPT rule 4.** It applies to the Copenhagen planks (3 × 15–20 s each side). Reading for M2: clean twice adds 5 s per set up to the slot's top (20 s); at the top the next notch is the longer lever written for Phase 3; back-off drops 5 s. **confirm**
+46. **"From week 6" and "weeks 8–9, 10–11, 12" are calendar weeks in program.md, but phases advance on gate confirmation, not the calendar.** If Gate 1 passes a week late, Phase 2's snap-downs would otherwise never appear and Phase 3's plyo ladder would skip a rung. Reading: the bands count from the week the phase is entered: snap-downs from the third week of Phase 2 onward; plyo block 1 in the first two weeks of Phase 3, block 2 in the next two, block 3 from the fifth week on. On the nominal schedule this reproduces the program's weeks exactly. **confirm**
