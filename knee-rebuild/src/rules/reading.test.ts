@@ -93,9 +93,9 @@ describe('morningCheckApplies', () => {
     expect(morningCheckApplies(check({ appliesTo: { kind: 'workout', id: 'w1' } }), workout)).toBe(true)
     expect(morningCheckApplies(check({ appliesTo: { kind: 'workout', id: 'w2' }, date: '2026-11-04' }), workout)).toBe(false)
   })
-  it('otherwise the same day or the next day counts, later does not', () => {
-    expect(morningCheckApplies(check({ date: '2026-11-03' }), workout)).toBe(true)
+  it('otherwise only the morning after counts: a same-day check describes the day before', () => {
     expect(morningCheckApplies(check({ date: '2026-11-04' }), workout)).toBe(true)
+    expect(morningCheckApplies(check({ date: '2026-11-03' }), workout)).toBe(false)
     expect(morningCheckApplies(check({ date: '2026-11-05' }), workout)).toBe(false)
   })
 })

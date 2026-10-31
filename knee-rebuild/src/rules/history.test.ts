@@ -24,8 +24,15 @@ describe('exerciseReadings and lastSetsFor', () => {
   const w3 = workout('w3', '2026-11-17', 'in-progress')
   const sets = [set('w1', 'leg-press', 1, 2), set('w1', 'leg-press', 2, 2), set('w2', 'leg-press', 1, 4), set('w2', 'leg-press', 2, 4), set('w3', 'leg-press', 1, 1)]
   const records = attachChecks([w1, w2, w3], sets, [check('2026-11-04'), check('2026-11-11')])
-  it('lists combined readings most recent first, finished workouts only', () => {
+  it('lists combined readings most recent first, sessions that happened only', () => {
     expect(exerciseReadings(records, 'leg-press').map((r) => r.reading.result)).toEqual(['hold', 'clean'])
+  })
+  it('an abandoned session still counts: its sets and its stop feed the next prescription', () => {
+    const w4 = workout('w4', '2026-11-24', 'abandoned')
+    const stopped: SetLog = { ...set('w4', 'leg-press', 1, 6), stopped: true, stopReason: 'sharp-joint-line-pain' }
+    const withAbandoned = attachChecks([w1, w2, w4], [...sets, stopped], [check('2026-11-04'), check('2026-11-11'), check('2026-11-25')])
+    expect(exerciseReadings(withAbandoned, 'leg-press')[0]?.reading.result).toBe('back-off')
+    expect(lastSetsFor(withAbandoned, 'leg-press').map((s) => s.id)).toEqual(['w4-leg-press-1'])
   })
   it('reads hold when the morning check is missing', () => {
     const noChecks = attachChecks([w1], sets, [])

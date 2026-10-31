@@ -24,9 +24,10 @@ export interface DatedReading {
   reading: Reading
 }
 
-const finished = (r: WorkoutRecord) => r.workout.status === 'finished'
+/** Sessions that happened: finished, or abandoned with whatever was logged before the stop. */
+const finished = (r: WorkoutRecord) => r.workout.status === 'finished' || r.workout.status === 'abandoned'
 
-/** Combined readings for one exercise across finished workouts, most recent first. */
+/** Combined readings for one exercise across sessions that happened, most recent first. */
 export function exerciseReadings(records: readonly WorkoutRecord[], exerciseId: string, injuredSide?: Side): DatedReading[] {
   return records
     .filter((r) => finished(r) && r.sets.some((s) => s.exerciseId === exerciseId))
@@ -40,7 +41,7 @@ export function exerciseReadings(records: readonly WorkoutRecord[], exerciseId: 
     .reverse()
 }
 
-/** The most recent finished workout's sets for an exercise. */
+/** The most recent session's sets for an exercise, abandoned sessions included. */
 export function lastSetsFor(records: readonly WorkoutRecord[], exerciseId: string): SetLog[] {
   const record = [...records].reverse().find((r) => finished(r) && r.sets.some((s) => s.exerciseId === exerciseId))
   return record ? record.sets.filter((s) => s.exerciseId === exerciseId) : []

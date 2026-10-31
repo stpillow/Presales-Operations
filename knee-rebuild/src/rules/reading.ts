@@ -41,8 +41,9 @@ export function inOrder(sets: readonly SetLog[], injuredSide?: Side): SetLog[] {
 }
 
 /**
- * Rule 1, per exercise. Pain per set when logged per set; when pain is logged once per exercise the
- * same value sits on every set, so "climbing" can only come from per-set logging.
+ * Rule 1, per exercise. Pain per set when logged per set. When Settings.painPerSet is false the
+ * runner stores the exercise's one pain value on every set it logs (that is the storage convention;
+ * see CLAUDE.md), so "climbing" can only come from per-set logging.
  */
 export function sessionReading(sets: readonly SetLog[], injuredSide?: Side): Reading {
   const ordered = inOrder(sets, injuredSide)
@@ -115,13 +116,14 @@ export function combinedReading(session: Reading, morning: MorningReading | unde
 }
 
 /**
- * Whether a morning check belongs to a session: linked explicitly, or dated the same day or the
- * next (the 36-hour window at the day granularity checks are logged in).
+ * Whether a morning check belongs to a session: linked explicitly, or dated the morning after it
+ * (the 36-hour window at the day granularity checks are logged in). A check dated the same day
+ * describes the day before, so it never applies to a session later that day.
  */
 export function morningCheckApplies(
   check: MorningCheck,
   subject: { kind: 'workout' | 'run'; id: string; date: IsoDate },
 ): boolean {
   if (check.appliesTo) return check.appliesTo.kind === subject.kind && check.appliesTo.id === subject.id
-  return check.date === subject.date || check.date === addDays(subject.date, 1)
+  return check.date === addDays(subject.date, 1)
 }

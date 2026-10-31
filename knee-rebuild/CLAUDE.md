@@ -70,6 +70,7 @@ knee-rebuild/
 - **Red-flag state**: any ticked red flag on a morning check. Today shows "Stop. Call the ortho or PT." and progression is suspended until cleared from Settings with a note.
 - **Swap**: replacing a slot's exercise with the next substitution in its ordered list; the slot's job stays the same.
 - **Effective reading**: what the last two combined readings add up to for one exercise: clean twice, clean once, hold, or back-off (two holds in a row read back-off).
+- **Pain per exercise**: when `Settings.painPerSet` is false, the runner stores the exercise's one pain value on every set it logs; the engine reads pain per set either way.
 - **Today**: screens compute the date once with `todayIn(new Date())` in America/New_York and pass it to the engine; nothing in `src/rules/` reads the clock.
 
 ## Design

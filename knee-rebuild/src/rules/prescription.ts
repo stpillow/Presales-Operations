@@ -182,7 +182,7 @@ function prescribeSide(input: PrescriptionInput, side: SetSide): Prescription {
     case 'hold':
       return repeat('repeat', 'Hold: repeat the last session’s loads and reps exactly.')
     case 'back-off':
-      return capDumbbells(input, backOff(input, side, carried, lastLoad, lastHeight, lastStage, lastTarget, sets))
+      return capDumbbells(input, backOff(input, carried, lastLoad, lastHeight, lastStage, lastTarget, sets))
     case 'clean-once':
       return { ...carried, load: lastLoad, repsTarget: lastTarget, basis: 'same', note: 'Clean once: same load, same target; clean again to progress.' }
     case 'clean-twice':
@@ -261,7 +261,6 @@ function progress(
 
 function backOff(
   input: PrescriptionInput,
-  side: SetSide,
   carried: Omit<Prescription, 'load' | 'repsTarget' | 'basis' | 'note'>,
   lastLoad: number,
   lastHeight: number | undefined,
@@ -272,7 +271,6 @@ function backOff(
   const { slot, exercise } = input
   const inc = exercise.increment
   const result = (p: Partial<Prescription> & { note: string }): Prescription => ({ ...carried, load: lastLoad, repsTarget: lastTarget, basis: 'back-off', ...p })
-  void side
 
   if (exercise.loadDirection === 'down') {
     return result({ load: lastLoad + inc, note: 'Back off: one plate more assist.' })
