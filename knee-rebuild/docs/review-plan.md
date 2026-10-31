@@ -29,7 +29,7 @@ Every milestone PR gets attacked before it merges. The attacker's goal is simple
 
 ## Findings, M1 (Oct 31, 2026)
 
-Correctness pass: `/code-review` at medium over `knee-rebuild/`, ten findings, then a hand walk of the rules. Security pass: `/security-review` on the branch diff plus `npm audit`, a grep for runtime network calls and dangerous sinks, and a check of the built `index.html` for inline scripts (none, so the CSP can forbid them).
+Correctness pass: `/code-review` at medium over `knee-rebuild/`, ten findings, then a hand walk of the rules. Nineteen items in all across both passes: 14 fixed, 5 accepted or logged with a reason.
 
 | # | Finding | Verdict | Status |
 |---|---|---|---|
@@ -48,4 +48,18 @@ Correctness pass: `/code-review` at medium over `knee-rebuild/`, ten findings, t
 | 13 | (own) `src/program/program.ts` throws at import if the seed fails validation: a blank screen with no words | Risk, not yet reachable (the shell doesn't import the seed until M3) | Logged: M3 wires a readable error state before the seed is imported by the app |
 | 14 | (own) The `time` progression rule is named in PROMPT rule 4 with no semantics | Open question | PROGRAM-QUESTIONS 45 |
 
-Security pass result: `npm audit` found 0 vulnerabilities; no runtime network calls, no `dangerouslySetInnerHTML`, `innerHTML`, `eval` or `new Function` in `src/`; the built `index.html` has no inline scripts. The focused security review of the diff is in progress and its findings are appended below when it reports.
+### Security pass, M1
+
+Method: `/security-review` over the branch diff (a read-only reviewer tracing every untrusted flow to every sink), plus `npm audit`, a grep for runtime network calls and dangerous DOM sinks, and a check of the built `index.html` for inline scripts.
+
+Verdict: no finding above the bar. What was checked, so the absence is evidence: every file in `src/`, `scripts/` and the two configs for `dangerouslySetInnerHTML`, `innerHTML`, `insertAdjacentHTML`, `document.write`, `eval`, `new Function`, `location`, `window.open`, `.href`, `postMessage`, `fetch`, `localStorage` (zero matches; all rendering is JSX text); the Strava URL schema probed live with `javascript:`, `data:`, `vbscript:`, `http:` and scheme-relative URLs (all rejected); the seed import path (bundled at build, never fetched, Map lookups); the CLI (`parseArgs` strict, no filesystem or shell access); the CSP against the real build (no inline script, the service worker loads Workbox same-origin, fonts are vendored); the lockfile additions (zod, tsx, esbuild, all from the npm registry); the diff and the seed for secrets or PII (none; the seed carries the program plus the injured side and start date, by design). `npm audit`: 0 vulnerabilities.
+
+Low observations, below the bar:
+
+| # | Observation | Status |
+|---|---|---|
+| 15 | `Settings.redFlag` and `MorningCheck.appliesTo` were plain objects while every sibling is strict | Fixed; test added |
+| 16 | `stravaUrl` was https-only but not host-restricted | Fixed: `strava.com` or `www.strava.com` only; test added |
+| 17 | `script-src 'self'` will block Vercel's preview toolbar (it loads from vercel.live) on preview deploys | Accepted: the toolbar is noise on a phone test. Allow-list `vercel.live` for previews only if it is ever wanted |
+| 18 | `style-src 'unsafe-inline'` | Accepted: React and Tailwind set style attributes; with no inline script allowed, CSS injection has no meaningful impact here |
+| 19 | Seed validation throwing at import blanks the app | Same as finding 13; M3 adds the readable error state |
