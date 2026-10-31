@@ -16,7 +16,7 @@ Done when the app installs to an iPhone home screen and loads in airplane mode a
 - [x] Dexie with an empty schema (`src/db/db.ts`)
 - [x] Vitest wired, one smoke test
 - [x] `CLAUDE.md` for the app (stack, commands, layout, glossary, the two non-negotiable rules)
-- [ ] Vercel project with a preview deploy on every push, builds skipped when `knee-rebuild/` is untouched
+- [x] Vercel project with a preview deploy on every push, builds skipped when `knee-rebuild/` is untouched
 - [ ] Shawn: add to the home screen, reload in airplane mode, say go
 
 ### M1 · Seed data
@@ -88,6 +88,7 @@ Done when export, wipe, import restores everything, and a full Session B gets lo
 |---|---|---|
 | 2026-10-31 | The app lives in `knee-rebuild/` inside Presales-Operations, not in its own repo | This session can only push to this repo. `git subtree split --prefix=knee-rebuild` moves it out later with history intact. Shawn to confirm or ask for the split. |
 | 2026-10-31 | Vercel project `knee-rebuild` in the SPDC team, root directory `knee-rebuild`, framework Vite, builds skipped when the folder didn't change | Preview on every push, production from `main`, and pushes to the skills library don't burn builds |
+| 2026-10-31 | Production branch: Vercel took the first pushed branch as production, so the M0 branch is also live at knee-rebuild.vercel.app | The project API has no field for it. One dashboard setting (Project → Settings → Git → Production Branch → `main`) fixes it; harmless until M0 merges. |
 | 2026-10-31 | Vercel Authentication turned off on the `knee-rebuild` project | The team default protects every deployment behind a Vercel login, which would bounce a home-screen PWA to vercel.com and break the airplane-mode test. The app keeps no server data and PROMPT section 2 says no accounts, no auth. Shawn can turn it back on in the Vercel dashboard if he wants the URL gated. |
 | 2026-10-31 | spdc-design applied (the skill is installed here) | PROMPT section 2 says use it if present. Tokens live in `src/index.css`; Tailwind's default palette, radii, fonts and sizes are cleared so only the spdc scales exist as utilities. Colorblind rule still governs: no meaning by color alone. |
 | 2026-10-31 | Fonts vendored through fontsource (OFL) and precached | The PWA has to render offline with no runtime fetches; Google Fonts would be an external call |
