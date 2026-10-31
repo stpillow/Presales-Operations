@@ -1,0 +1,3371 @@
+{
+  "title": "Knee Rebuild: Full-Body Program",
+  "sourceDate": "2026-10-30",
+  "startDate": "2026-11-02",
+  "injuredSide": "right",
+  "operatingRules": {
+    "intro": "Every session is a load test and the knee's 24-hour response is the inspection report: progress when the report is clean twice running, hold when it's noisy, back off when it's bad. The phase dates are estimates; the gates decide.",
+    "signals": [
+      {
+        "signal": "Pain during a set, 0–10",
+        "clean": "3 or under, not climbing set to set",
+        "hold": "4–5, or climbing",
+        "backOff": "Over 5, or sharp pain on the joint line: stop the exercise"
+      },
+      {
+        "signal": "Next morning",
+        "clean": "Back to baseline; stiffness gone within 30 min",
+        "hold": "Stiffer or sorer than the day before, clears within the day",
+        "backOff": "Visible swelling, warmth, or pain up 2+ points"
+      },
+      {
+        "signal": "Across the week",
+        "clean": "Each session as good as or better than the last",
+        "hold": "One off session",
+        "backOff": "Two off sessions in a row"
+      }
+    ],
+    "triggers": [
+      "Clean twice in a row: progress that exercise one notch — load, range, step height, or the single-leg version.",
+      "Hold: repeat the last session's loads exactly.",
+      "Back off: cut that exercise's load 20–30% or step back to its earlier version. If the whole knee is complaining, the next run becomes an elliptical session and the next lift's lower-body work runs at Phase 1 loads."
+    ],
+    "loading": [
+      "Double progression. Pick the rep range (say 8–12). When every set hits the top of the range at RPE 8 or under, add the smallest increment (5 lb per dumbbell, one plate on a stack, 10 lb on the Smith) and start again at the bottom. RPE 8 means two reps left in the tank.",
+      "Lower body starts at RPE 6 in Phase 1 and reaches RPE 8 on the main lifts by Phase 3. Upper body runs RPE 7–9 from day one.",
+      "The injured leg goes first on every single-leg exercise and sets the rep count for the other side. Symmetry is the goal, so the healthy leg doesn't get to run ahead.",
+      "Any exercise can be swapped for one on the same row of the substitutions table at the end; the slot's job stays the same.",
+      "Weeks 4, 8 and 12 are deloads: lifting sets down by a third at the same loads, with the mileage down weeks landing on the same weeks. Weeks 4 and 8 are also Thanksgiving and Christmas weeks, so the easy weeks fall where life gets busy anyway."
+    ]
+  },
+  "weeklyTemplate": {
+    "mon": "run:mbr",
+    "tue": "lift:A",
+    "wed": "run:easy",
+    "thu": "lift:B",
+    "fri": "run:long",
+    "sat": "lift:C",
+    "sun": "off"
+  },
+  "weeklyTemplateRows": [
+    {
+      "day": "Mon",
+      "session": "Run: MBR",
+      "notes": "Easy and conversational. Hills are fine; surging isn't"
+    },
+    {
+      "day": "Tue",
+      "session": "Lift A",
+      "notes": ""
+    },
+    {
+      "day": "Wed",
+      "session": "Run: easy",
+      "notes": "Flattest route you have. Elliptical instead if the knee reads Hold"
+    },
+    {
+      "day": "Thu",
+      "session": "Lift B",
+      "notes": ""
+    },
+    {
+      "day": "Fri",
+      "session": "Run: long",
+      "notes": "The week's longest run. One faster effort every other Friday from Phase 2 on"
+    },
+    {
+      "day": "Sat",
+      "session": "Lift C",
+      "notes": ""
+    },
+    {
+      "day": "Sun",
+      "session": "Off",
+      "notes": "Kona walk and mobility only"
+    }
+  ],
+  "weeklyTemplateNote": "Running the day after a lift is deliberate: easy runs on tired legs are low risk, and the layout keeps Sunday completely off. If the knee flares on this schedule, stack instead: lift and run on the same day (lift first, easy run or elliptical after), which buys a second full rest day. Sprint coaches call that high/low; stack the stress, then rest hard.",
+  "equipmentBySlot": [
+    {
+      "slot": "Squat pattern",
+      "equipment": "Smith machine (box squat to a bench), leg press, dumbbells for goblet and split squats"
+    },
+    {
+      "slot": "Hinge pattern",
+      "equipment": "Dumbbell RDLs, Smith machine RDL, 45° back extension bench, Smith hip thrust"
+    },
+    {
+      "slot": "Single-leg",
+      "equipment": "Step platforms from the 30-minute circuit (stackable risers), a flat bench for Bulgarians, the leg press one leg at a time"
+    },
+    {
+      "slot": "Hamstrings",
+      "equipment": "Seated or lying leg curl; later, Nordic negatives with your heels under the lat pulldown thigh pad"
+    },
+    {
+      "slot": "Hips",
+      "equipment": "Hip abductor and adductor machines, a cable station with an ankle strap, a mini band"
+    },
+    {
+      "slot": "Calves",
+      "equipment": "Seated calf machine or calf raises on the leg press; a step for single-leg work"
+    },
+    {
+      "slot": "Balance and plyos",
+      "equipment": "Mats, a bosu or balance pad if your club has one, a circuit step for low hops, floor tape for hop tests"
+    },
+    {
+      "slot": "Upper body",
+      "equipment": "Dumbbells to 75 lb, cable crossover, lat pulldown, seated row, chest and shoulder press machines, assisted pull-up/dip"
+    },
+    {
+      "slot": "Cardio",
+      "equipment": "Upright bike for warm-ups, treadmill, elliptical, rower, stair climber"
+    }
+  ],
+  "phases": [
+    {
+      "number": 1,
+      "name": "Foundation",
+      "weekStart": 1,
+      "weekEnd": 3,
+      "estimatedDates": "Nov 2–22",
+      "gateToLeave": 1,
+      "summary": "Three machine-dominant full-body sessions that re-teach the knee to take load through a pain-free range while the upper body trains hard. Lower-body work starts at RPE 6 and earns its way to 7; feeling under-challenged for two weeks is the design, not a bug.",
+      "notes": [
+        "If you're already leg-pressing and squatting pain-free, treat Phase 1 as a two-week calibration and move on once Gate 1 is clean. Warm-up first (see the warm-up section), then:",
+        "Progression inside the phase: Add 5–10 lb when the top of a rep range is clean twice.",
+        "Step height goes up 2 in. once 3 × 10 with 20 lb dumbbells is clean.",
+        "Balance progresses from eyes open to eyes closed, then onto a folded mat."
+      ]
+    },
+    {
+      "number": 2,
+      "name": "Single-leg strength and balance",
+      "weekStart": 4,
+      "weekEnd": 7,
+      "estimatedDates": "Nov 23–Dec 20",
+      "gateToLeave": 2,
+      "summary": "Same A/B/C skeleton and the same upper-body progression; the lower-body slots trade two-legged machine work for the single-leg patterns running and lacrosse are built on. Loads move from RPE 6–7 to 7–8 across the four weeks.",
+      "notes": [
+        "Week 4 is a deload, which makes it the right week to learn the new movements: light loads, perfect reps, and Thanksgiving in the middle of it.",
+        "Everything not listed (the pressing, pulling, carries and core) carries over from Phase 1 with double progression.",
+        "From week 6, add landing prep at the start of sessions A and C: snap-downs, 3 × 5. Stand tall, drop into an athletic stance and freeze for 2 s. No jump yet; this is the absorbing half, taught before the exploding half."
+      ]
+    },
+    {
+      "number": 3,
+      "name": "Power, deceleration and lacrosse prep",
+      "weekStart": 8,
+      "weekEnd": 12,
+      "estimatedDates": "Dec 21–Jan 24",
+      "gateToLeave": 3,
+      "summary": "Plyometrics enter at the front of sessions A and C, the main lower lifts move to heavier sets of 6–8, and strides return to one run a week. Order inside a session matters: hops while fresh, then strength, then anything that burns.",
+      "notes": [
+        "Landing rules: every landing is quiet and stuck, about 40 ground contacts a session is plenty at this stage, and a loud landing or a knee that caves inward ends the set.",
+        "Upper: Structure unchanged; keep running double progression. Add a fourth upper slot (face pulls or the rear-delt machine) if sessions finish under 55 minutes",
+        "Running in Phase 3: from week 8, finish Wednesday's run with 4 × 15 s strides building to about 85% effort, full walk-back between. From week 10, if Gate 2 was clean, Friday's run carries a 2 × 5 min comfortably-hard segment with 3 min easy between."
+      ]
+    },
+    {
+      "number": 4,
+      "name": "Lacrosse",
+      "weekStart": 13,
+      "weekEnd": null,
+      "estimatedDates": "week 13 on",
+      "gateToLeave": null,
+      "summary": "Phase 4 preview, week 13 on, a week or two per rung with the same clean-twice rule.",
+      "notes": [
+        "When Gate 3 is clean, I'll write Phase 4 in this same format."
+      ],
+      "preview": [
+        "Wall ball and shooting with jog footwork",
+        "Planned cuts at 50%, then 75%, then 100%",
+        "Reactive cuts, with a partner calling the direction",
+        "Non-contact scrimmage",
+        "Full contact, in a brace for the first weeks if your ortho wants one"
+      ]
+    }
+  ],
+  "templates": [
+    {
+      "id": "p1-a",
+      "phase": 1,
+      "letter": "A",
+      "slots": [
+        {
+          "id": "p1a-1",
+          "order": 1,
+          "label": "1",
+          "exerciseId": "leg-press",
+          "sets": 3,
+          "repsMin": 10,
+          "repsMax": 12,
+          "prescriptionText": "3 × 10–12, RPE 6→7",
+          "cues": [
+            "Feet high and shoulder-width; lower for 3 s; stop at 90° or wherever pain stays at 3 or under; no hard lockout"
+          ],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "leg-press-45",
+            "smith-box-squat",
+            "goblet-squat-bench"
+          ],
+          "rpeTarget": 6,
+          "rpeTargetEnd": 7
+        },
+        {
+          "id": "p1a-2",
+          "order": 2,
+          "label": "2",
+          "exerciseId": "seated-leg-curl",
+          "sets": 3,
+          "repsMin": 12,
+          "repsMax": 15,
+          "prescriptionText": "3 × 12–15, RPE 7",
+          "cues": [
+            "Hamstrings are the knee's dynamic brakes. Full range, 2 s on the way back"
+          ],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "lying-leg-curl",
+            "stability-ball-leg-curl"
+          ],
+          "rpeTarget": 7
+        },
+        {
+          "id": "p1a-3",
+          "order": 3,
+          "label": "3",
+          "exerciseId": "db-bench-press",
+          "sets": 3,
+          "repsMin": 8,
+          "repsMax": 10,
+          "prescriptionText": "3 × 8–10, RPE 8",
+          "cues": [],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "chest-press-machine",
+            "smith-bench-press"
+          ],
+          "rpeTarget": 8
+        },
+        {
+          "id": "p1a-4",
+          "order": 4,
+          "label": "4",
+          "exerciseId": "lat-pulldown",
+          "sets": 3,
+          "repsMin": 10,
+          "repsMax": 12,
+          "prescriptionText": "3 × 10–12, RPE 8",
+          "cues": [],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "assisted-pull-up",
+            "single-arm-cable-pulldown"
+          ],
+          "rpeTarget": 8
+        },
+        {
+          "id": "p1a-5",
+          "order": 5,
+          "label": "5",
+          "exerciseId": "hip-abductor-machine",
+          "sets": 2,
+          "repsMin": 15,
+          "repsMax": 20,
+          "prescriptionText": "2 × 15–20, RPE 7",
+          "cues": [
+            "Pair with 6"
+          ],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "cable-hip-abduction",
+            "lateral-band-walk",
+            "copenhagen-plank-short"
+          ],
+          "rpeTarget": 7,
+          "pairWithSlot": "p1a-6"
+        },
+        {
+          "id": "p1a-6",
+          "order": 6,
+          "label": "6",
+          "exerciseId": "standing-calf-raise",
+          "sets": 3,
+          "repsMin": 12,
+          "repsMax": 15,
+          "prescriptionText": "3 × 12–15",
+          "cues": [
+            "2 s pause at the top"
+          ],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "seated-calf-raise",
+            "single-leg-calf-raise-step"
+          ]
+        },
+        {
+          "id": "p1a-7",
+          "order": 7,
+          "label": "7",
+          "exerciseId": "single-leg-balance",
+          "sets": 3,
+          "repsMin": 30,
+          "repsMax": 30,
+          "prescriptionText": "3 × 30 s",
+          "cues": [
+            "Between calf sets. Eyes closed once 30 s with eyes open is easy"
+          ],
+          "progressionRule": "stage",
+          "substitutionIds": [],
+          "repUnit": "seconds",
+          "unilateral": true,
+          "injuredOnly": true,
+          "pairWithSlot": "p1a-6"
+        },
+        {
+          "id": "p1a-8",
+          "order": 8,
+          "label": "8",
+          "exerciseId": "dead-bug",
+          "sets": 3,
+          "repsMin": 8,
+          "repsMax": 8,
+          "prescriptionText": "3 × 8 each side",
+          "cues": [
+            "Slow, low back pressed into the mat"
+          ],
+          "progressionRule": "fixed",
+          "substitutionIds": [],
+          "perSideLabel": "each side"
+        },
+        {
+          "id": "p1a-9",
+          "order": 9,
+          "label": "9",
+          "exerciseId": "elliptical-easy",
+          "sets": 1,
+          "repsMin": 10,
+          "repsMax": 15,
+          "prescriptionText": "10–15 min elliptical, easy",
+          "cues": [],
+          "progressionRule": "fixed",
+          "substitutionIds": [],
+          "repUnit": "minutes",
+          "optional": true
+        }
+      ]
+    },
+    {
+      "id": "p1-b",
+      "phase": 1,
+      "letter": "B",
+      "slots": [
+        {
+          "id": "p1b-1",
+          "order": 1,
+          "label": "1",
+          "exerciseId": "smith-box-squat",
+          "sets": 3,
+          "repsMin": 8,
+          "repsMax": 10,
+          "prescriptionText": "3 × 8–10, RPE 6→7",
+          "cues": [
+            "Bench behind you so the hips stop just above knee height. Feet 6–12 in. ahead of the bar, safeties set; sit back, touch, stand. Goblet squat to the bench if the Smith is taken or it hurts"
+          ],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "goblet-squat-bench",
+            "bulgarian-split-squat"
+          ],
+          "rpeTarget": 6,
+          "rpeTargetEnd": 7
+        },
+        {
+          "id": "p1b-2",
+          "order": 2,
+          "label": "2",
+          "exerciseId": "smith-hip-thrust",
+          "sets": 3,
+          "repsMin": 12,
+          "repsMax": 12,
+          "prescriptionText": "3 × 12, RPE 7",
+          "cues": [
+            "Shoulder blades on a bench, bar across the hips over a folded mat, 2 s squeeze at the top. Dumbbell glute bridge on the floor as the fallback"
+          ],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "db-glute-bridge",
+            "db-hip-thrust"
+          ],
+          "rpeTarget": 7
+        },
+        {
+          "id": "p1b-3",
+          "order": 3,
+          "label": "3",
+          "exerciseId": "seated-cable-row",
+          "sets": 3,
+          "repsMin": 10,
+          "repsMax": 12,
+          "prescriptionText": "3 × 10–12, RPE 8",
+          "cues": [],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "chest-supported-db-row",
+            "single-arm-cable-row"
+          ],
+          "rpeTarget": 8
+        },
+        {
+          "id": "p1b-4",
+          "order": 4,
+          "label": "4",
+          "exerciseId": "seated-db-shoulder-press",
+          "sets": 3,
+          "repsMin": 8,
+          "repsMax": 10,
+          "prescriptionText": "3 × 8–10, RPE 8",
+          "cues": [],
+          "progressionRule": "double-progression",
+          "substitutionIds": [],
+          "rpeTarget": 8
+        },
+        {
+          "id": "p1b-5",
+          "order": 5,
+          "label": "5",
+          "exerciseId": "hip-adductor-machine",
+          "sets": 2,
+          "repsMin": 15,
+          "repsMax": 15,
+          "prescriptionText": "2 × 15, RPE 7",
+          "cues": [
+            "The adductors brace the inside of the knee"
+          ],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "cable-hip-adduction",
+            "lateral-band-walk",
+            "copenhagen-plank-short"
+          ],
+          "rpeTarget": 7
+        },
+        {
+          "id": "p1b-6",
+          "order": 6,
+          "label": "6",
+          "exerciseId": "seated-calf-raise",
+          "sets": 3,
+          "repsMin": 15,
+          "repsMax": 15,
+          "prescriptionText": "3 × 15",
+          "cues": [],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "standing-calf-raise",
+            "single-leg-calf-raise-step"
+          ]
+        },
+        {
+          "id": "p1b-7",
+          "order": 7,
+          "label": "7",
+          "exerciseId": "side-plank",
+          "sets": 3,
+          "repsMin": 30,
+          "repsMax": 30,
+          "prescriptionText": "3 × 30 s each side",
+          "cues": [
+            "Pair with 8"
+          ],
+          "progressionRule": "fixed",
+          "substitutionIds": [],
+          "repUnit": "seconds",
+          "perSideLabel": "each side",
+          "pairWithSlot": "p1b-8"
+        },
+        {
+          "id": "p1b-8",
+          "order": 8,
+          "label": "8",
+          "exerciseId": "pallof-press",
+          "sets": 2,
+          "repsMin": 10,
+          "repsMax": 10,
+          "prescriptionText": "2 × 10 each side",
+          "cues": [
+            "Cable at chest height; press out and hold 2 s"
+          ],
+          "progressionRule": "double-progression",
+          "substitutionIds": [],
+          "perSideLabel": "each side"
+        }
+      ]
+    },
+    {
+      "id": "p1-c",
+      "phase": 1,
+      "letter": "C",
+      "slots": [
+        {
+          "id": "p1c-1",
+          "order": 1,
+          "label": "1",
+          "exerciseId": "step-up",
+          "sets": 3,
+          "repsMin": 10,
+          "repsMax": 10,
+          "prescriptionText": "3 × 10 each leg, RPE 6",
+          "cues": [
+            "Injured leg first; whole foot on the step; lower for 3 s; knee tracks over the second toe. Bodyweight in week 1, dumbbells after"
+          ],
+          "progressionRule": "height-then-load",
+          "substitutionIds": [
+            "step-up-stair",
+            "split-squat"
+          ],
+          "rpeTarget": 6,
+          "perSideLabel": "each leg",
+          "unilateral": true,
+          "heightIn": 6,
+          "heightMaxIn": 8,
+          "loadBeforeHeightLb": 20,
+          "loadNote": "Bodyweight in week 1, dumbbells after"
+        },
+        {
+          "id": "p1c-2",
+          "order": 2,
+          "label": "2",
+          "exerciseId": "db-rdl",
+          "sets": 3,
+          "repsMin": 10,
+          "repsMax": 10,
+          "prescriptionText": "3 × 10, RPE 7",
+          "cues": [
+            "Hinge with soft, fixed knees; dumbbells slide down the thighs. Hamstrings and glutes without loading knee flexion"
+          ],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "single-leg-rdl",
+            "smith-rdl"
+          ],
+          "rpeTarget": 7
+        },
+        {
+          "id": "p1c-3",
+          "order": 3,
+          "label": "3",
+          "exerciseId": "assisted-pull-up",
+          "sets": 3,
+          "repsMin": 6,
+          "repsMax": 10,
+          "prescriptionText": "3 × 6–10, RPE 8",
+          "cues": [
+            "Lat pulldown if it's taken"
+          ],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "lat-pulldown",
+            "single-arm-cable-pulldown"
+          ],
+          "rpeTarget": 8
+        },
+        {
+          "id": "p1c-4",
+          "order": 4,
+          "label": "4",
+          "exerciseId": "incline-db-press",
+          "sets": 3,
+          "repsMin": 8,
+          "repsMax": 10,
+          "prescriptionText": "3 × 8–10, RPE 8",
+          "cues": [],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "chest-press-machine",
+            "smith-bench-press"
+          ],
+          "rpeTarget": 8
+        },
+        {
+          "id": "p1c-5",
+          "order": 5,
+          "label": "5",
+          "exerciseId": "leg-extension",
+          "sets": 2,
+          "repsMin": 15,
+          "repsMax": 15,
+          "prescriptionText": "2 × 15, RPE 6",
+          "cues": [
+            "From 90° to about 45°, stopping short of straight. Any kneecap or joint-line pain: wall sit 2 × 30–45 s instead"
+          ],
+          "progressionRule": "range-then-load",
+          "substitutionIds": [
+            "wall-sit"
+          ],
+          "rpeTarget": 6,
+          "rangeStopDeg": 45
+        },
+        {
+          "id": "p1c-6",
+          "order": 6,
+          "label": "6",
+          "exerciseId": "back-extension-45",
+          "sets": 2,
+          "repsMin": 12,
+          "repsMax": 12,
+          "prescriptionText": "2 × 12",
+          "cues": [
+            "Hands across the chest; hold a plate once 12 is easy"
+          ],
+          "progressionRule": "double-progression",
+          "substitutionIds": [],
+          "loadNote": "Hands across the chest; hold a plate once 12 is easy"
+        },
+        {
+          "id": "p1c-7",
+          "order": 7,
+          "label": "7",
+          "exerciseId": "farmers-carry",
+          "sets": 3,
+          "repsMin": 40,
+          "repsMax": 40,
+          "prescriptionText": "3 × 40 yd",
+          "cues": [
+            "The heaviest dumbbells you can carry with tall posture"
+          ],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "suitcase-carry"
+          ],
+          "repUnit": "yards"
+        },
+        {
+          "id": "p1c-8",
+          "order": 8,
+          "label": "8",
+          "exerciseId": "cable-hip-abduction",
+          "sets": 2,
+          "repsMin": 12,
+          "repsMax": 12,
+          "prescriptionText": "2 × 12 each side",
+          "cues": [
+            "Stand on the injured leg while the other leg works; the standing leg is the one training"
+          ],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "lateral-band-walk",
+            "hip-abductor-machine",
+            "copenhagen-plank-short"
+          ],
+          "perSideLabel": "each side",
+          "unilateral": true
+        }
+      ]
+    },
+    {
+      "id": "p2-a",
+      "phase": 2,
+      "letter": "A",
+      "slots": [
+        {
+          "id": "p2a-prep",
+          "order": 1,
+          "label": "prep",
+          "exerciseId": "snap-down",
+          "sets": 3,
+          "repsMin": 5,
+          "repsMax": 5,
+          "prescriptionText": "3 × 5",
+          "cues": [
+            "Stand tall, drop into an athletic stance and freeze for 2 s. No jump yet; this is the absorbing half, taught before the exploding half."
+          ],
+          "progressionRule": "fixed",
+          "substitutionIds": [],
+          "weeks": [
+            6,
+            7
+          ]
+        },
+        {
+          "id": "p2a-1",
+          "order": 2,
+          "label": "1",
+          "exerciseId": "single-leg-leg-press",
+          "sets": 3,
+          "repsMin": 10,
+          "repsMax": 10,
+          "prescriptionText": "3 × 10 each leg, RPE 7",
+          "cues": [
+            "Injured leg first and it sets the reps; same high foot position"
+          ],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "leg-press-45",
+            "smith-box-squat",
+            "goblet-squat-bench"
+          ],
+          "rpeTarget": 7,
+          "perSideLabel": "each leg",
+          "unilateral": true
+        },
+        {
+          "id": "p2a-2",
+          "order": 3,
+          "label": "2",
+          "exerciseId": "single-leg-seated-leg-curl",
+          "sets": 3,
+          "repsMin": 10,
+          "repsMax": 12,
+          "prescriptionText": "3 × 10–12 each leg",
+          "cues": [],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "lying-leg-curl",
+            "stability-ball-leg-curl"
+          ],
+          "perSideLabel": "each leg",
+          "unilateral": true
+        },
+        {
+          "id": "p2a-3",
+          "order": 4,
+          "label": "3",
+          "exerciseId": "db-bench-press",
+          "sets": 3,
+          "repsMin": 8,
+          "repsMax": 10,
+          "prescriptionText": "3 × 8–10, RPE 8",
+          "cues": [],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "chest-press-machine",
+            "smith-bench-press"
+          ],
+          "rpeTarget": 8
+        },
+        {
+          "id": "p2a-4",
+          "order": 5,
+          "label": "4",
+          "exerciseId": "lat-pulldown",
+          "sets": 3,
+          "repsMin": 10,
+          "repsMax": 12,
+          "prescriptionText": "3 × 10–12, RPE 8",
+          "cues": [],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "assisted-pull-up",
+            "single-arm-cable-pulldown"
+          ],
+          "rpeTarget": 8
+        },
+        {
+          "id": "p2a-5",
+          "order": 6,
+          "label": "5",
+          "exerciseId": "hip-abductor-machine",
+          "sets": 2,
+          "repsMin": 15,
+          "repsMax": 20,
+          "prescriptionText": "2 × 15–20, RPE 7",
+          "cues": [
+            "Pair with 6"
+          ],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "cable-hip-abduction",
+            "lateral-band-walk",
+            "copenhagen-plank-short"
+          ],
+          "rpeTarget": 7,
+          "pairWithSlot": "p2a-6"
+        },
+        {
+          "id": "p2a-6",
+          "order": 7,
+          "label": "6",
+          "exerciseId": "single-leg-calf-raise-step",
+          "sets": 3,
+          "repsMin": 12,
+          "repsMax": 15,
+          "prescriptionText": "3 × 12–15 each",
+          "cues": [
+            "Hand on the rail for balance only, not for help"
+          ],
+          "progressionRule": "fixed",
+          "substitutionIds": [
+            "seated-calf-raise",
+            "standing-calf-raise"
+          ],
+          "perSideLabel": "each",
+          "unilateral": true,
+          "loadNote": "Bodyweight; a dumbbell arrives in Phase 3"
+        },
+        {
+          "id": "p2a-7",
+          "order": 8,
+          "label": "7",
+          "exerciseId": "balance-mat-bosu",
+          "sets": 3,
+          "repsMin": 30,
+          "repsMax": 30,
+          "prescriptionText": "3 × 30 s",
+          "cues": [
+            "Add slow head turns, then eyes closed"
+          ],
+          "progressionRule": "stage",
+          "substitutionIds": [
+            "single-leg-balance"
+          ],
+          "repUnit": "seconds",
+          "unilateral": true,
+          "injuredOnly": true,
+          "pairWithSlot": "p2a-6"
+        },
+        {
+          "id": "p2a-8",
+          "order": 9,
+          "label": "8",
+          "exerciseId": "dead-bug",
+          "sets": 3,
+          "repsMin": 8,
+          "repsMax": 8,
+          "prescriptionText": "3 × 8 each side",
+          "cues": [
+            "Slow, low back pressed into the mat"
+          ],
+          "progressionRule": "fixed",
+          "substitutionIds": [],
+          "perSideLabel": "each side"
+        },
+        {
+          "id": "p2a-9",
+          "order": 10,
+          "label": "9",
+          "exerciseId": "elliptical-easy",
+          "sets": 1,
+          "repsMin": 10,
+          "repsMax": 15,
+          "prescriptionText": "10–15 min elliptical, easy",
+          "cues": [],
+          "progressionRule": "fixed",
+          "substitutionIds": [],
+          "repUnit": "minutes",
+          "optional": true
+        }
+      ]
+    },
+    {
+      "id": "p2-b",
+      "phase": 2,
+      "letter": "B",
+      "slots": [
+        {
+          "id": "p2b-1",
+          "order": 1,
+          "label": "1",
+          "exerciseId": "bulgarian-split-squat",
+          "sets": 3,
+          "repsMin": 8,
+          "repsMax": 8,
+          "prescriptionText": "3 × 8 each leg, RPE 7",
+          "cues": [
+            "Rear foot on a flat bench, dumbbells at the sides, front shin near vertical, lower for 3 s"
+          ],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "smith-box-squat",
+            "goblet-squat-bench"
+          ],
+          "rpeTarget": 7,
+          "perSideLabel": "each leg",
+          "unilateral": true
+        },
+        {
+          "id": "p2b-2",
+          "order": 2,
+          "label": "2",
+          "exerciseId": "single-leg-hip-thrust",
+          "sets": 3,
+          "repsMin": 10,
+          "repsMax": 10,
+          "prescriptionText": "3 × 10 each leg",
+          "cues": [
+            "Go back to the heavier two-leg Smith version if the single-leg version bothers the knee"
+          ],
+          "progressionRule": "fixed",
+          "substitutionIds": [
+            "smith-hip-thrust",
+            "db-hip-thrust"
+          ],
+          "perSideLabel": "each leg",
+          "unilateral": true
+        },
+        {
+          "id": "p2b-3",
+          "order": 3,
+          "label": "3",
+          "exerciseId": "seated-cable-row",
+          "sets": 3,
+          "repsMin": 10,
+          "repsMax": 12,
+          "prescriptionText": "3 × 10–12, RPE 8",
+          "cues": [],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "chest-supported-db-row",
+            "single-arm-cable-row"
+          ],
+          "rpeTarget": 8
+        },
+        {
+          "id": "p2b-4",
+          "order": 4,
+          "label": "4",
+          "exerciseId": "seated-db-shoulder-press",
+          "sets": 3,
+          "repsMin": 8,
+          "repsMax": 10,
+          "prescriptionText": "3 × 8–10, RPE 8",
+          "cues": [],
+          "progressionRule": "double-progression",
+          "substitutionIds": [],
+          "rpeTarget": 8
+        },
+        {
+          "id": "p2b-5",
+          "order": 5,
+          "label": "5",
+          "exerciseId": "copenhagen-plank-short",
+          "sets": 3,
+          "repsMin": 15,
+          "repsMax": 20,
+          "prescriptionText": "3 × 15–20 s each side",
+          "cues": [
+            "Side plank with the top knee on a bench. Adductors do a lot of the work in cutting"
+          ],
+          "progressionRule": "time",
+          "substitutionIds": [
+            "hip-adductor-machine",
+            "cable-hip-adduction"
+          ],
+          "repUnit": "seconds",
+          "perSideLabel": "each side",
+          "unilateral": true
+        },
+        {
+          "id": "p2b-6",
+          "order": 6,
+          "label": "6",
+          "exerciseId": "lateral-step-down",
+          "sets": 3,
+          "repsMin": 8,
+          "repsMax": 8,
+          "prescriptionText": "3 × 8 each leg",
+          "cues": [
+            "Slow. Film it from the front; the knee stays over the foot and doesn't cave inward"
+          ],
+          "progressionRule": "height-then-load",
+          "substitutionIds": [
+            "step-up-stair"
+          ],
+          "perSideLabel": "each leg",
+          "unilateral": true,
+          "heightIn": 6,
+          "heightMaxIn": 8
+        },
+        {
+          "id": "p2b-7",
+          "order": 7,
+          "label": "7",
+          "exerciseId": "side-plank",
+          "sets": 3,
+          "repsMin": 30,
+          "repsMax": 30,
+          "prescriptionText": "3 × 30 s each side",
+          "cues": [
+            "Pair with 8"
+          ],
+          "progressionRule": "fixed",
+          "substitutionIds": [],
+          "repUnit": "seconds",
+          "perSideLabel": "each side",
+          "pairWithSlot": "p2b-8"
+        },
+        {
+          "id": "p2b-8",
+          "order": 8,
+          "label": "8",
+          "exerciseId": "pallof-press",
+          "sets": 2,
+          "repsMin": 10,
+          "repsMax": 10,
+          "prescriptionText": "2 × 10 each side",
+          "cues": [
+            "Cable at chest height; press out and hold 2 s"
+          ],
+          "progressionRule": "double-progression",
+          "substitutionIds": [],
+          "perSideLabel": "each side"
+        }
+      ]
+    },
+    {
+      "id": "p2-c",
+      "phase": 2,
+      "letter": "C",
+      "slots": [
+        {
+          "id": "p2c-prep",
+          "order": 1,
+          "label": "prep",
+          "exerciseId": "snap-down",
+          "sets": 3,
+          "repsMin": 5,
+          "repsMax": 5,
+          "prescriptionText": "3 × 5",
+          "cues": [
+            "Stand tall, drop into an athletic stance and freeze for 2 s. No jump yet; this is the absorbing half, taught before the exploding half."
+          ],
+          "progressionRule": "fixed",
+          "substitutionIds": [],
+          "weeks": [
+            6,
+            7
+          ]
+        },
+        {
+          "id": "p2c-1",
+          "order": 2,
+          "label": "1",
+          "exerciseId": "step-up",
+          "sets": 3,
+          "repsMin": 8,
+          "repsMax": 8,
+          "prescriptionText": "3 × 8 each leg",
+          "cues": [
+            "Height grows before load does"
+          ],
+          "progressionRule": "height-then-load",
+          "substitutionIds": [
+            "step-up-stair",
+            "split-squat"
+          ],
+          "perSideLabel": "each leg",
+          "unilateral": true,
+          "heightIn": 12,
+          "heightMaxIn": 16,
+          "loadNote": "Step-up to 12–16 in. with dumbbells"
+        },
+        {
+          "id": "p2c-2",
+          "order": 3,
+          "label": "2",
+          "exerciseId": "single-leg-rdl",
+          "sets": 3,
+          "repsMin": 8,
+          "repsMax": 8,
+          "prescriptionText": "3 × 8 each leg",
+          "cues": [
+            "Dumbbell in the opposite hand, hips square. Tap the free foot down and reset if you lose balance"
+          ],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "db-rdl",
+            "smith-rdl"
+          ],
+          "perSideLabel": "each leg",
+          "unilateral": true
+        },
+        {
+          "id": "p2c-3",
+          "order": 4,
+          "label": "3",
+          "exerciseId": "assisted-pull-up",
+          "sets": 3,
+          "repsMin": 6,
+          "repsMax": 10,
+          "prescriptionText": "3 × 6–10, RPE 8",
+          "cues": [
+            "Lat pulldown if it's taken"
+          ],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "lat-pulldown",
+            "single-arm-cable-pulldown"
+          ],
+          "rpeTarget": 8
+        },
+        {
+          "id": "p2c-4",
+          "order": 5,
+          "label": "4",
+          "exerciseId": "incline-db-press",
+          "sets": 3,
+          "repsMin": 8,
+          "repsMax": 10,
+          "prescriptionText": "3 × 8–10, RPE 8",
+          "cues": [],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "chest-press-machine",
+            "smith-bench-press"
+          ],
+          "rpeTarget": 8
+        },
+        {
+          "id": "p2c-5",
+          "order": 6,
+          "label": "5",
+          "exerciseId": "leg-extension",
+          "sets": 2,
+          "repsMin": 12,
+          "repsMax": 15,
+          "prescriptionText": "2 × 12–15, RPE 7",
+          "cues": [
+            "Still stopping short of straight"
+          ],
+          "progressionRule": "range-then-load",
+          "substitutionIds": [
+            "wall-sit"
+          ],
+          "rpeTarget": 7,
+          "rangeStopDeg": 30,
+          "loadNote": "Leg extension, 90° to 30°"
+        },
+        {
+          "id": "p2c-6",
+          "order": 7,
+          "label": "6",
+          "exerciseId": "reverse-lunge",
+          "sets": 3,
+          "repsMin": 8,
+          "repsMax": 8,
+          "prescriptionText": "3 × 8 each leg",
+          "cues": [
+            "Stepping back is kinder to the knee than stepping forward; walking lunges wait for Phase 3"
+          ],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "split-squat",
+            "goblet-squat-bench"
+          ],
+          "perSideLabel": "each leg",
+          "unilateral": true
+        },
+        {
+          "id": "p2c-7",
+          "order": 8,
+          "label": "7",
+          "exerciseId": "farmers-carry",
+          "sets": 3,
+          "repsMin": 40,
+          "repsMax": 40,
+          "prescriptionText": "3 × 40 yd",
+          "cues": [
+            "The heaviest dumbbells you can carry with tall posture"
+          ],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "suitcase-carry"
+          ],
+          "repUnit": "yards"
+        },
+        {
+          "id": "p2c-8a",
+          "order": 9,
+          "label": "8a",
+          "exerciseId": "lateral-band-walk",
+          "sets": 2,
+          "repsMin": 12,
+          "repsMax": 12,
+          "prescriptionText": "2 × 12 steps each way",
+          "cues": [
+            "Mini band above the knees, quarter squat, no waddle"
+          ],
+          "progressionRule": "fixed",
+          "substitutionIds": [
+            "cable-hip-abduction"
+          ],
+          "repUnit": "steps",
+          "perSideLabel": "each way",
+          "pairWithSlot": "p2c-8b"
+        },
+        {
+          "id": "p2c-8b",
+          "order": 10,
+          "label": "8b",
+          "exerciseId": "cable-hip-abduction",
+          "sets": 2,
+          "repsMin": 12,
+          "repsMax": 12,
+          "prescriptionText": "2 × 12 each side",
+          "cues": [
+            "Stand on the injured leg while the other leg works; the standing leg is the one training"
+          ],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "lateral-band-walk",
+            "hip-abductor-machine",
+            "copenhagen-plank-short"
+          ],
+          "perSideLabel": "each side",
+          "unilateral": true,
+          "pairWithSlot": "p2c-8a"
+        }
+      ]
+    },
+    {
+      "id": "p3-a",
+      "phase": 3,
+      "letter": "A",
+      "slots": [
+        {
+          "id": "p3a-plyo-1",
+          "order": 1,
+          "label": "plyo",
+          "exerciseId": "pogo-hops",
+          "sets": 3,
+          "repsMin": 15,
+          "repsMax": 15,
+          "prescriptionText": "3 × 15 s",
+          "cues": [
+            "Landing rules: every landing is quiet and stuck, about 40 ground contacts a session is plenty at this stage, and a loud landing or a knee that caves inward ends the set."
+          ],
+          "progressionRule": "fixed",
+          "substitutionIds": [],
+          "repUnit": "seconds",
+          "weeks": [
+            8,
+            9
+          ]
+        },
+        {
+          "id": "p3a-plyo-2",
+          "order": 2,
+          "label": "plyo",
+          "exerciseId": "step-off-landing",
+          "sets": 3,
+          "repsMin": 5,
+          "repsMax": 5,
+          "prescriptionText": "3 × 5",
+          "cues": [
+            "Landing rules: every landing is quiet and stuck, about 40 ground contacts a session is plenty at this stage, and a loud landing or a knee that caves inward ends the set."
+          ],
+          "progressionRule": "fixed",
+          "substitutionIds": [],
+          "weeks": [
+            8,
+            9
+          ]
+        },
+        {
+          "id": "p3a-plyo-3",
+          "order": 3,
+          "label": "plyo",
+          "exerciseId": "lateral-line-hops",
+          "sets": 3,
+          "repsMin": 10,
+          "repsMax": 10,
+          "prescriptionText": "3 × 10 s",
+          "cues": [
+            "Landing rules: every landing is quiet and stuck, about 40 ground contacts a session is plenty at this stage, and a loud landing or a knee that caves inward ends the set."
+          ],
+          "progressionRule": "fixed",
+          "substitutionIds": [],
+          "repUnit": "seconds",
+          "weeks": [
+            8,
+            9
+          ]
+        },
+        {
+          "id": "p3a-plyo-4",
+          "order": 4,
+          "label": "plyo",
+          "exerciseId": "single-leg-pogos",
+          "sets": 3,
+          "repsMin": 10,
+          "repsMax": 10,
+          "prescriptionText": "3 × 10 s each leg",
+          "cues": [
+            "Landing rules: every landing is quiet and stuck, about 40 ground contacts a session is plenty at this stage, and a loud landing or a knee that caves inward ends the set."
+          ],
+          "progressionRule": "fixed",
+          "substitutionIds": [],
+          "repUnit": "seconds",
+          "perSideLabel": "each leg",
+          "unilateral": true,
+          "weeks": [
+            10,
+            11
+          ]
+        },
+        {
+          "id": "p3a-plyo-5",
+          "order": 5,
+          "label": "plyo",
+          "exerciseId": "jump-onto-step",
+          "sets": 3,
+          "repsMin": 5,
+          "repsMax": 5,
+          "prescriptionText": "3 × 5",
+          "cues": [
+            "Jump onto the circuit step and step down (never jump down)",
+            "Landing rules: every landing is quiet and stuck, about 40 ground contacts a session is plenty at this stage, and a loud landing or a knee that caves inward ends the set."
+          ],
+          "progressionRule": "fixed",
+          "substitutionIds": [],
+          "weeks": [
+            10,
+            11
+          ]
+        },
+        {
+          "id": "p3a-plyo-6",
+          "order": 6,
+          "label": "plyo",
+          "exerciseId": "skater-bounds-stuck",
+          "sets": 3,
+          "repsMin": 4,
+          "repsMax": 4,
+          "prescriptionText": "3 × 4 each side",
+          "cues": [
+            "Landing rules: every landing is quiet and stuck, about 40 ground contacts a session is plenty at this stage, and a loud landing or a knee that caves inward ends the set."
+          ],
+          "progressionRule": "fixed",
+          "substitutionIds": [],
+          "perSideLabel": "each side",
+          "weeks": [
+            10,
+            11
+          ]
+        },
+        {
+          "id": "p3a-plyo-7",
+          "order": 7,
+          "label": "plyo",
+          "exerciseId": "single-leg-forward-hop-stick",
+          "sets": 3,
+          "repsMin": 3,
+          "repsMax": 3,
+          "prescriptionText": "3 × 3 each leg",
+          "cues": [
+            "At about 70%",
+            "Landing rules: every landing is quiet and stuck, about 40 ground contacts a session is plenty at this stage, and a loud landing or a knee that caves inward ends the set."
+          ],
+          "progressionRule": "fixed",
+          "substitutionIds": [],
+          "perSideLabel": "each leg",
+          "unilateral": true,
+          "weeks": [
+            10,
+            11
+          ]
+        },
+        {
+          "id": "p3a-plyo-8",
+          "order": 8,
+          "label": "plyo",
+          "exerciseId": "repeat-hops-both",
+          "sets": 2,
+          "repsMin": 3,
+          "repsMax": 3,
+          "prescriptionText": "2 × 3",
+          "cues": [
+            "Repeat hops, 3 in a row, both feet then single leg",
+            "Landing rules: every landing is quiet and stuck, about 40 ground contacts a session is plenty at this stage, and a loud landing or a knee that caves inward ends the set."
+          ],
+          "progressionRule": "fixed",
+          "substitutionIds": [],
+          "weeks": [
+            12,
+            12
+          ]
+        },
+        {
+          "id": "p3a-plyo-9",
+          "order": 9,
+          "label": "plyo",
+          "exerciseId": "repeat-hops-single",
+          "sets": 2,
+          "repsMin": 3,
+          "repsMax": 3,
+          "prescriptionText": "2 × 3 each leg",
+          "cues": [
+            "Landing rules: every landing is quiet and stuck, about 40 ground contacts a session is plenty at this stage, and a loud landing or a knee that caves inward ends the set."
+          ],
+          "progressionRule": "fixed",
+          "substitutionIds": [],
+          "perSideLabel": "each leg",
+          "unilateral": true,
+          "weeks": [
+            12,
+            12
+          ]
+        },
+        {
+          "id": "p3a-plyo-10",
+          "order": 10,
+          "label": "plyo",
+          "exerciseId": "continuous-skater-bounds",
+          "sets": 2,
+          "repsMin": 6,
+          "repsMax": 6,
+          "prescriptionText": "2 × 6",
+          "cues": [
+            "Landing rules: every landing is quiet and stuck, about 40 ground contacts a session is plenty at this stage, and a loud landing or a knee that caves inward ends the set."
+          ],
+          "progressionRule": "fixed",
+          "substitutionIds": [],
+          "weeks": [
+            12,
+            12
+          ]
+        },
+        {
+          "id": "p3a-plyo-11",
+          "order": 11,
+          "label": "plyo",
+          "exerciseId": "change-of-direction-45",
+          "sets": 2,
+          "repsMin": 6,
+          "repsMax": 6,
+          "prescriptionText": "2 × 6 cuts each way",
+          "cues": [
+            "45° change-of-direction at a jog on an open patch of floor",
+            "Landing rules: every landing is quiet and stuck, about 40 ground contacts a session is plenty at this stage, and a loud landing or a knee that caves inward ends the set."
+          ],
+          "progressionRule": "fixed",
+          "substitutionIds": [],
+          "perSideLabel": "each way",
+          "weeks": [
+            12,
+            12
+          ]
+        },
+        {
+          "id": "p3a-1",
+          "order": 12,
+          "label": "1",
+          "exerciseId": "leg-press",
+          "sets": 4,
+          "repsMin": 6,
+          "repsMax": 8,
+          "prescriptionText": "4 × 6–8, RPE 8",
+          "cues": [
+            "Feet high and shoulder-width; lower for 3 s; stop at 90° or wherever pain stays at 3 or under; no hard lockout"
+          ],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "leg-press-45",
+            "smith-box-squat",
+            "goblet-squat-bench"
+          ],
+          "rpeTarget": 8
+        },
+        {
+          "id": "p3a-1b",
+          "order": 13,
+          "label": "1b",
+          "exerciseId": "single-leg-leg-press",
+          "sets": 3,
+          "repsMin": 8,
+          "repsMax": 8,
+          "prescriptionText": "3 × 8 each leg",
+          "cues": [
+            "Single-leg leg press stays at 3 × 8 as the second quad move. Injured leg first and it sets the reps; same high foot position"
+          ],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "leg-press-45",
+            "bulgarian-split-squat"
+          ],
+          "perSideLabel": "each leg",
+          "unilateral": true
+        },
+        {
+          "id": "p3a-2",
+          "order": 14,
+          "label": "2",
+          "exerciseId": "nordic-negatives",
+          "sets": 3,
+          "repsMin": 3,
+          "repsMax": 5,
+          "prescriptionText": "3 × 3–5",
+          "cues": [
+            "Kneel on a mat with your heels under the lat pulldown thigh pad set low, lower as slowly as you can, catch yourself with your hands, push back up"
+          ],
+          "progressionRule": "fixed",
+          "substitutionIds": [
+            "single-leg-seated-leg-curl",
+            "seated-leg-curl",
+            "lying-leg-curl"
+          ]
+        },
+        {
+          "id": "p3a-3",
+          "order": 15,
+          "label": "3",
+          "exerciseId": "db-bench-press",
+          "sets": 3,
+          "repsMin": 8,
+          "repsMax": 10,
+          "prescriptionText": "3 × 8–10, RPE 8",
+          "cues": [],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "chest-press-machine",
+            "smith-bench-press"
+          ],
+          "rpeTarget": 8
+        },
+        {
+          "id": "p3a-4",
+          "order": 16,
+          "label": "4",
+          "exerciseId": "lat-pulldown",
+          "sets": 3,
+          "repsMin": 10,
+          "repsMax": 12,
+          "prescriptionText": "3 × 10–12, RPE 8",
+          "cues": [],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "assisted-pull-up",
+            "single-arm-cable-pulldown"
+          ],
+          "rpeTarget": 8
+        },
+        {
+          "id": "p3a-5",
+          "order": 17,
+          "label": "5",
+          "exerciseId": "hip-abductor-machine",
+          "sets": 2,
+          "repsMin": 15,
+          "repsMax": 20,
+          "prescriptionText": "2 × 15–20, RPE 7",
+          "cues": [
+            "Pair with 6"
+          ],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "cable-hip-abduction",
+            "lateral-band-walk",
+            "copenhagen-plank-short"
+          ],
+          "rpeTarget": 7,
+          "pairWithSlot": "p3a-6"
+        },
+        {
+          "id": "p3a-6",
+          "order": 18,
+          "label": "6",
+          "exerciseId": "single-leg-calf-raise-step",
+          "sets": 3,
+          "repsMin": 12,
+          "repsMax": 15,
+          "prescriptionText": "3 × 12–15 each",
+          "cues": [
+            "Single-leg calf raise holding a dumbbell. Hand on the rail for balance only, not for help"
+          ],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "seated-calf-raise",
+            "standing-calf-raise"
+          ],
+          "perSideLabel": "each",
+          "unilateral": true
+        },
+        {
+          "id": "p3a-7",
+          "order": 19,
+          "label": "7",
+          "exerciseId": "balance-mat-bosu",
+          "sets": 3,
+          "repsMin": 30,
+          "repsMax": 30,
+          "prescriptionText": "3 × 30 s",
+          "cues": [
+            "Add slow head turns, then eyes closed"
+          ],
+          "progressionRule": "stage",
+          "substitutionIds": [
+            "single-leg-balance"
+          ],
+          "repUnit": "seconds",
+          "unilateral": true,
+          "injuredOnly": true,
+          "pairWithSlot": "p3a-6"
+        },
+        {
+          "id": "p3a-8",
+          "order": 20,
+          "label": "8",
+          "exerciseId": "dead-bug",
+          "sets": 3,
+          "repsMin": 8,
+          "repsMax": 8,
+          "prescriptionText": "3 × 8 each side",
+          "cues": [
+            "Slow, low back pressed into the mat"
+          ],
+          "progressionRule": "fixed",
+          "substitutionIds": [],
+          "perSideLabel": "each side"
+        },
+        {
+          "id": "p3a-9",
+          "order": 21,
+          "label": "9",
+          "exerciseId": "elliptical-easy",
+          "sets": 1,
+          "repsMin": 10,
+          "repsMax": 15,
+          "prescriptionText": "10–15 min elliptical, easy",
+          "cues": [],
+          "progressionRule": "fixed",
+          "substitutionIds": [],
+          "repUnit": "minutes",
+          "optional": true
+        },
+        {
+          "id": "p3a-upper4",
+          "order": 22,
+          "label": "4th upper",
+          "exerciseId": "face-pull",
+          "sets": 3,
+          "repsMin": 10,
+          "repsMax": 12,
+          "prescriptionText": "(not written) 3 × 10–12, RPE 8",
+          "rpeTarget": 8,
+          "cues": [
+            "Add a fourth upper slot (face pulls or the rear-delt machine) if sessions finish under 55 minutes"
+          ],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "rear-delt-machine"
+          ],
+          "optional": true
+        }
+      ]
+    },
+    {
+      "id": "p3-b",
+      "phase": 3,
+      "letter": "B",
+      "slots": [
+        {
+          "id": "p3b-1",
+          "order": 1,
+          "label": "1",
+          "exerciseId": "bulgarian-split-squat",
+          "sets": 4,
+          "repsMin": 6,
+          "repsMax": 6,
+          "prescriptionText": "4 × 6 each leg, RPE 8",
+          "cues": [
+            "Rear foot on a flat bench, dumbbells at the sides, front shin near vertical, lower for 3 s"
+          ],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "smith-box-squat",
+            "goblet-squat-bench"
+          ],
+          "rpeTarget": 8,
+          "perSideLabel": "each leg",
+          "unilateral": true
+        },
+        {
+          "id": "p3b-2",
+          "order": 2,
+          "label": "2",
+          "exerciseId": "smith-hip-thrust",
+          "sets": 4,
+          "repsMin": 8,
+          "repsMax": 8,
+          "prescriptionText": "4 × 8, heavy",
+          "cues": [
+            "Shoulder blades on a bench, bar across the hips over a folded mat, 2 s squeeze at the top"
+          ],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "db-hip-thrust",
+            "db-glute-bridge"
+          ],
+          "loadNote": "heavy"
+        },
+        {
+          "id": "p3b-2b",
+          "order": 3,
+          "label": "2b",
+          "exerciseId": "lateral-lunge",
+          "sets": 3,
+          "repsMin": 8,
+          "repsMax": 8,
+          "prescriptionText": "3 × 8 each side",
+          "cues": [
+            "New: lateral lunge with a dumbbell, for the side-to-side strength cutting runs on"
+          ],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "reverse-lunge",
+            "split-squat"
+          ],
+          "perSideLabel": "each side",
+          "unilateral": true
+        },
+        {
+          "id": "p3b-3",
+          "order": 4,
+          "label": "3",
+          "exerciseId": "seated-cable-row",
+          "sets": 3,
+          "repsMin": 10,
+          "repsMax": 12,
+          "prescriptionText": "3 × 10–12, RPE 8",
+          "cues": [],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "chest-supported-db-row",
+            "single-arm-cable-row"
+          ],
+          "rpeTarget": 8
+        },
+        {
+          "id": "p3b-4",
+          "order": 5,
+          "label": "4",
+          "exerciseId": "seated-db-shoulder-press",
+          "sets": 3,
+          "repsMin": 8,
+          "repsMax": 10,
+          "prescriptionText": "3 × 8–10, RPE 8",
+          "cues": [],
+          "progressionRule": "double-progression",
+          "substitutionIds": [],
+          "rpeTarget": 8
+        },
+        {
+          "id": "p3b-5",
+          "order": 6,
+          "label": "5",
+          "exerciseId": "copenhagen-plank-long",
+          "sets": 3,
+          "repsMin": 15,
+          "repsMax": 20,
+          "prescriptionText": "3 × 15–20 s each side",
+          "cues": [
+            "Copenhagen plank goes long lever (ankle on the bench)"
+          ],
+          "progressionRule": "time",
+          "substitutionIds": [
+            "copenhagen-plank-short",
+            "hip-adductor-machine"
+          ],
+          "repUnit": "seconds",
+          "perSideLabel": "each side",
+          "unilateral": true
+        },
+        {
+          "id": "p3b-6",
+          "order": 7,
+          "label": "6",
+          "exerciseId": "lateral-step-down",
+          "sets": 3,
+          "repsMin": 8,
+          "repsMax": 8,
+          "prescriptionText": "3 × 8 each leg",
+          "cues": [
+            "Slow. Film it from the front; the knee stays over the foot and doesn't cave inward"
+          ],
+          "progressionRule": "height-then-load",
+          "substitutionIds": [
+            "step-up-stair"
+          ],
+          "perSideLabel": "each leg",
+          "unilateral": true,
+          "heightIn": 6,
+          "heightMaxIn": 8
+        },
+        {
+          "id": "p3b-7",
+          "order": 8,
+          "label": "7",
+          "exerciseId": "side-plank",
+          "sets": 3,
+          "repsMin": 30,
+          "repsMax": 30,
+          "prescriptionText": "3 × 30 s each side",
+          "cues": [
+            "Pair with 8"
+          ],
+          "progressionRule": "fixed",
+          "substitutionIds": [],
+          "repUnit": "seconds",
+          "perSideLabel": "each side",
+          "pairWithSlot": "p3b-8"
+        },
+        {
+          "id": "p3b-8",
+          "order": 9,
+          "label": "8",
+          "exerciseId": "pallof-press",
+          "sets": 2,
+          "repsMin": 10,
+          "repsMax": 10,
+          "prescriptionText": "2 × 10 each side",
+          "cues": [
+            "Cable at chest height; press out and hold 2 s"
+          ],
+          "progressionRule": "double-progression",
+          "substitutionIds": [],
+          "perSideLabel": "each side"
+        },
+        {
+          "id": "p3b-upper4",
+          "order": 10,
+          "label": "4th upper",
+          "exerciseId": "face-pull",
+          "sets": 3,
+          "repsMin": 10,
+          "repsMax": 12,
+          "prescriptionText": "(not written) 3 × 10–12, RPE 8",
+          "rpeTarget": 8,
+          "cues": [
+            "Add a fourth upper slot (face pulls or the rear-delt machine) if sessions finish under 55 minutes"
+          ],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "rear-delt-machine"
+          ],
+          "optional": true
+        }
+      ]
+    },
+    {
+      "id": "p3-c",
+      "phase": 3,
+      "letter": "C",
+      "slots": [
+        {
+          "id": "p3c-plyo-1",
+          "order": 1,
+          "label": "plyo",
+          "exerciseId": "pogo-hops",
+          "sets": 3,
+          "repsMin": 15,
+          "repsMax": 15,
+          "prescriptionText": "3 × 15 s",
+          "cues": [
+            "Landing rules: every landing is quiet and stuck, about 40 ground contacts a session is plenty at this stage, and a loud landing or a knee that caves inward ends the set."
+          ],
+          "progressionRule": "fixed",
+          "substitutionIds": [],
+          "repUnit": "seconds",
+          "weeks": [
+            8,
+            9
+          ]
+        },
+        {
+          "id": "p3c-plyo-2",
+          "order": 2,
+          "label": "plyo",
+          "exerciseId": "step-off-landing",
+          "sets": 3,
+          "repsMin": 5,
+          "repsMax": 5,
+          "prescriptionText": "3 × 5",
+          "cues": [
+            "Landing rules: every landing is quiet and stuck, about 40 ground contacts a session is plenty at this stage, and a loud landing or a knee that caves inward ends the set."
+          ],
+          "progressionRule": "fixed",
+          "substitutionIds": [],
+          "weeks": [
+            8,
+            9
+          ]
+        },
+        {
+          "id": "p3c-plyo-3",
+          "order": 3,
+          "label": "plyo",
+          "exerciseId": "lateral-line-hops",
+          "sets": 3,
+          "repsMin": 10,
+          "repsMax": 10,
+          "prescriptionText": "3 × 10 s",
+          "cues": [
+            "Landing rules: every landing is quiet and stuck, about 40 ground contacts a session is plenty at this stage, and a loud landing or a knee that caves inward ends the set."
+          ],
+          "progressionRule": "fixed",
+          "substitutionIds": [],
+          "repUnit": "seconds",
+          "weeks": [
+            8,
+            9
+          ]
+        },
+        {
+          "id": "p3c-plyo-4",
+          "order": 4,
+          "label": "plyo",
+          "exerciseId": "single-leg-pogos",
+          "sets": 3,
+          "repsMin": 10,
+          "repsMax": 10,
+          "prescriptionText": "3 × 10 s each leg",
+          "cues": [
+            "Landing rules: every landing is quiet and stuck, about 40 ground contacts a session is plenty at this stage, and a loud landing or a knee that caves inward ends the set."
+          ],
+          "progressionRule": "fixed",
+          "substitutionIds": [],
+          "repUnit": "seconds",
+          "perSideLabel": "each leg",
+          "unilateral": true,
+          "weeks": [
+            10,
+            11
+          ]
+        },
+        {
+          "id": "p3c-plyo-5",
+          "order": 5,
+          "label": "plyo",
+          "exerciseId": "jump-onto-step",
+          "sets": 3,
+          "repsMin": 5,
+          "repsMax": 5,
+          "prescriptionText": "3 × 5",
+          "cues": [
+            "Jump onto the circuit step and step down (never jump down)",
+            "Landing rules: every landing is quiet and stuck, about 40 ground contacts a session is plenty at this stage, and a loud landing or a knee that caves inward ends the set."
+          ],
+          "progressionRule": "fixed",
+          "substitutionIds": [],
+          "weeks": [
+            10,
+            11
+          ]
+        },
+        {
+          "id": "p3c-plyo-6",
+          "order": 6,
+          "label": "plyo",
+          "exerciseId": "skater-bounds-stuck",
+          "sets": 3,
+          "repsMin": 4,
+          "repsMax": 4,
+          "prescriptionText": "3 × 4 each side",
+          "cues": [
+            "Landing rules: every landing is quiet and stuck, about 40 ground contacts a session is plenty at this stage, and a loud landing or a knee that caves inward ends the set."
+          ],
+          "progressionRule": "fixed",
+          "substitutionIds": [],
+          "perSideLabel": "each side",
+          "weeks": [
+            10,
+            11
+          ]
+        },
+        {
+          "id": "p3c-plyo-7",
+          "order": 7,
+          "label": "plyo",
+          "exerciseId": "single-leg-forward-hop-stick",
+          "sets": 3,
+          "repsMin": 3,
+          "repsMax": 3,
+          "prescriptionText": "3 × 3 each leg",
+          "cues": [
+            "At about 70%",
+            "Landing rules: every landing is quiet and stuck, about 40 ground contacts a session is plenty at this stage, and a loud landing or a knee that caves inward ends the set."
+          ],
+          "progressionRule": "fixed",
+          "substitutionIds": [],
+          "perSideLabel": "each leg",
+          "unilateral": true,
+          "weeks": [
+            10,
+            11
+          ]
+        },
+        {
+          "id": "p3c-plyo-8",
+          "order": 8,
+          "label": "plyo",
+          "exerciseId": "repeat-hops-both",
+          "sets": 2,
+          "repsMin": 3,
+          "repsMax": 3,
+          "prescriptionText": "2 × 3",
+          "cues": [
+            "Repeat hops, 3 in a row, both feet then single leg",
+            "Landing rules: every landing is quiet and stuck, about 40 ground contacts a session is plenty at this stage, and a loud landing or a knee that caves inward ends the set."
+          ],
+          "progressionRule": "fixed",
+          "substitutionIds": [],
+          "weeks": [
+            12,
+            12
+          ]
+        },
+        {
+          "id": "p3c-plyo-9",
+          "order": 9,
+          "label": "plyo",
+          "exerciseId": "repeat-hops-single",
+          "sets": 2,
+          "repsMin": 3,
+          "repsMax": 3,
+          "prescriptionText": "2 × 3 each leg",
+          "cues": [
+            "Landing rules: every landing is quiet and stuck, about 40 ground contacts a session is plenty at this stage, and a loud landing or a knee that caves inward ends the set."
+          ],
+          "progressionRule": "fixed",
+          "substitutionIds": [],
+          "perSideLabel": "each leg",
+          "unilateral": true,
+          "weeks": [
+            12,
+            12
+          ]
+        },
+        {
+          "id": "p3c-plyo-10",
+          "order": 10,
+          "label": "plyo",
+          "exerciseId": "continuous-skater-bounds",
+          "sets": 2,
+          "repsMin": 6,
+          "repsMax": 6,
+          "prescriptionText": "2 × 6",
+          "cues": [
+            "Landing rules: every landing is quiet and stuck, about 40 ground contacts a session is plenty at this stage, and a loud landing or a knee that caves inward ends the set."
+          ],
+          "progressionRule": "fixed",
+          "substitutionIds": [],
+          "weeks": [
+            12,
+            12
+          ]
+        },
+        {
+          "id": "p3c-plyo-11",
+          "order": 11,
+          "label": "plyo",
+          "exerciseId": "change-of-direction-45",
+          "sets": 2,
+          "repsMin": 6,
+          "repsMax": 6,
+          "prescriptionText": "2 × 6 cuts each way",
+          "cues": [
+            "45° change-of-direction at a jog on an open patch of floor",
+            "Landing rules: every landing is quiet and stuck, about 40 ground contacts a session is plenty at this stage, and a loud landing or a knee that caves inward ends the set."
+          ],
+          "progressionRule": "fixed",
+          "substitutionIds": [],
+          "perSideLabel": "each way",
+          "weeks": [
+            12,
+            12
+          ]
+        },
+        {
+          "id": "p3c-1",
+          "order": 12,
+          "label": "1",
+          "exerciseId": "step-up",
+          "sets": 3,
+          "repsMin": 8,
+          "repsMax": 8,
+          "prescriptionText": "3 × 8 each leg",
+          "cues": [
+            "Step-up to a high step with a knee drive at the top. Height grows before load does"
+          ],
+          "progressionRule": "height-then-load",
+          "substitutionIds": [
+            "step-up-stair",
+            "split-squat"
+          ],
+          "perSideLabel": "each leg",
+          "unilateral": true,
+          "heightIn": 16,
+          "loadNote": "Step-up to a high step with a knee drive at the top"
+        },
+        {
+          "id": "p3c-2",
+          "order": 13,
+          "label": "2",
+          "exerciseId": "single-leg-rdl",
+          "sets": 3,
+          "repsMin": 6,
+          "repsMax": 8,
+          "prescriptionText": "3 × 6–8, RPE 8",
+          "cues": [
+            "Dumbbell in the opposite hand, hips square. Tap the free foot down and reset if you lose balance"
+          ],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "db-rdl",
+            "smith-rdl"
+          ],
+          "rpeTarget": 8,
+          "perSideLabel": "each leg",
+          "unilateral": true
+        },
+        {
+          "id": "p3c-3",
+          "order": 14,
+          "label": "3",
+          "exerciseId": "assisted-pull-up",
+          "sets": 3,
+          "repsMin": 6,
+          "repsMax": 10,
+          "prescriptionText": "3 × 6–10, RPE 8",
+          "cues": [
+            "Lat pulldown if it's taken"
+          ],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "lat-pulldown",
+            "single-arm-cable-pulldown"
+          ],
+          "rpeTarget": 8
+        },
+        {
+          "id": "p3c-4",
+          "order": 15,
+          "label": "4",
+          "exerciseId": "incline-db-press",
+          "sets": 3,
+          "repsMin": 8,
+          "repsMax": 10,
+          "prescriptionText": "3 × 8–10, RPE 8",
+          "cues": [],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "chest-press-machine",
+            "smith-bench-press"
+          ],
+          "rpeTarget": 8
+        },
+        {
+          "id": "p3c-5",
+          "order": 16,
+          "label": "5",
+          "exerciseId": "leg-extension",
+          "sets": 2,
+          "repsMin": 12,
+          "repsMax": 15,
+          "prescriptionText": "2 × 12–15, RPE 7",
+          "cues": [
+            "Still stopping short of straight"
+          ],
+          "progressionRule": "range-then-load",
+          "substitutionIds": [
+            "wall-sit"
+          ],
+          "rpeTarget": 7,
+          "rangeStopDeg": 30,
+          "loadNote": "Leg extension, 90° to 30°"
+        },
+        {
+          "id": "p3c-6",
+          "order": 17,
+          "label": "6",
+          "exerciseId": "walking-lunge",
+          "sets": 3,
+          "repsMin": 8,
+          "repsMax": 8,
+          "prescriptionText": "3 × 8 each leg",
+          "cues": [
+            "Reverse lunge becomes walking lunge with dumbbells"
+          ],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "reverse-lunge",
+            "split-squat"
+          ],
+          "perSideLabel": "each leg",
+          "unilateral": true
+        },
+        {
+          "id": "p3c-7",
+          "order": 18,
+          "label": "7",
+          "exerciseId": "farmers-carry",
+          "sets": 3,
+          "repsMin": 40,
+          "repsMax": 40,
+          "prescriptionText": "3 × 40 yd",
+          "cues": [
+            "The heaviest dumbbells you can carry with tall posture"
+          ],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "suitcase-carry"
+          ],
+          "repUnit": "yards"
+        },
+        {
+          "id": "p3c-8a",
+          "order": 19,
+          "label": "8a",
+          "exerciseId": "lateral-band-walk",
+          "sets": 2,
+          "repsMin": 12,
+          "repsMax": 12,
+          "prescriptionText": "2 × 12 steps each way",
+          "cues": [
+            "Mini band above the knees, quarter squat, no waddle"
+          ],
+          "progressionRule": "fixed",
+          "substitutionIds": [
+            "cable-hip-abduction"
+          ],
+          "repUnit": "steps",
+          "perSideLabel": "each way",
+          "pairWithSlot": "p3c-8b"
+        },
+        {
+          "id": "p3c-8b",
+          "order": 20,
+          "label": "8b",
+          "exerciseId": "cable-hip-abduction",
+          "sets": 2,
+          "repsMin": 12,
+          "repsMax": 12,
+          "prescriptionText": "2 × 12 each side",
+          "cues": [
+            "Stand on the injured leg while the other leg works; the standing leg is the one training"
+          ],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "lateral-band-walk",
+            "hip-abductor-machine",
+            "copenhagen-plank-short"
+          ],
+          "perSideLabel": "each side",
+          "unilateral": true,
+          "pairWithSlot": "p3c-8a"
+        },
+        {
+          "id": "p3c-upper4",
+          "order": 21,
+          "label": "4th upper",
+          "exerciseId": "face-pull",
+          "sets": 3,
+          "repsMin": 10,
+          "repsMax": 12,
+          "prescriptionText": "(not written) 3 × 10–12, RPE 8",
+          "rpeTarget": 8,
+          "cues": [
+            "Add a fourth upper slot (face pulls or the rear-delt machine) if sessions finish under 55 minutes"
+          ],
+          "progressionRule": "double-progression",
+          "substitutionIds": [
+            "rear-delt-machine"
+          ],
+          "optional": true
+        }
+      ]
+    }
+  ],
+  "gates": [
+    {
+      "number": 1,
+      "fromPhase": 1,
+      "toPhase": 2,
+      "title": "Gate 1, to leave Phase 1",
+      "items": [
+        {
+          "id": "g1-clean-weeks",
+          "text": "two consecutive clean weeks",
+          "evaluator": "clean-weeks",
+          "windowDays": 14
+        },
+        {
+          "id": "g1-sl-leg-press",
+          "text": "10 single-leg leg presses on the injured side within 20% of the other side's load",
+          "evaluator": "symmetry",
+          "threshold": 0.8,
+          "testItem": "sl-leg-press-10rm"
+        },
+        {
+          "id": "g1-stance",
+          "text": "30 s of single-leg stance with eyes closed",
+          "evaluator": "manual"
+        },
+        {
+          "id": "g1-run",
+          "text": "a 4-mile run with no next-morning reaction",
+          "evaluator": "run-no-reaction",
+          "minMiles": 4
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "fromPhase": 2,
+      "toPhase": 3,
+      "title": "Gate 2, to leave Phase 2",
+      "items": [
+        {
+          "id": "g2-step-down",
+          "text": "10 lateral step-downs each side with no inward knee drift on video",
+          "evaluator": "manual"
+        },
+        {
+          "id": "g2-sl-leg-press",
+          "text": "single-leg leg press and Bulgarian loads within 10% side to side (single-leg leg press)",
+          "evaluator": "symmetry",
+          "threshold": 0.9,
+          "testItem": "sl-leg-press-load"
+        },
+        {
+          "id": "g2-bulgarian",
+          "text": "single-leg leg press and Bulgarian loads within 10% side to side (Bulgarian split squat)",
+          "evaluator": "symmetry",
+          "threshold": 0.9,
+          "testItem": "bulgarian-load"
+        },
+        {
+          "id": "g2-calf-raises",
+          "text": "20 single-leg calf raises each side",
+          "evaluator": "calf-raises",
+          "minReps": 20,
+          "windowDays": 14
+        },
+        {
+          "id": "g2-no-swelling",
+          "text": "no swelling after any run or lift for two weeks",
+          "evaluator": "no-swelling",
+          "windowDays": 14
+        }
+      ]
+    },
+    {
+      "number": 3,
+      "fromPhase": 3,
+      "toPhase": 4,
+      "title": "Gate 3, to leave Phase 3",
+      "items": [
+        {
+          "id": "g3-single-hop",
+          "text": "single hop for distance, each leg, best of three, with the injured side at 90% or better of the other",
+          "evaluator": "symmetry",
+          "threshold": 0.9,
+          "testItem": "single-hop",
+          "trials": 3
+        },
+        {
+          "id": "g3-triple-hop",
+          "text": "triple hop for distance, each leg, best of three, with the injured side at 90% or better of the other",
+          "evaluator": "symmetry",
+          "threshold": 0.9,
+          "testItem": "triple-hop",
+          "trials": 3
+        },
+        {
+          "id": "g3-crossover-hop",
+          "text": "crossover hop for distance, each leg, best of three, with the injured side at 90% or better of the other",
+          "evaluator": "symmetry",
+          "threshold": 0.9,
+          "testItem": "crossover-hop",
+          "trials": 3
+        },
+        {
+          "id": "g3-sl-leg-press-8rm",
+          "text": "single-leg leg press 8RM within 10%",
+          "evaluator": "symmetry",
+          "threshold": 0.9,
+          "testItem": "sl-leg-press-8rm"
+        },
+        {
+          "id": "g3-no-swelling-plyo",
+          "text": "no swelling the morning after a plyo session",
+          "evaluator": "no-swelling-after-plyo",
+          "windowDays": 14
+        },
+        {
+          "id": "g3-trust",
+          "text": "you'd trust the knee at full speed without thinking about it",
+          "evaluator": "manual"
+        },
+        {
+          "id": "g3-sign-off",
+          "text": "ortho or PT sign-off before anything with contact",
+          "evaluator": "manual"
+        }
+      ]
+    }
+  ],
+  "mileagePlan": [
+    {
+      "week": 1,
+      "starts": "2026-11-02",
+      "targetMiles": 10,
+      "isDown": false
+    },
+    {
+      "week": 2,
+      "starts": "2026-11-09",
+      "targetMiles": 11,
+      "isDown": false
+    },
+    {
+      "week": 3,
+      "starts": "2026-11-16",
+      "targetMiles": 12,
+      "isDown": false
+    },
+    {
+      "week": 4,
+      "starts": "2026-11-23",
+      "targetMiles": 9,
+      "isDown": true
+    },
+    {
+      "week": 5,
+      "starts": "2026-11-30",
+      "targetMiles": 13,
+      "isDown": false
+    },
+    {
+      "week": 6,
+      "starts": "2026-12-07",
+      "targetMiles": 14,
+      "isDown": false
+    },
+    {
+      "week": 7,
+      "starts": "2026-12-14",
+      "targetMiles": 15,
+      "isDown": false
+    },
+    {
+      "week": 8,
+      "starts": "2026-12-21",
+      "targetMiles": 11,
+      "isDown": true
+    },
+    {
+      "week": 9,
+      "starts": "2026-12-28",
+      "targetMiles": 16,
+      "isDown": false
+    },
+    {
+      "week": 10,
+      "starts": "2027-01-04",
+      "targetMiles": 17,
+      "isDown": false
+    },
+    {
+      "week": 11,
+      "starts": "2027-01-11",
+      "targetMiles": 18,
+      "isDown": false
+    },
+    {
+      "week": 12,
+      "starts": "2027-01-18",
+      "targetMiles": 14,
+      "isDown": true
+    }
+  ],
+  "exercises": [
+    {
+      "id": "leg-press",
+      "name": "Leg press, both legs",
+      "pattern": "squat",
+      "equipment": "Seated leg press",
+      "loadType": "stack",
+      "loadUnit": "plate",
+      "increment": 1,
+      "unilateral": false
+    },
+    {
+      "id": "leg-press-45",
+      "name": "45° leg press",
+      "pattern": "squat",
+      "equipment": "45° plate-loaded leg press",
+      "loadType": "plates",
+      "loadUnit": "lb",
+      "increment": 10,
+      "unilateral": false
+    },
+    {
+      "id": "single-leg-leg-press",
+      "name": "Single-leg leg press",
+      "pattern": "single-leg",
+      "equipment": "Seated leg press, one leg at a time",
+      "loadType": "stack",
+      "loadUnit": "plate",
+      "increment": 1,
+      "unilateral": true
+    },
+    {
+      "id": "smith-box-squat",
+      "name": "Smith machine box squat",
+      "pattern": "squat",
+      "equipment": "Smith machine, bench",
+      "loadType": "smith-plates",
+      "loadUnit": "lb",
+      "increment": 10,
+      "unilateral": false
+    },
+    {
+      "id": "goblet-squat-bench",
+      "name": "Goblet squat to a bench",
+      "pattern": "squat",
+      "equipment": "Dumbbell, bench",
+      "loadType": "dumbbell-single",
+      "loadUnit": "lb",
+      "increment": 5,
+      "unilateral": false
+    },
+    {
+      "id": "leg-extension",
+      "name": "Leg extension",
+      "pattern": "quad",
+      "equipment": "Leg extension machine",
+      "loadType": "stack",
+      "loadUnit": "plate",
+      "increment": 1,
+      "unilateral": false
+    },
+    {
+      "id": "wall-sit",
+      "name": "Wall sit",
+      "pattern": "quad",
+      "equipment": "Wall",
+      "loadType": "time",
+      "loadUnit": "s",
+      "increment": 5,
+      "unilateral": false
+    },
+    {
+      "id": "db-rdl",
+      "name": "Dumbbell Romanian deadlift",
+      "pattern": "hinge",
+      "equipment": "Dumbbells",
+      "loadType": "dumbbell-each",
+      "loadUnit": "lb",
+      "increment": 5,
+      "unilateral": false
+    },
+    {
+      "id": "smith-rdl",
+      "name": "Smith machine RDL",
+      "pattern": "hinge",
+      "equipment": "Smith machine",
+      "loadType": "smith-plates",
+      "loadUnit": "lb",
+      "increment": 10,
+      "unilateral": false
+    },
+    {
+      "id": "single-leg-rdl",
+      "name": "Single-leg RDL",
+      "pattern": "hinge",
+      "equipment": "One dumbbell, opposite hand",
+      "loadType": "dumbbell-single",
+      "loadUnit": "lb",
+      "increment": 5,
+      "unilateral": true
+    },
+    {
+      "id": "back-extension-45",
+      "name": "45° back extension",
+      "pattern": "hinge",
+      "equipment": "45° back extension bench; a plate once 12 is easy",
+      "loadType": "dumbbell-single",
+      "loadUnit": "lb",
+      "increment": 5,
+      "unilateral": false
+    },
+    {
+      "id": "smith-hip-thrust",
+      "name": "Smith machine hip thrust",
+      "pattern": "hip",
+      "equipment": "Smith machine, bench, folded mat",
+      "loadType": "smith-plates",
+      "loadUnit": "lb",
+      "increment": 10,
+      "unilateral": false
+    },
+    {
+      "id": "db-glute-bridge",
+      "name": "Dumbbell glute bridge",
+      "pattern": "hip",
+      "equipment": "One dumbbell, floor",
+      "loadType": "dumbbell-single",
+      "loadUnit": "lb",
+      "increment": 5,
+      "unilateral": false
+    },
+    {
+      "id": "db-hip-thrust",
+      "name": "Dumbbell hip thrust, shoulders on a bench",
+      "pattern": "hip",
+      "equipment": "One dumbbell, bench",
+      "loadType": "dumbbell-single",
+      "loadUnit": "lb",
+      "increment": 5,
+      "unilateral": false
+    },
+    {
+      "id": "single-leg-hip-thrust",
+      "name": "Single-leg hip thrust, shoulders on the bench",
+      "pattern": "hip",
+      "equipment": "Bench",
+      "loadType": "bodyweight",
+      "loadUnit": "none",
+      "increment": 0,
+      "unilateral": true
+    },
+    {
+      "id": "hip-abductor-machine",
+      "name": "Hip abductor machine",
+      "pattern": "hip",
+      "equipment": "Hip abductor machine",
+      "loadType": "stack",
+      "loadUnit": "plate",
+      "increment": 1,
+      "unilateral": false
+    },
+    {
+      "id": "hip-adductor-machine",
+      "name": "Hip adductor machine",
+      "pattern": "hip",
+      "equipment": "Hip adductor machine",
+      "loadType": "stack",
+      "loadUnit": "plate",
+      "increment": 1,
+      "unilateral": false
+    },
+    {
+      "id": "cable-hip-abduction",
+      "name": "Cable hip abduction, ankle strap",
+      "pattern": "hip",
+      "equipment": "Cable station, ankle strap",
+      "loadType": "stack",
+      "loadUnit": "plate",
+      "increment": 1,
+      "unilateral": true,
+      "sideMeaning": "The standing leg is the one training: log the leg you stand on."
+    },
+    {
+      "id": "cable-hip-adduction",
+      "name": "Cable hip adduction, ankle strap",
+      "pattern": "hip",
+      "equipment": "Cable station, ankle strap",
+      "loadType": "stack",
+      "loadUnit": "plate",
+      "increment": 1,
+      "unilateral": true
+    },
+    {
+      "id": "lateral-band-walk",
+      "name": "Lateral band walk",
+      "pattern": "hip",
+      "equipment": "Mini loop band",
+      "loadType": "band",
+      "loadUnit": "none",
+      "increment": 0,
+      "unilateral": false
+    },
+    {
+      "id": "copenhagen-plank-short",
+      "name": "Copenhagen plank, short lever",
+      "pattern": "hip",
+      "equipment": "Bench",
+      "loadType": "time",
+      "loadUnit": "s",
+      "increment": 5,
+      "unilateral": true,
+      "sideMeaning": "The top leg, knee on the bench, is the one training."
+    },
+    {
+      "id": "copenhagen-plank-long",
+      "name": "Copenhagen plank, long lever",
+      "pattern": "hip",
+      "equipment": "Bench",
+      "loadType": "time",
+      "loadUnit": "s",
+      "increment": 5,
+      "unilateral": true,
+      "sideMeaning": "The top leg, ankle on the bench, is the one training."
+    },
+    {
+      "id": "seated-leg-curl",
+      "name": "Seated leg curl",
+      "pattern": "hamstring",
+      "equipment": "Seated leg curl machine",
+      "loadType": "stack",
+      "loadUnit": "plate",
+      "increment": 1,
+      "unilateral": false
+    },
+    {
+      "id": "single-leg-seated-leg-curl",
+      "name": "Single-leg seated leg curl",
+      "pattern": "hamstring",
+      "equipment": "Seated leg curl machine, one leg",
+      "loadType": "stack",
+      "loadUnit": "plate",
+      "increment": 1,
+      "unilateral": true
+    },
+    {
+      "id": "lying-leg-curl",
+      "name": "Lying leg curl",
+      "pattern": "hamstring",
+      "equipment": "Lying leg curl machine",
+      "loadType": "stack",
+      "loadUnit": "plate",
+      "increment": 1,
+      "unilateral": false
+    },
+    {
+      "id": "stability-ball-leg-curl",
+      "name": "Stability-ball leg curl",
+      "pattern": "hamstring",
+      "equipment": "Stability ball",
+      "loadType": "bodyweight",
+      "loadUnit": "none",
+      "increment": 0,
+      "unilateral": false
+    },
+    {
+      "id": "nordic-negatives",
+      "name": "Nordic hamstring negatives",
+      "pattern": "hamstring",
+      "equipment": "Lat pulldown thigh pad at its lowest notch, mat",
+      "loadType": "bodyweight",
+      "loadUnit": "none",
+      "increment": 0,
+      "unilateral": false,
+      "notes": "Lat pulldown thigh pad at its lowest notch, kneel facing away with heels tucked under it, a mat under the knees. The back extension bench's foot plates work too."
+    },
+    {
+      "id": "step-up",
+      "name": "Step-up",
+      "pattern": "single-leg",
+      "equipment": "Step platforms (stackable risers), dumbbells",
+      "loadType": "step-height",
+      "loadUnit": "in",
+      "increment": 2,
+      "unilateral": true,
+      "heightIncrementIn": 2,
+      "holdsLoad": "dumbbell-each"
+    },
+    {
+      "id": "step-up-stair",
+      "name": "Step-up on the lowest stair in the club",
+      "pattern": "single-leg",
+      "equipment": "The lowest stair in the club",
+      "loadType": "step-height",
+      "loadUnit": "in",
+      "increment": 2,
+      "unilateral": true,
+      "heightIncrementIn": 2,
+      "holdsLoad": "dumbbell-each"
+    },
+    {
+      "id": "split-squat",
+      "name": "Split squat",
+      "pattern": "single-leg",
+      "equipment": "Dumbbells",
+      "loadType": "dumbbell-each",
+      "loadUnit": "lb",
+      "increment": 5,
+      "unilateral": true
+    },
+    {
+      "id": "bulgarian-split-squat",
+      "name": "Bulgarian split squat",
+      "pattern": "single-leg",
+      "equipment": "Flat bench, dumbbells",
+      "loadType": "dumbbell-each",
+      "loadUnit": "lb",
+      "increment": 5,
+      "unilateral": true
+    },
+    {
+      "id": "lateral-step-down",
+      "name": "Lateral step-down",
+      "pattern": "single-leg",
+      "equipment": "6–8 in. step",
+      "loadType": "step-height",
+      "loadUnit": "in",
+      "increment": 2,
+      "unilateral": true,
+      "heightIncrementIn": 2
+    },
+    {
+      "id": "reverse-lunge",
+      "name": "Reverse lunge with dumbbells",
+      "pattern": "single-leg",
+      "equipment": "Dumbbells",
+      "loadType": "dumbbell-each",
+      "loadUnit": "lb",
+      "increment": 5,
+      "unilateral": true
+    },
+    {
+      "id": "walking-lunge",
+      "name": "Walking lunge with dumbbells",
+      "pattern": "single-leg",
+      "equipment": "Dumbbells",
+      "loadType": "dumbbell-each",
+      "loadUnit": "lb",
+      "increment": 5,
+      "unilateral": true
+    },
+    {
+      "id": "lateral-lunge",
+      "name": "Lateral lunge with a dumbbell",
+      "pattern": "single-leg",
+      "equipment": "One dumbbell",
+      "loadType": "dumbbell-single",
+      "loadUnit": "lb",
+      "increment": 5,
+      "unilateral": true
+    },
+    {
+      "id": "standing-calf-raise",
+      "name": "Standing calf raise on the leg press or Smith",
+      "pattern": "calf",
+      "equipment": "Leg press or Smith machine",
+      "loadType": "stack",
+      "loadUnit": "plate",
+      "increment": 1,
+      "unilateral": false
+    },
+    {
+      "id": "seated-calf-raise",
+      "name": "Seated calf raise",
+      "pattern": "calf",
+      "equipment": "Seated calf machine",
+      "loadType": "stack",
+      "loadUnit": "plate",
+      "increment": 1,
+      "unilateral": false
+    },
+    {
+      "id": "single-leg-calf-raise-step",
+      "name": "Single-leg calf raise on a step",
+      "pattern": "calf",
+      "equipment": "Step, rail for balance; a dumbbell from Phase 3",
+      "loadType": "dumbbell-single",
+      "loadUnit": "lb",
+      "increment": 5,
+      "unilateral": true
+    },
+    {
+      "id": "single-leg-balance",
+      "name": "Single-leg balance",
+      "pattern": "balance",
+      "equipment": "Floor, then a folded mat",
+      "loadType": "time",
+      "loadUnit": "s",
+      "increment": 5,
+      "unilateral": true,
+      "stages": [
+        "eyes open",
+        "eyes closed",
+        "on a folded mat"
+      ]
+    },
+    {
+      "id": "balance-mat-bosu",
+      "name": "Balance on a folded mat or bosu",
+      "pattern": "balance",
+      "equipment": "Folded mat or bosu",
+      "loadType": "time",
+      "loadUnit": "s",
+      "increment": 5,
+      "unilateral": true,
+      "stages": [
+        "folded mat",
+        "folded mat, slow head turns",
+        "folded mat, eyes closed",
+        "bosu",
+        "bosu, slow head turns",
+        "bosu, eyes closed"
+      ]
+    },
+    {
+      "id": "db-bench-press",
+      "name": "Dumbbell bench press",
+      "pattern": "push",
+      "equipment": "Dumbbells, flat bench",
+      "loadType": "dumbbell-each",
+      "loadUnit": "lb",
+      "increment": 5,
+      "unilateral": false
+    },
+    {
+      "id": "incline-db-press",
+      "name": "Incline dumbbell press",
+      "pattern": "push",
+      "equipment": "Dumbbells, incline bench",
+      "loadType": "dumbbell-each",
+      "loadUnit": "lb",
+      "increment": 5,
+      "unilateral": false
+    },
+    {
+      "id": "chest-press-machine",
+      "name": "Chest press machine",
+      "pattern": "push",
+      "equipment": "Chest press machine",
+      "loadType": "stack",
+      "loadUnit": "plate",
+      "increment": 1,
+      "unilateral": false
+    },
+    {
+      "id": "smith-bench-press",
+      "name": "Smith bench press",
+      "pattern": "push",
+      "equipment": "Smith machine, bench",
+      "loadType": "smith-plates",
+      "loadUnit": "lb",
+      "increment": 10,
+      "unilateral": false
+    },
+    {
+      "id": "seated-db-shoulder-press",
+      "name": "Seated dumbbell shoulder press",
+      "pattern": "push",
+      "equipment": "Dumbbells, bench",
+      "loadType": "dumbbell-each",
+      "loadUnit": "lb",
+      "increment": 5,
+      "unilateral": false
+    },
+    {
+      "id": "lat-pulldown",
+      "name": "Lat pulldown",
+      "pattern": "pull",
+      "equipment": "Lat pulldown",
+      "loadType": "stack",
+      "loadUnit": "plate",
+      "increment": 1,
+      "unilateral": false
+    },
+    {
+      "id": "assisted-pull-up",
+      "name": "Assisted pull-up",
+      "pattern": "pull",
+      "equipment": "Assisted pull-up machine",
+      "loadType": "stack",
+      "loadUnit": "plate",
+      "increment": 1,
+      "unilateral": false,
+      "loadDirection": "down",
+      "notes": "The stack is the assist: a lower plate number is harder."
+    },
+    {
+      "id": "single-arm-cable-pulldown",
+      "name": "Single-arm cable pulldown",
+      "pattern": "pull",
+      "equipment": "Cable station",
+      "loadType": "stack",
+      "loadUnit": "plate",
+      "increment": 1,
+      "unilateral": false
+    },
+    {
+      "id": "seated-cable-row",
+      "name": "Seated cable row",
+      "pattern": "pull",
+      "equipment": "Seated row",
+      "loadType": "stack",
+      "loadUnit": "plate",
+      "increment": 1,
+      "unilateral": false
+    },
+    {
+      "id": "chest-supported-db-row",
+      "name": "Chest-supported dumbbell row",
+      "pattern": "pull",
+      "equipment": "Dumbbells, incline bench",
+      "loadType": "dumbbell-each",
+      "loadUnit": "lb",
+      "increment": 5,
+      "unilateral": false
+    },
+    {
+      "id": "single-arm-cable-row",
+      "name": "Single-arm cable row",
+      "pattern": "pull",
+      "equipment": "Cable station",
+      "loadType": "stack",
+      "loadUnit": "plate",
+      "increment": 1,
+      "unilateral": false
+    },
+    {
+      "id": "face-pull",
+      "name": "Face pull",
+      "pattern": "pull",
+      "equipment": "Cable crossover, rope",
+      "loadType": "stack",
+      "loadUnit": "plate",
+      "increment": 1,
+      "unilateral": false
+    },
+    {
+      "id": "rear-delt-machine",
+      "name": "Rear-delt machine",
+      "pattern": "pull",
+      "equipment": "Rear-delt machine",
+      "loadType": "stack",
+      "loadUnit": "plate",
+      "increment": 1,
+      "unilateral": false
+    },
+    {
+      "id": "dead-bug",
+      "name": "Dead bug",
+      "pattern": "core",
+      "equipment": "Mat",
+      "loadType": "bodyweight",
+      "loadUnit": "none",
+      "increment": 0,
+      "unilateral": false
+    },
+    {
+      "id": "side-plank",
+      "name": "Side plank",
+      "pattern": "core",
+      "equipment": "Mat",
+      "loadType": "time",
+      "loadUnit": "s",
+      "increment": 5,
+      "unilateral": false
+    },
+    {
+      "id": "pallof-press",
+      "name": "Pallof press, standing",
+      "pattern": "core",
+      "equipment": "Cable station",
+      "loadType": "stack",
+      "loadUnit": "plate",
+      "increment": 1,
+      "unilateral": false
+    },
+    {
+      "id": "farmers-carry",
+      "name": "Farmer's carry",
+      "pattern": "carry",
+      "equipment": "Dumbbells",
+      "loadType": "dumbbell-each",
+      "loadUnit": "lb",
+      "increment": 5,
+      "unilateral": false
+    },
+    {
+      "id": "suitcase-carry",
+      "name": "Suitcase carry",
+      "pattern": "carry",
+      "equipment": "One dumbbell",
+      "loadType": "dumbbell-single",
+      "loadUnit": "lb",
+      "increment": 5,
+      "unilateral": false
+    },
+    {
+      "id": "elliptical-easy",
+      "name": "Elliptical, easy",
+      "pattern": "cardio",
+      "equipment": "Elliptical",
+      "loadType": "time",
+      "loadUnit": "s",
+      "increment": 60,
+      "unilateral": false
+    },
+    {
+      "id": "snap-down",
+      "name": "Snap-down",
+      "pattern": "plyo",
+      "equipment": "Open floor",
+      "loadType": "bodyweight",
+      "loadUnit": "none",
+      "increment": 0,
+      "unilateral": false
+    },
+    {
+      "id": "pogo-hops",
+      "name": "Pogo hops on both feet with stiff ankles",
+      "pattern": "plyo",
+      "equipment": "Open floor",
+      "loadType": "time",
+      "loadUnit": "s",
+      "increment": 5,
+      "unilateral": false
+    },
+    {
+      "id": "step-off-landing",
+      "name": "Step-off landing from a 6–8 in. step, stuck for 2 s",
+      "pattern": "plyo",
+      "equipment": "6–8 in. step",
+      "loadType": "bodyweight",
+      "loadUnit": "none",
+      "increment": 0,
+      "unilateral": false
+    },
+    {
+      "id": "lateral-line-hops",
+      "name": "Lateral line hops on both feet",
+      "pattern": "plyo",
+      "equipment": "Floor tape",
+      "loadType": "time",
+      "loadUnit": "s",
+      "increment": 5,
+      "unilateral": false
+    },
+    {
+      "id": "single-leg-pogos",
+      "name": "Single-leg pogos",
+      "pattern": "plyo",
+      "equipment": "Open floor",
+      "loadType": "time",
+      "loadUnit": "s",
+      "increment": 5,
+      "unilateral": true
+    },
+    {
+      "id": "jump-onto-step",
+      "name": "Jump onto the circuit step and step down",
+      "pattern": "plyo",
+      "equipment": "Circuit step",
+      "loadType": "bodyweight",
+      "loadUnit": "none",
+      "increment": 0,
+      "unilateral": false,
+      "notes": "Never jump down."
+    },
+    {
+      "id": "skater-bounds-stuck",
+      "name": "Skater bounds with a stuck landing",
+      "pattern": "plyo",
+      "equipment": "Open floor",
+      "loadType": "bodyweight",
+      "loadUnit": "none",
+      "increment": 0,
+      "unilateral": false
+    },
+    {
+      "id": "single-leg-forward-hop-stick",
+      "name": "Single-leg forward hop and stick at about 70%",
+      "pattern": "plyo",
+      "equipment": "Open floor",
+      "loadType": "bodyweight",
+      "loadUnit": "none",
+      "increment": 0,
+      "unilateral": true
+    },
+    {
+      "id": "repeat-hops-both",
+      "name": "Repeat hops, 3 in a row, both feet",
+      "pattern": "plyo",
+      "equipment": "Open floor",
+      "loadType": "bodyweight",
+      "loadUnit": "none",
+      "increment": 0,
+      "unilateral": false
+    },
+    {
+      "id": "repeat-hops-single",
+      "name": "Repeat hops, 3 in a row, single leg",
+      "pattern": "plyo",
+      "equipment": "Open floor",
+      "loadType": "bodyweight",
+      "loadUnit": "none",
+      "increment": 0,
+      "unilateral": true
+    },
+    {
+      "id": "continuous-skater-bounds",
+      "name": "Continuous skater bounds",
+      "pattern": "plyo",
+      "equipment": "Open floor",
+      "loadType": "bodyweight",
+      "loadUnit": "none",
+      "increment": 0,
+      "unilateral": false
+    },
+    {
+      "id": "change-of-direction-45",
+      "name": "45° change-of-direction at a jog",
+      "pattern": "plyo",
+      "equipment": "An open patch of floor",
+      "loadType": "bodyweight",
+      "loadUnit": "none",
+      "increment": 0,
+      "unilateral": false
+    }
+  ],
+  "redFlagsIntro": "Any of these means the session is over and the next call is to the ortho or PT, not a Hold and another try on Thursday.",
+  "redFlags": [
+    {
+      "id": "swelling-48h",
+      "text": "Swelling that shows up within hours of a session and isn't gone in 48 hours"
+    },
+    {
+      "id": "giving-way",
+      "text": "The knee giving way, buckling, or a shifting sensation under load"
+    },
+    {
+      "id": "locking",
+      "text": "Locking or catching: a mechanical block to straightening or bending"
+    },
+    {
+      "id": "sharp-joint-line-or-night-pain",
+      "text": "Sharp pain on the joint line, or pain that wakes you at night"
+    },
+    {
+      "id": "rom-worse",
+      "text": "Range of motion worse than it was the week before"
+    },
+    {
+      "id": "pain-climbing-despite-back-offs",
+      "text": "Pain climbing session over session despite two back-offs"
+    },
+    {
+      "id": "numbness",
+      "text": "Numbness or tingling below the knee"
+    }
+  ],
+  "notFlags": "Not flags: mild stiffness for the first 10 minutes, ordinary quad and glute soreness 24–48 hours after a new movement, and a knee that complains at the top of the stairs the day after Bulgarians.",
+  "warmUp": {
+    "lift": {
+      "intro": "Every lift opens with 5 minutes on the upright bike and a 5-minute knee circuit; the circuit is non-negotiable in Phase 1 and shrinks to 3 minutes once the plyos arrive in Phase 3.",
+      "bike": "Bike setup: seat high enough that the knee is slightly bent at the bottom of the stroke, easy resistance, no standing.",
+      "circuit": [
+        "Terminal knee extensions with the mini band (or the cable and ankle strap), 2 × 15. Band behind the knee, straighten against it; this wakes up the quad.",
+        "Glute bridge, 2 × 10 with a 2 s hold at the top.",
+        "Lateral band walks, 2 × 10 steps each way.",
+        "Bodyweight split squat through a partial range, 2 × 8 each leg.",
+        "Leg swings, front-to-back and side-to-side, 10 each, with a hand on the Smith upright.",
+        "Knee-to-wall ankle rocks, 10 each side; your existing ankle work carries straight over."
+      ],
+      "circuitMinutesByPhase": {
+        "1": 5,
+        "2": 5,
+        "3": 3,
+        "4": 3
+      }
+    },
+    "run": "Before a run: 3–5 minutes of walking, then the leg swings and 10 bodyweight squats to a comfortable depth.",
+    "offDays": [
+      "Keep the thoracic, hip and ankle routine you already run.",
+      "Add a 2 × 60 s couch stretch for the hip flexors and a 2 × 45 s calf stretch each side.",
+      "If the knee doesn't fully straighten yet, add a heel prop, 3 × 2 min with the heel on a rolled towel and the knee hanging; full extension matters more than full bend for running."
+    ],
+    "recovery": [
+      "Ice for 10–15 minutes only if there's swelling; otherwise skip it.",
+      "Sleep is the recovery variable that moves everything else. Protein around 0.7–1 g per pound of bodyweight supports the tissue work.",
+      "Deload weeks 4, 8 and 12: lifting sets down a third at the same loads, mileage down as charted in the running section.",
+      "If you use the stacked layout, the run after a lift is easy only."
+    ]
+  },
+  "running": {
+    "intro": "Three runs a week, weekly mileage from 10 to 18 by week 11 with a down week every fourth, and almost all of it easy. Your engine came through the layoff fine (the watch read a VO2 max estimate of 55 on Sep 28); the chassis is what's still being re-welded, so volume follows the knee, not your lungs.",
+    "rules": [
+      "Weeks 4, 8 and 12 drop back to let the knee consolidate, then the build resumes from a higher floor.",
+      "The long run is at most 40% of the week's miles and grows about half a mile a week; the other two runs split the rest.",
+      "Monday's MBR stays social and easy, Wednesday is the flat easy run, Friday is the long one.",
+      "80/20: Phase 1 is all easy. One faster Friday every other week from Phase 2; strides and a short tempo arrive in Phase 3 as written there. The Oct 23 effort is the kind of run to ration, not ban.",
+      "The weekly number is a ceiling, not a quota. Knee clean: take it. Knee on Hold: repeat last week's.",
+      "Swap any run for 30–40 minutes of elliptical or rower at the same effort when the knee says Hold; it costs nothing aerobically and spares the joint. On the rower, strap in, drive with the legs only through the pain-free range, and keep the stroke rate around 22–24.",
+      "Stair climber: 5 slow minutes as a warm-up at most in Phases 1–2. It's a lot of loaded knee bending for the payoff.",
+      "Treadmill at 1% incline when footing or weather is bad; the belt is the one place you control the terrain."
+    ],
+    "phase3": "Running in Phase 3: from week 8, finish Wednesday's run with 4 × 15 s strides building to about 85% effort, full walk-back between. From week 10, if Gate 2 was clean, Friday's run carries a 2 × 5 min comfortably-hard segment with 3 min easy between.",
+    "strides": {
+      "fromWeek": 8,
+      "day": "wed",
+      "text": "4 × 15 s strides building to about 85% effort, full walk-back between"
+    },
+    "tempo": {
+      "fromWeek": 10,
+      "day": "fri",
+      "requiresGate": 2,
+      "text": "2 × 5 min comfortably-hard segment with 3 min easy between"
+    },
+    "fasterFriday": {
+      "fromPhase": 2,
+      "text": "One faster effort every other Friday from Phase 2 on"
+    },
+    "longRunShare": 0.4
+  },
+  "setupNotes": [
+    "Smith machine: the bar path is fixed, so set your feet 6–12 in. ahead of the bar for squats to keep the shins near vertical, and directly under it for RDLs. Set the safety stops every time. The bar's own weight varies by machine (usually 15–25 lb); ignore it and track plates.",
+    "Leg press: on the seated machine, set the seat so the knees start at about 90°. Feet high on the platform shifts the work toward glutes and hamstrings and reduces shear at the knee.",
+    "Step platforms: the 30-minute circuit's aerobic steps stack in roughly 2 in. risers; borrow one when the circuit isn't running. A flat bench is 17–18 in., which is Phase 2 height at the earliest.",
+    "Nordic negatives: lat pulldown thigh pad at its lowest notch, kneel facing away with heels tucked under it, a mat under the knees. The back extension bench's foot plates work too.",
+    "Hop tests: two strips of tape on the floor, a tape measure, best of three per leg, a minute between legs. Test fresh, before lifting, on the same day of the week each time.",
+    "Dumbbells cap at 75 lb (60 at some clubs). When RDLs or carries outgrow the rack: single-leg RDL, a 4 s lowering, or the Smith machine RDL; carries become suitcase carries with one dumbbell.",
+    "Dropping anything trips the lunk alarm; the Smith RDL is the legal deadlift."
+  ],
+  "substitutionTable": [
+    {
+      "takenOrMissing": "Leg press",
+      "useInstead": "Smith box squat, then goblet squat to a bench"
+    },
+    {
+      "takenOrMissing": "Seated leg curl",
+      "useInstead": "Lying leg curl, stability-ball leg curl, or Nordic negatives from Phase 3"
+    },
+    {
+      "takenOrMissing": "Smith machine",
+      "useInstead": "Goblet squat or Bulgarians with dumbbells; dumbbell hip thrust with shoulders on a bench"
+    },
+    {
+      "takenOrMissing": "Hip abductor or adductor machine",
+      "useInstead": "Cable with ankle strap; mini-band lateral walks; Copenhagen plank"
+    },
+    {
+      "takenOrMissing": "Step platforms",
+      "useInstead": "The lowest stair in the club, or split squats until a step frees up"
+    },
+    {
+      "takenOrMissing": "Lat pulldown",
+      "useInstead": "Assisted pull-up, then single-arm cable pulldown"
+    },
+    {
+      "takenOrMissing": "Dumbbell bench",
+      "useInstead": "Chest press machine, then Smith bench press"
+    },
+    {
+      "takenOrMissing": "Seated row",
+      "useInstead": "Chest-supported dumbbell row, then single-arm cable row"
+    },
+    {
+      "takenOrMissing": "Calf machine",
+      "useInstead": "Calf raises on the leg press, then single-leg on a step"
+    },
+    {
+      "takenOrMissing": "Bosu or balance pad",
+      "useInstead": "Folded mat, then eyes closed on the floor"
+    },
+    {
+      "takenOrMissing": "Medicine ball (Phase 3)",
+      "useInstead": "Cable rotational chop and lift"
+    }
+  ]
+}
