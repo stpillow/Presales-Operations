@@ -5,9 +5,12 @@ describe('deloadSets', () => {
   it('takes two-thirds, rounded down, never below 2', () => {
     expect(deloadSets(3)).toBe(2)
     expect(deloadSets(4)).toBe(2)
-    expect(deloadSets(2)).toBe(2)
-    expect(deloadSets(1)).toBe(2)
+    expect(deloadSets(5)).toBe(3)
     expect(deloadSets(6)).toBe(4)
+  })
+  it('never prescribes more sets than the slot has', () => {
+    expect(deloadSets(2)).toBe(2)
+    expect(deloadSets(1)).toBe(1)
   })
 })
 
