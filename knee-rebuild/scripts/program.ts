@@ -9,7 +9,7 @@ import { parseArgs } from 'node:util'
 import { exerciseById, nominalPhaseForWeek, program, templateFor } from '../src/program/program.ts'
 import { isDeloadWeek } from '../src/rules/calendar.ts'
 import { prescribedSets } from '../src/rules/deload.ts'
-import { slotsForWeek } from '../src/rules/session.ts'
+import { phaseWeekOf, slotsForPhaseWeek } from '../src/rules/session.ts'
 import { SessionLetter, type Slot } from '../src/schema/index.ts'
 
 const { values } = parseArgs({
@@ -21,7 +21,7 @@ const { values } = parseArgs({
 
 const week = Number(values.week)
 const letterResult = SessionLetter.safeParse((values.session ?? '').toUpperCase())
-if (!Number.isInteger(week) || week < 1 || week > 12 || !letterResult.success) {
+if (!Number.isInteger(week) || week < 1 || !letterResult.success) {
   console.error('usage: npm run program -- --week <1-12> --session <A|B|C>')
   process.exit(2)
 }
@@ -33,6 +33,8 @@ if (phase.number > 3) {
   process.exit(2)
 }
 const template = templateFor(phase.number, letter)
+// Nominal schedule: the phase is entered in its scheduled first week. In the app this is state.
+const phaseWeek = phaseWeekOf(week, phase.weekStart)
 const deload = isDeloadWeek(week)
 const injured = program.injuredSide
 
@@ -57,13 +59,13 @@ function loadText(slot: Slot): string {
       parts.push(ex.loadDirection === 'down' ? 'assist stack, one plate less is harder' : 'stack, one plate steps')
       break
     case 'smith-plates':
-      parts.push('Smith, track plates, 10 lb steps')
+      parts.push(`Smith, track plates, ${ex.increment} lb steps`)
       break
     case 'plates':
       parts.push(`plates, ${ex.increment} lb steps`)
       break
     case 'step-height':
-      parts.push(`${slot.heightIn ?? '?'} in. step${slot.heightMaxIn ? ` to ${slot.heightMaxIn} in.` : ''}, 2 in. risers`)
+      parts.push(`${slot.heightIn ?? '?'} in. step${slot.heightMaxIn ? ` to ${slot.heightMaxIn} in.` : ''}, ${ex.heightIncrementIn ?? ex.increment} in. risers`)
       if (ex.holdsLoad) parts.push('holds dumbbells')
       break
     case 'band':
@@ -83,21 +85,22 @@ function loadText(slot: Slot): string {
 const rpe = (slot: Slot) =>
   slot.rpeTarget === undefined ? '' : `, RPE ${slot.rpeTarget}${slot.rpeTargetEnd ? `→${slot.rpeTargetEnd}` : ''}`
 
-console.log(`${program.title} · Week ${week} · Session ${letter} · Phase ${phase.number}: ${phase.name}`)
+console.log(`${program.title} · Week ${week} · Session ${letter} · Phase ${phase.number}: ${phase.name} (week ${phaseWeek} of the phase)`)
 console.log(deload ? 'Deload week: sets × 2/3 rounded down, minimum 2; loads unchanged; no progression' : 'Not a deload week')
 const circuitMinutes = program.warmUp.lift.circuitMinutesByPhase[String(phase.number)]
-console.log(`Warm-up: 5 min upright bike, then the ${circuitMinutes}-minute knee circuit (${program.warmUp.lift.circuit.length} items)`)
+console.log(`Warm-up: ${program.warmUp.lift.intro}`)
+console.log(`Knee circuit this phase: ${circuitMinutes === undefined ? 'not written' : `${circuitMinutes} minutes`}, ${program.warmUp.lift.circuit.length} items`)
 console.log('')
 
-for (const slot of slotsForWeek(template, week)) {
+for (const slot of slotsForPhaseWeek(template, phaseWeek)) {
   const ex = exerciseById(slot.exerciseId)
   const sets = prescribedSets(slot.sets, week)
   const setsText = sets === slot.sets ? `${sets}` : `${sets} (deload, from ${slot.sets})`
   const flags = [
     slot.optional ? 'optional' : '',
     slot.unilateral ? `injured (${injured}) ${slot.injuredOnly ? 'side only' : 'side first'}` : '',
-    slot.pairWithSlot ? `paired with ${slot.pairWithSlot.split('-').at(-1)}` : '',
-    slot.weeks ? (slot.weeks[0] === slot.weeks[1] ? `week ${slot.weeks[0]}` : `weeks ${slot.weeks[0]}–${slot.weeks[1]}`) : '',
+    slot.groupId ? `group ${slot.groupId.split('-').slice(1).join('/')}` : '',
+    slot.phaseWeeks ? `phase weeks ${slot.phaseWeeks[0]}${slot.phaseWeeks[1] === null ? ' on' : `–${slot.phaseWeeks[1]}`}` : '',
   ].filter(Boolean)
   console.log(`${slot.label.padStart(9)}  ${ex.name}`)
   console.log(`${''.padStart(11)}${setsText} × ${repsText(slot)}${rpe(slot)}   [${slot.prescriptionText}]`)
