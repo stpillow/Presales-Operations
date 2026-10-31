@@ -1,0 +1,132 @@
+/* Fonts: vendored (OFL, via fontsource) and precached so the PWA renders offline with no runtime fetches.
+   Latin subsets only; the rest of the subsets never ship. */
+@import "@fontsource/ibm-plex-sans/latin-400.css";
+@import "@fontsource/ibm-plex-sans/latin-500.css";
+@import "@fontsource/ibm-plex-sans/latin-600.css";
+@import "@fontsource/ibm-plex-mono/latin-400.css";
+@import "@fontsource/ibm-plex-mono/latin-500.css";
+
+@font-face {
+  font-family: "Fraunces Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("@fontsource-variable/fraunces/files/fraunces-latin-standard-normal.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@import "tailwindcss";
+
+/* spdc design tokens (spdc-design v0.2). The defaults are cleared first, so only these colors,
+   fonts, sizes and radii exist as utilities: an off-system value is a typo, not a choice.
+   Colorblind rule still governs everything: color never carries meaning on its own. */
+@theme {
+  --color-*: initial;
+  --color-navy: #001a57;
+  --color-ink: #0b0b0d;
+  --color-green: #009a4e;
+  --color-green-bright: #00b85c;
+  --color-paper: #ffffff;
+  --color-surface: #f3f5fa;
+  --color-navy-lift: #06255f;
+  --color-on-dark: #ffffff;
+  --color-on-dark-dim: #c4cad8;
+  --color-on-dark-muted: #8a97b8;
+  --color-on-dark-faint: #6b79a3;
+  --color-on-light: #0b0b0d;
+  --color-on-light-dim: #45474e;
+  --color-on-light-muted: #6a6e78;
+  --color-struck: #8995b3;
+  --color-struck-light: #6a6e78;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+
+  --font-*: initial;
+  --font-display: "Fraunces Variable", Georgia, "Times New Roman", serif;
+  --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Type scale, web column. Steps only. */
+  --text-*: initial;
+  --text-label: 12px;
+  --text-label--line-height: 1.4;
+  --text-small: 14px;
+  --text-small--line-height: 1.45;
+  --text-body: 16px;
+  --text-body--line-height: 1.5;
+  --text-lead: 20px;
+  --text-lead--line-height: 1.4;
+  --text-h3: 24px;
+  --text-h3--line-height: 1.2;
+  --text-h2: 32px;
+  --text-h2--line-height: 1.15;
+  --text-h1: 44px;
+  --text-h1--line-height: 1.05;
+  --text-display: 60px;
+  --text-display--line-height: 1.05;
+  --text-stat: 80px;
+  --text-stat--line-height: 1;
+
+  /* Radius scale: 0 · 2 · 4. Pills are for tags and toggles only. */
+  --radius-*: initial;
+  --radius-none: 0;
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-full: 9999px;
+
+  /* Spacing: 4px base. p-1 = 4, p-2 = 8, p-3 = 12, p-4 = 16, p-6 = 24, p-8 = 32, p-12 = 48, p-16 = 64, p-24 = 96, p-32 = 128. */
+  --spacing: 4px;
+
+  --ease-out-spdc: cubic-bezier(0.2, 0, 0, 1);
+}
+
+@layer base {
+  html {
+    background: var(--color-navy);
+    color: var(--color-on-dark);
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    min-height: 100dvh;
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.5;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: none;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-optical-sizing: auto;
+    /* Gravitas, not trend: SOFT 0, WONK 0, upright. */
+    font-variation-settings: "SOFT" 0, "WONK" 0;
+    letter-spacing: -0.005em;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition-duration: 0ms !important;
+      animation-duration: 0ms !important;
+    }
+  }
+}
+
+/* 44 px minimum tap target, one-handed at the gym. */
+@utility tap {
+  min-height: 44px;
+  min-width: 44px;
+}
