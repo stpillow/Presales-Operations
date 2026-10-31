@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { Effort, IsoDate, IsoDateTime, LoadUnit, Pain, ReadingResult, Rpe, RunType, SetSide, Side, WorkoutStatus } from './enums.ts'
+import { Day, Effort, IsoDate, IsoDateTime, LoadUnit, Pain, ReadingResult, Rpe, RunType, SetSide, Side, StopReason, WorkoutStatus } from './enums.ts'
 
 const id = z.string().min(1)
 
@@ -57,7 +57,7 @@ export const SetLog = z.strictObject({
   rpe: Rpe.optional(),
   painDuring: Pain.optional(),
   stopped: z.boolean().default(false),
-  stopReason: z.string().optional(),
+  stopReason: StopReason.optional(),
   heightIn: z.number().positive().optional(),
   rangeStopDeg: z.number().positive().optional(),
   /** Index into the exercise's stages for the `stage` rule. */
@@ -127,3 +127,12 @@ export const Reading = z.strictObject({
   reasons: z.array(z.string()),
 })
 export type Reading = z.infer<typeof Reading>
+
+/** A session moved within its week: the two days swap what they hold (PROMPT rule 10). */
+export const SessionMove = z.strictObject({
+  id,
+  week: z.number().int().positive(),
+  dayA: Day,
+  dayB: Day,
+})
+export type SessionMove = z.infer<typeof SessionMove>
