@@ -2,7 +2,7 @@
 
 The status page. Ticked when done, not when started. Questions about the program live in [PROGRAM-QUESTIONS.md](PROGRAM-QUESTIONS.md); the questions for Shawn before M1 are at the bottom.
 
-**Now:** M0 is built and pushed as a draft PR; waiting on the preview deploy check and Shawn's phone test. M1 waits on the section 9 answers.
+**Now:** M0 is up as a draft PR with the section 9 answers recorded. Merging it is the go for M1, which lands as its own PR.
 **Last updated:** Oct 31, 2026
 
 ## Milestones
@@ -97,7 +97,10 @@ Done when export, wipe, import restores everything, and a full Session B gets lo
 | 2026-10-31 | TypeScript 7 and oxlint, as create-vite ships them | typescript-eslint doesn't support TS 7 yet; oxlint is zero-config and small |
 | 2026-10-31 | Model additions rather than content changes: week-banded slots, optional slots, a `stage` progression rule, `distanceYards`, `rpeTargetEnd` | Working agreement 6 |
 | 2026-10-31 | Two consecutive hold readings on one exercise escalate to back-off | program.md's "two off sessions in a row" row; the conservative reading. Built in M2 unless Shawn overrules (PROGRAM-QUESTIONS 4) |
-| 2026-10-31 | Section 9 answers | Pending; asked in the first reply |
+| 2026-10-31 | Section 9 answers from Shawn: right knee; week 1 starts Monday Nov 2, 2026; dumbbells to 80 lb; both a seated and a 45° leg press; pain logged once per exercise (per set stays available in Settings); MBR is always Monday; Vercel URL for now; rest timer 60 s for every slot. Rower and spdc-design were not mentioned, so their defaults stand: rower yes, spdc-design on | Answered in chat on Oct 31 |
+| 2026-10-31 | `dumbbellMax` is a number with presets 60, 75 and 80, not the 75-or-60 pair in PROMPT section 3 | His rack goes to 80 |
+| 2026-10-31 | Leg press: the seated machine is the default (program.md's setup cue is written for it); the 45° press is its first substitution | Both exist at his club |
+| 2026-10-31 | Rest timer: one default of 60 s for every slot; the 90 s lower-body split from section 9 is dropped | His call |
 
 ## Program questions
 
@@ -119,13 +122,13 @@ The full list with the reading taken for each is in [PROGRAM-QUESTIONS.md](PROGR
 
 ## Questions for Shawn before M1 (PROMPT section 9)
 
-Asked in the first reply with a proposed default beside each. "Defaults" takes every default. Answers go in the Decisions log.
+Answered Oct 31, 2026. Recorded in the Decisions log.
 
-1. Which knee is injured? No default.
-2. Start date Monday Nov 2, 2026 as week 1? Default: yes.
-3. Dumbbells to 75 or 60 lb; seated or 45° leg press; rower? Defaults: 75, seated, yes.
-4. Pain once per exercise or per set? Default: per exercise, per set available in Settings.
-5. Monday MBR fixed on Mondays? Default: yes.
-6. Custom domain or Vercel URL? Default: Vercel URL.
-7. spdc-design: installed here; use it? Default: yes (already wired into the scaffold).
-8. Rest timer 90 s lower body, 60 s everything else? Default: yes.
+1. Which knee is injured? **Right.**
+2. Start date Monday Nov 2, 2026 as week 1? **Yes.**
+3. Dumbbells; leg press; rower? **Dumbbells to 80 lb; both seated and 45° leg press; rower: default (yes).**
+4. Pain once per exercise or per set? **Once per exercise; per set available in Settings.**
+5. Monday MBR fixed on Mondays? **Yes, always.**
+6. Custom domain or Vercel URL? **Vercel URL for now.**
+7. spdc-design? **Default (on); already wired into the scaffold.**
+8. Rest timer? **60 s for every slot.**
