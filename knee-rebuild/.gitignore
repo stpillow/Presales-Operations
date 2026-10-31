@@ -1,0 +1,11 @@
+node_modules/
+dist/
+dev-dist/
+*.tsbuildinfo
+.vercel/
+test-results/
+playwright-report/
+.DS_Store
+
+# The root .gitignore excludes lockfiles; this app commits its own for reproducible builds.
+!package-lock.json
