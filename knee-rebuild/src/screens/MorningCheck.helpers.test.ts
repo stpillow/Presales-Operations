@@ -39,7 +39,7 @@ const check = (over: Partial<MorningCheck> = {}): MorningCheck => ({
   id: 'mc-2026-11-04', date: '2026-11-04', appliesTo: null, stiffnessUnder30Min: true, worseThanYesterday: false, visibleSwelling: false, warmth: false, painChangePoints: 0, redFlags: [], ...over,
 })
 const settings = (over: Partial<Settings> = {}): Settings => ({
-  injuredSide: 'right', startDate: '2026-11-02', dumbbellMax: 80, restTimerSeconds: 60, painPerSet: false, currentPhase: 1, phaseEnteredWeek: 1, redFlag: { active: false, items: [] }, ...over,
+  injuredSide: 'right', startDate: '2026-11-02', dumbbellMax: 80, restTimerSeconds: 60, painPerSet: false, currentPhase: 1, phaseEnteredWeek: 1, redFlag: { active: false, items: [] }, activeLocationId: 'planet-fitness', kit: ['ankle-strap', 'mini-band'], ...over,
 })
 const catalog = [
   { id: 'swelling-48h', text: 'Swelling that is not gone in 48 hours' },
@@ -161,7 +161,7 @@ describe('settingsAfter and withCheck', () => {
 
 describe('next time', () => {
   const exercise = (over: Partial<Exercise> = {}): Exercise => ({
-    id: 'leg-press', name: 'Leg press', pattern: 'squat', equipment: 'seated leg press', loadType: 'stack', loadUnit: 'plate', increment: 1, loadDirection: 'up', unilateral: false, ...over,
+    id: 'leg-press', name: 'Leg press', pattern: 'squat', equipment: 'seated leg press', loadType: 'stack', loadUnit: 'plate', increment: 1, loadDirection: 'up', unilateral: false, requires: [], ...over,
   })
   const slot = (over: Partial<Slot> = {}): Slot => ({
     id: 'p1a-1', order: 1, label: '1', exerciseId: 'leg-press', sets: 3, repsMin: 10, repsMax: 12, repUnit: 'reps', unilateral: false, injuredOnly: false,

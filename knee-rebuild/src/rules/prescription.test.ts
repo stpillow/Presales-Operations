@@ -3,7 +3,7 @@ import type { Exercise, SetLog, Slot } from '../schema/index.ts'
 import { backOffLoad, effectiveReading, nextSubstitution, prescribe, progressionNeedsRpe, type PrescriptionInput } from './prescription.ts'
 
 const ex = (over: Partial<Exercise> = {}): Exercise => ({
-  id: 'leg-press', name: 'Leg press', pattern: 'squat', equipment: 'seated leg press', loadType: 'stack', loadUnit: 'plate', increment: 1, loadDirection: 'up', unilateral: false, ...over,
+  id: 'leg-press', name: 'Leg press', pattern: 'squat', equipment: 'seated leg press', loadType: 'stack', loadUnit: 'plate', increment: 1, loadDirection: 'up', unilateral: false, requires: [], ...over,
 })
 const slot = (over: Partial<Slot> = {}): Slot => ({
   id: 'p1a-1', order: 1, label: '1', exerciseId: 'leg-press', sets: 3, repsMin: 10, repsMax: 12, repUnit: 'reps', unilateral: false, injuredOnly: false,

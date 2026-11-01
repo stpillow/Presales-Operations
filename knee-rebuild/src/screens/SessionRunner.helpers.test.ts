@@ -21,7 +21,7 @@ import {
   swapsFromSets,
 } from './SessionRunner.helpers.ts'
 
-const ex = (over: Partial<Exercise> = {}): Exercise => ({ id: 'leg-press', name: 'Leg press', pattern: 'squat', equipment: 'press', loadType: 'stack', loadUnit: 'plate', increment: 1, loadDirection: 'up', unilateral: false, ...over })
+const ex = (over: Partial<Exercise> = {}): Exercise => ({ id: 'leg-press', name: 'Leg press', pattern: 'squat', equipment: 'press', loadType: 'stack', loadUnit: 'plate', increment: 1, loadDirection: 'up', unilateral: false, requires: [], ...over })
 const slot = (over: Partial<Slot> = {}): Slot => ({ id: 'p1a-1', order: 1, label: '1', exerciseId: 'leg-press', sets: 3, repsMin: 10, repsMax: 12, repUnit: 'reps', unilateral: false, injuredOnly: false, prescriptionText: '3 × 10–12', cues: [], progressionRule: 'double-progression', substitutionIds: ['leg-press-45'], optional: false, rpeTarget: 6, rpeTargetEnd: 7, ...over })
 const rx = (over: Partial<Prescription> = {}): Prescription => ({ exerciseId: 'leg-press', side: 'both', sets: 3, load: 8, loadUnit: 'plate', repsTarget: 10, repUnit: 'reps', basis: 'progress-load', note: '', ...over })
 const set = (over: Partial<SetLog> = {}): SetLog => ({ id: 'x', workoutId: 'w1', slotId: 'p1a-1', exerciseId: 'leg-press', setNumber: 1, side: 'both', load: 8, loadUnit: 'plate', reps: 12, rpe: 7, painDuring: 2, stopped: false, loggedAt: '2026-11-03T22:00:00.000Z', ...over })

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import raw from '../../data/program.json'
 import { program, templateFor } from '../program/program.ts'
 import { DELOAD_WEEKS } from '../rules/calendar.ts'
-import { Program } from './program.ts'
+import { Equipment, Exercise, Program, Requirement } from './program.ts'
 
 describe('data/program.json', () => {
   it('validates against the Program schema', () => {
@@ -96,5 +96,40 @@ describe('data/program.json', () => {
     const p3a1 = templateFor(3, 'A').slots.find((s) => s.label === '1')
     expect(p3a1?.prescriptionText).toBe('4 × 6–8, RPE 8')
     expect(templateFor(3, 'C').slots.find((s) => s.label === '6')?.exerciseId).toBe('walking-lunge')
+  })
+})
+
+describe('equipment schema (M4b)', () => {
+  const balance = {
+    id: 'balance', name: 'Balance', pattern: 'balance', equipment: 'Folded mat or bosu', loadType: 'time', loadUnit: 's', increment: 5, unilateral: true,
+    stages: ['folded mat', 'bosu'], requires: [{ anyOf: ['mats', 'bosu'] }], stageRequires: [['mats'], ['bosu']],
+  } as const
+  it('a requirement is one id, or anyOf two or more ids', () => {
+    expect(Requirement.safeParse('mats').success).toBe(true)
+    expect(Requirement.safeParse({ anyOf: ['mats', 'bosu'] }).success).toBe(true)
+    expect(Requirement.safeParse({ anyOf: ['mats'] }).success).toBe(false)
+    expect(Requirement.safeParse({ anyOf: ['mats', 'bosu'], allOf: [] }).success).toBe(false)
+    expect(Requirement.safeParse('Folded mat').success).toBe(false)
+  })
+  it('exercises must say what they require, even when it is nothing', () => {
+    expect(Exercise.safeParse(balance).success).toBe(true)
+    expect(Exercise.safeParse({ ...balance, requires: [] }).success).toBe(true)
+    const { requires: _requires, ...without } = balance
+    expect(Exercise.safeParse(without).success).toBe(false)
+  })
+  it('stageRequires has one entry per stage, and needs stages', () => {
+    expect(Exercise.safeParse({ ...balance, stageRequires: [['mats']] }).success).toBe(false)
+    expect(Exercise.safeParse({ ...balance, stageRequires: [['mats'], ['bosu'], []] }).success).toBe(false)
+    const { stages: _stages, ...noStages } = balance
+    expect(Exercise.safeParse(noStages).success).toBe(false)
+    const { stageRequires: _sr, ...noStageRequires } = balance
+    expect(Exercise.safeParse(noStageRequires).success).toBe(true)
+  })
+  it('an equipment item is strict', () => {
+    const mats = { id: 'mats', name: 'Mats', group: 'Balance and plyos', source: 'Mats', aliases: ['mat'], carried: false, hedged: false, addedIn: 1 }
+    expect(Equipment.safeParse(mats).success).toBe(true)
+    expect(Equipment.safeParse({ ...mats, addedIn: 0 }).success).toBe(false)
+    expect(Equipment.safeParse({ ...mats, id: 'Mats' }).success).toBe(false)
+    expect(Equipment.safeParse({ ...mats, weightLb: 2 }).success).toBe(false)
   })
 })
