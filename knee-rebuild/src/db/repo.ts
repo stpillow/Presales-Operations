@@ -106,6 +106,14 @@ export async function addSessionMove(move: SessionMove): Promise<void> {
   await db.sessionMoves.put(SessionMove.parse(move))
 }
 
+export async function deleteSessionMove(id: string): Promise<void> {
+  await db.sessionMoves.delete(id)
+}
+
+export async function deleteRun(id: string): Promise<void> {
+  await db.runs.delete(id)
+}
+
 export interface History {
   workouts: Workout[]
   setLogs: SetLog[]
