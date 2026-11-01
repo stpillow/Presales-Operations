@@ -61,10 +61,14 @@ describe('suggestRun', () => {
     expect(suggestRun({ ...base, session: 'run:long', currentPhase: 3, phaseWeek: 2 })?.tempo).toBe(false)
     expect(suggestRun({ ...base, session: 'run:long', currentPhase: 3, phaseWeek: 3 })?.tempo).toBe(true)
   })
-  it('a faster Friday every other week in Phase 2, never in a deload week', () => {
+  it('a faster Friday every week from Phase 2, never in a deload week or on top of the tempo', () => {
     expect(suggestRun({ ...base, session: 'run:long', currentPhase: 2, phaseWeek: 2, week: 5 })?.fasterAllowed).toBe(true)
-    expect(suggestRun({ ...base, session: 'run:long', currentPhase: 2, phaseWeek: 3, week: 6 })?.fasterAllowed).toBe(false)
+    expect(suggestRun({ ...base, session: 'run:long', currentPhase: 2, phaseWeek: 3, week: 6 })?.fasterAllowed).toBe(true)
     expect(suggestRun({ ...base, session: 'run:long', currentPhase: 2, phaseWeek: 1, week: 4 })?.fasterAllowed).toBe(false)
+    expect(suggestRun({ ...base, session: 'run:long', currentPhase: 1, phaseWeek: 2, week: 2 })?.fasterAllowed).toBe(false)
+    expect(suggestRun({ ...base, session: 'run:easy', currentPhase: 2, phaseWeek: 2, week: 5 })?.fasterAllowed).toBe(false)
+    expect(suggestRun({ ...base, session: 'run:long', currentPhase: 3, phaseWeek: 1, week: 9 })?.fasterAllowed).toBe(true)
+    expect(suggestRun({ ...base, session: 'run:long', currentPhase: 3, phaseWeek: 3, week: 11 })).toMatchObject({ tempo: true, fasterAllowed: false })
   })
   it('a hold or back-off morning suggests the swap and drops the hard parts', () => {
     const s = suggestRun({ ...base, session: 'run:long', currentPhase: 3, phaseWeek: 3, morning: 'hold' })

@@ -72,7 +72,9 @@ export function suggestRun(input: {
   const phase3 = input.currentPhase >= 3
   const strides = type === 'easy' && phase3
   const tempo = type === 'long' && phase3 && input.phaseWeek >= 3
-  const fasterAllowed = type === 'long' && input.currentPhase === 2 && !isDeloadWeek(input.week) && input.phaseWeek % 2 === 0
+  // Every Friday from Phase 2 on, never in a deload week, and not on top of Phase 3's tempo,
+  // which is that Friday's hard effort (PROGRAM-QUESTIONS 29, Shawn's Nov 1 call).
+  const fasterAllowed = type === 'long' && input.currentPhase >= 2 && !isDeloadWeek(input.week) && !tempo
   if (strides) reasons.push('finish with 4 × 15 s strides building to about 85%, full walk-back between')
   if (tempo) reasons.push('carry a 2 × 5 min comfortably-hard segment with 3 min easy between')
   if (fasterAllowed) reasons.push('one faster effort is allowed today')
