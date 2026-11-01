@@ -42,7 +42,7 @@ Stop lists the reasons in enum order, sharp joint-line pain first, with the reps
 
 ## 7. Pain and RPE
 
-**Decision** (both judges flagged the original's carried 0): pain starts "Not rated" on each exercise and is set with one tap on a 0 to 10 picker. A set saved unrated stores no pain, and the engine reads that as hold ("unknown is not clean"). Per exercise (the default), the picked value is written on every set of the exercise, and changing it re-saves those sets. Per set (Settings), each set has its own, carried from the previous set.
+**Decision** (both judges flagged the original's carried 0): pain starts "Not rated" on each exercise and is set with one tap on a 0 to 10 picker. **Amended after the M3 review:** Done waits for that rating ("Rate pain first"), because a set saved unrated reads hold and two skipped ratings would back the load off; a stop doesn't wait. Per exercise (the default), the picked value is written on every set of the exercise, and changing it re-saves those sets. Per set (Settings), each set has its own, carried from the previous set.
 
 RPE prefills from the slot's target, else the last RPE logged for that exercise, else "Not rated". An unrated RPE on a load-rule slot means the load cannot step up; the card says so.
 

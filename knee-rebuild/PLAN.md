@@ -2,7 +2,7 @@
 
 The status page. Ticked when done, not when started. Questions about the program live in [PROGRAM-QUESTIONS.md](PROGRAM-QUESTIONS.md); the questions for Shawn before M1 are at the bottom.
 
-**Now:** M2 merged. M3 (the daily loop) in progress: data layer, shell, Today, Session runner, Morning check, Settings basics.
+**Now:** M3 (the daily loop) built, reviewed and merged; M4 (running) next, then M4b (where you train), M5, M6.
 **Last updated:** Oct 31, 2026
 
 ## Milestones
@@ -49,13 +49,14 @@ Done when tests are green and no rule lives outside `src/rules/`.
 ### M3 · The daily loop
 Done when Shawn can run Session A on his phone end to end, do a morning check, and watch the next Session A's prescriptions change according to the reading.
 
-- [ ] Dexie schema v1 (settings, workouts, setLogs, morningChecks, runs, gateTests) and seed on first run
-- [ ] App shell: bottom tab bar (Today, Week, Progress, Gates, More), 44 px targets, every state carries a word or shape
-- [ ] Today: scheduled session, phase and week, deload badge, yesterday's reading in words, one Start button; red-flag takeover
-- [ ] Session runner: slots with cues, steppers prefilled from the engine, side toggle with the rep budget, supersets, rest timer, Swap, Stop this exercise, Finish with max pain and a summary
-- [ ] Morning check: four taps, pain-change stepper, red-flag checklist, note; save shows the reading and what changes next
-- [ ] Settings basics: injured side, start date, dumbbell max, rest timer, pain per set or per exercise
-- [ ] Shawn runs Session A end to end on the phone; the next Session A reflects the reading
+- [x] Dexie schema v2 (settings, workouts, setLogs, morningChecks, runs, gateTests, sessionMoves) and seed on first run
+- [x] App shell: bottom tab bar (Today, Week, Progress, Gates, More), 44 px targets, every state carries a word or shape
+- [x] Today: scheduled session, phase and week, deload badge, yesterday's reading in words, one Start button; red-flag takeover
+- [x] Session runner: slots with cues, steppers prefilled from the engine, side toggle with the rep budget, supersets, rest timer, Swap, Stop this exercise, Finish with max pain and a summary
+- [x] Morning check: four taps, pain-change stepper, red-flag checklist, note; save shows the reading and what changes next
+- [x] Settings basics: injured side, start date, dumbbell max, rest timer, pain per set or per exercise
+- [x] Adversarial review: 32 findings, 31 survived three skeptics, all addressed (`docs/review-plan.md`)
+- [ ] Shawn runs Session A end to end on the phone; the next Session A reflects the reading (verified in a browser drive; Tuesday Nov 3 is the real one)
 
 ### M4 · Running
 Done when three logged runs show against the week's target and a hold reading caps the following week.
@@ -113,6 +114,10 @@ Done when export, wipe, import restores everything, and a full Session B gets lo
 | 2026-10-31 | Model additions rather than content changes: week-banded slots, optional slots, a `stage` progression rule, `distanceYards`, `rpeTargetEnd` | Working agreement 6 |
 | 2026-10-31 | Two consecutive hold readings on one exercise escalate to back-off | program.md's "two off sessions in a row" row; the conservative reading. Built in M2 unless Shawn overrules (PROGRAM-QUESTIONS 4) |
 | 2026-11-01 | New milestone M4b, Where you train: typed gym locations and user-added equipment | Shawn's request on Nov 1. Sequenced after M4 unless he says otherwise. The app can only route to exercises the program already names; typed equipment with no matching exercise waits for a program.md update (PROMPT section 1). |
+| 2026-11-01 | The Session runner hides the tab bar; a quiet "Today" link is the way out | A sweaty mis-tap on a tab mid-rest left the session; the space goes to the card |
+| 2026-11-01 | Done waits for a pain rating once per exercise ("Rate pain first"); a stop doesn't | M3 review: unrated pain read hold silently and two skipped ratings backed loads off. The rating is the one tap per exercise the design already asked for |
+| 2026-11-01 | Rest starts after the last step of a round: both sides of a set, every member of a superset round | Runner design panel; in `src/rules/runOrder.ts` |
+| 2026-11-01 | One workout per lift day: Start reopens an attempt ended early; a session with nothing logged is discarded | M3 review: a second attempt planned from the first and split the morning check |
 | 2026-10-31 | Claude merges milestone PRs once CI and the preview are green, then stops for Shawn's go on the next milestone | Shawn's ask after merging M0: "in the future, I want you to just handle merges" |
 | 2026-10-31 | Every milestone PR gets an adversarial review pass (security and correctness) before merge; the standing plan is `docs/review-plan.md` | Shawn's ask on M1 |
 | 2026-10-31 | Model additions in M1, none of them content changes: `loadUnit` (stacks log the plate number), `dumbbell-single` and `plates` load types, `quad` and `cardio` patterns, `repUnit`, `perSideLabel` (the program's own "each leg" / "each side"), `prescriptionText` kept verbatim per slot, `loadBeforeHeightLb`, `rangeStopDeg`, `heightIn`/`heightMaxIn` | Working agreement 6: change the model, not the content |
