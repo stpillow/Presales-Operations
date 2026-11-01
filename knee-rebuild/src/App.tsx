@@ -9,9 +9,11 @@ import { program } from './program/program.ts'
 import { MorningCheck } from './screens/MorningCheck.tsx'
 import { More } from './screens/More.tsx'
 import { Placeholder } from './screens/Placeholder.tsx'
+import { RunLogger } from './screens/RunLogger.tsx'
 import { SessionRunner } from './screens/SessionRunner.tsx'
 import { Settings } from './screens/Settings.tsx'
 import { Today } from './screens/Today.tsx'
+import { Week } from './screens/Week.tsx'
 
 export function App() {
   const route = useRoute()
@@ -68,9 +70,9 @@ export function App() {
           case 'more':
             return <More />
           case 'run':
-            return <Placeholder title="Run logger" milestone="M4" what="Type, miles, minutes, effort, max pain, strides and tempo, a Strava link, and the week's miles against target." />
+            return <RunLogger />
           case 'week':
-            return <Placeholder title="Week" milestone="M4" what="Seven days with each day's session and reading in words, the deload badge, miles against target, and a move-session action." />
+            return <Week />
           case 'progress':
             return <Placeholder title="Progress" milestone="M5" what="Load over time per exercise, symmetry per unilateral exercise, weekly miles against plan, consecutive clean days." />
           case 'gates':
