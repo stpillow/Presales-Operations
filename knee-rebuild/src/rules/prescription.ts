@@ -103,6 +103,15 @@ function startLoad(exercise: Exercise): number | null {
   }
 }
 
+/**
+ * The next easier version: the substitution after the exercise the slot is on now, in the
+ * program's order. On the slot's own exercise that is the first substitution; on the last one there is none.
+ */
+export function nextSubstitution(exercise: Pick<Exercise, 'id'>, substitutions: readonly Exercise[]): Exercise | undefined {
+  const at = substitutions.findIndex((s) => s.id === exercise.id)
+  return substitutions[at + 1]
+}
+
 /** Whether the slot's load can only step up with an RPE logged on every set (the load rules do; fixed, time and stage don't). */
 export function progressionNeedsRpe(slot: Pick<Slot, 'progressionRule'>): boolean {
   return LOAD_RULES.has(slot.progressionRule)
@@ -300,7 +309,7 @@ function backOff(
     }
   }
   if (exercise.loadType === 'bodyweight' || exercise.loadType === 'step-height' || lastLoad <= 0) {
-    const sub = input.substitutions[0]
+    const sub = nextSubstitution(exercise, input.substitutions)
     if (sub) return result({ exerciseId: sub.id, load: startLoad(sub), note: `Back off: the easier version, ${sub.name}.` })
     const fewer = Math.max(1, Math.floor(sets * 0.75))
     return result({ sets: fewer, note: `Back off: ${fewer} sets instead of ${sets}; nothing lighter is written.` })
@@ -314,7 +323,7 @@ function capDumbbells(input: PrescriptionInput, p: Prescription): Prescription {
   const { exercise } = input
   const holdsDumbbells = DUMBBELL_TYPES.has(exercise.loadType) || (exercise.holdsLoad !== undefined && DUMBBELL_TYPES.has(exercise.holdsLoad))
   if (!holdsDumbbells || p.load === null || p.load <= input.dumbbellMax || p.exerciseId !== exercise.id) return p
-  const sub = input.substitutions[0]
+  const sub = nextSubstitution(exercise, input.substitutions)
   if (!sub) return { ...p, load: input.dumbbellMax, note: `${p.note} The rack stops at ${input.dumbbellMax} lb and nothing is written to swap to.` }
   return { ...p, exerciseId: sub.id, load: null, note: `${p.note} That is past the rack’s ${input.dumbbellMax} lb dumbbells: swap to ${sub.name} and pick its load.` }
 }
