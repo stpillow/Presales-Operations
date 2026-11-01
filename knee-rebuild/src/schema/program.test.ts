@@ -180,6 +180,25 @@ describe('data/program.json equipment (M4b)', () => {
     expect(program.equipment.filter((e) => e.carried).map((e) => e.id)).toEqual([...DEFAULT_KIT])
   })
 
+  it('items no "Program slot" row lists sit under the row of what they are used for; the pinned seven', () => {
+    // PROGRAM-QUESTIONS 60. program.md names these outside the slot table, so their sources are not in it.
+    const unlisted: Record<string, string> = {
+      'leg-extension-machine': 'Squat pattern',
+      'weight-plate': 'Hinge pattern',
+      stair: 'Single-leg',
+      'stability-ball': 'Hamstrings',
+      'rear-delt-machine': 'Upper body',
+      'medicine-ball': 'Balance and plyos',
+      'tape-measure': 'Balance and plyos',
+    }
+    const table = normalize(program.equipmentBySlot.map((r) => r.equipment).join('\n'))
+    for (const [id, group] of Object.entries(unlisted)) {
+      const item = vocabulary.get(id)
+      expect(item?.group, id).toBe(group)
+      expect(table, `${id} source`).not.toContain(normalize(item?.source ?? id))
+    }
+  })
+
   it('only the bosu is hedged, as program.md hedges it', () => {
     const hedged = program.equipment.filter((e) => e.hedged)
     expect(hedged.map((e) => e.id)).toEqual(['bosu'])
@@ -249,6 +268,25 @@ describe('data/program.json equipment (M4b)', () => {
     expect(requiresOf('leg-press-45')).toEqual(['leg-press-45'])
     expect(requiresOf('cable-hip-abduction')).toEqual(['cable-station', 'ankle-strap'])
     expect(requiresOf('lateral-band-walk')).toEqual(['mini-band'])
+  })
+
+  it('one flat bench covers every bench; the pinned thirteen', () => {
+    // PROGRAM-QUESTIONS 63 lists these for Shawn; a new bench exercise has to be added there too.
+    expect(program.exercises.filter((e) => needs(e, 'flat-bench')).map((e) => e.id).sort()).toEqual([
+      'bulgarian-split-squat',
+      'chest-supported-db-row',
+      'copenhagen-plank-long',
+      'copenhagen-plank-short',
+      'db-bench-press',
+      'db-hip-thrust',
+      'goblet-squat-bench',
+      'incline-db-press',
+      'seated-db-shoulder-press',
+      'single-leg-hip-thrust',
+      'smith-bench-press',
+      'smith-box-squat',
+      'smith-hip-thrust',
+    ])
   })
 
   it('items no exercise needs stay on the list for typed matching; the pinned set', () => {

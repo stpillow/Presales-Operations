@@ -26,7 +26,10 @@ export type EquipmentId = z.infer<typeof EquipmentId>
 export const Equipment = z.strictObject({
   id: EquipmentId,
   name: z.string().min(1),
-  /** The program.md "Program slot" row it is listed under, verbatim ("Squat pattern"), or "Bring" for the carried items. */
+  /**
+   * The first program.md "Program slot" row that lists it, verbatim ("Squat pattern"); for an item no row lists,
+   * the row of what it is used for (the weight plate under "Hinge pattern"); "Bring" for the carried items.
+   */
   group: z.string().min(1),
   /** A phrase copied verbatim from docs/program.md that names the item; a seed test checks it is there. */
   source: z.string().min(1),
