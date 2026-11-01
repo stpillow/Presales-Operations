@@ -5,7 +5,7 @@ import { Button } from './Button.tsx'
  * Counts down from a stored start instant, so a locked screen that freezes JavaScript timers
  * can't stretch the rest: on every tick it recomputes from the clock.
  */
-export function RestTimer({ startedAt, seconds, onDone, onSkip }: { startedAt: number | null; seconds: number; onDone?: () => void; onSkip: () => void }) {
+export function RestTimer({ startedAt, seconds, onDone, onSkip, hideAfterSeconds }: { startedAt: number | null; seconds: number; onDone?: () => void; onSkip: () => void; hideAfterSeconds?: number }) {
   const [now, setNow] = useState(() => Date.now())
   const remaining = startedAt === null ? null : Math.max(0, seconds - Math.floor((now - startedAt) / 1000))
   useEffect(() => {
@@ -18,6 +18,7 @@ export function RestTimer({ startedAt, seconds, onDone, onSkip }: { startedAt: n
     if (remaining === 0) onDone?.()
   }, [remaining, onDone])
   if (remaining === null) return null
+  if (hideAfterSeconds !== undefined && startedAt !== null && now - startedAt > (seconds + hideAfterSeconds) * 1000) return null
   const mm = Math.floor(remaining / 60)
   const ss = String(remaining % 60).padStart(2, '0')
   return (

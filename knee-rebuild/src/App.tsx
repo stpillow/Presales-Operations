@@ -84,7 +84,7 @@ export function App() {
             return <Placeholder title="Program" milestone="M6" what="The current phase's sessions, an editor for cues and substitutions, and program.md as reference." />
         }
       })()}
-      <TabBar route={route} />
+      {route.name === 'session' ? null : <TabBar route={route} />}
     </>
   )
 }
