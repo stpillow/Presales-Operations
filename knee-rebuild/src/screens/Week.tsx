@@ -69,6 +69,11 @@ export function Week() {
 
   async function swapWith(target: Day) {
     if (!moving) return
+    // The rows only offer days the engine allows, but a write is checked again: the view may be stale.
+    if (!view.days.find((d) => d.day === target)?.swappable || !view.days.find((d) => d.day === moving)?.movable) {
+      setMoving(null)
+      return
+    }
     const move = buildMove(view.week, moving, target, moveIds)
     if (!move) {
       setMoving(null)
@@ -132,6 +137,7 @@ export function Week() {
             {error.text}
           </p>
         ) : null}
+        {view.moveNote ? <p className="text-small text-on-dark-muted">{view.moveNote}</p> : null}
         <ul className="flex flex-col">
           {view.days.map((row) => (
             <DayItem
@@ -153,6 +159,7 @@ export function Week() {
 
       <MovesBlock
         moves={view.moves}
+        note={view.undoNote}
         busy={busy}
         undoing={pending?.kind === 'undo' ? pending.id : null}
         error={error?.where === 'undo' ? error.text : null}
@@ -291,6 +298,7 @@ function MoveControl({
       </Button>
     )
   }
+  if (!row.swappable) return <span className="text-small text-on-dark-muted">Logged, stays</span>
   return (
     <Button onClick={onSwap} disabled={busy} aria-label={saving ? undefined : `Swap here, ${WEEKDAY[row.day]}`}>
       {saving ? 'Saving…' : 'Swap here'}
@@ -300,12 +308,14 @@ function MoveControl({
 
 function MovesBlock({
   moves,
+  note,
   busy,
   undoing,
   error,
   onUndo,
 }: {
   moves: MoveLine[]
+  note: string | null
   busy: boolean
   /** The move whose undo is the write in flight. */
   undoing: string | null
@@ -328,12 +338,15 @@ function MovesBlock({
               <span className="text-body text-on-dark">{move.title}</span>
               <span className="text-small text-on-dark-dim">{move.detail}</span>
             </span>
-            <Button onClick={() => onUndo(move.id)} disabled={busy} aria-label={undoing === move.id ? undefined : `Undo: ${move.title}`}>
-              {undoing === move.id ? 'Saving…' : 'Undo'}
-            </Button>
+            {move.undoable ? (
+              <Button onClick={() => onUndo(move.id)} disabled={busy} aria-label={undoing === move.id ? undefined : `Undo: ${move.title}`}>
+                {undoing === move.id ? 'Saving…' : 'Undo'}
+              </Button>
+            ) : null}
           </li>
         ))}
       </ul>
+      {note ? <p className="text-small text-on-dark-muted">{note}</p> : null}
     </section>
   )
 }

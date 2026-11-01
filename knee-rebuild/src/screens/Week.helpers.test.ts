@@ -109,10 +109,10 @@ const miles = (over: Omit<Partial<WeekMiles>, 'target'> & { target?: Partial<Wee
 })
 
 describe('which weeks the screen pages through', () => {
-  it('offers weeks 1 to 12, plus the current week once past 12', () => {
+  it('offers weeks 1 to 12, and every week up to the current one once past 12', () => {
     expect(weekChoices(3)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
     expect(weekChoices(0)).toHaveLength(12)
-    expect(weekChoices(15)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 15])
+    expect(weekChoices(15)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15])
   })
   it('opens on the current week, or week 1 before the program starts', () => {
     expect(openingWeek(3)).toBe(3)
@@ -124,14 +124,15 @@ describe('which weeks the screen pages through', () => {
     expect(shownWeek(null, 3)).toBe(3)
     expect(shownWeek(7, 3)).toBe(7)
     expect(shownWeek(13, 3)).toBe(3)
-    expect(shownWeek(14, 15)).toBe(15)
+    expect(shownWeek(14, 15)).toBe(14)
+    expect(shownWeek(16, 15)).toBe(15)
   })
   it('steps a week at a time and stops at the ends', () => {
     expect(neighbourWeeks(3, 3)).toEqual({ prev: 2, next: 4 })
     expect(neighbourWeeks(1, 3)).toEqual({ prev: null, next: 2 })
     expect(neighbourWeeks(12, 3)).toEqual({ prev: 11, next: null })
-    expect(neighbourWeeks(12, 15)).toEqual({ prev: 11, next: 15 })
-    expect(neighbourWeeks(15, 15)).toEqual({ prev: 12, next: null })
+    expect(neighbourWeeks(12, 15)).toEqual({ prev: 11, next: 13 })
+    expect(neighbourWeeks(15, 15)).toEqual({ prev: 14, next: null })
   })
 })
 
@@ -247,9 +248,10 @@ describe('moves', () => {
     ]
     expect(movesForWeek(moves, 1).map((m) => m.id)).toEqual(['move-000001', 'move-000003'])
     expect(moveLines(PROGRAM.weeklyTemplate, 1, moves)).toEqual([
-      { id: 'move-000001', title: 'Tuesday and Wednesday swapped', detail: 'Session A now Wednesday · Run: easy now Tuesday' },
-      { id: 'move-000003', title: 'Wednesday and Sunday swapped', detail: 'Session A now Sunday · Off now Wednesday' },
+      { id: 'move-000001', title: 'Tuesday and Wednesday swapped', detail: 'Session A now Wednesday · Run: easy now Tuesday', undoable: false },
+      { id: 'move-000003', title: 'Wednesday and Sunday swapped', detail: 'Session A now Sunday · Off now Wednesday', undoable: false },
     ])
+    expect(moveLines(PROGRAM.weeklyTemplate, 1, moves, 'move-000003').map((m) => m.undoable)).toEqual([false, true])
   })
   it('prompts for the second tap in words', () => {
     expect(movePrompt('lift:A', 'tue')).toBe('Moving Session A from Tuesday. Tap “Swap here” on the day it goes to; the two days trade sessions.')
@@ -297,18 +299,56 @@ describe('weekView', () => {
     })
     const v = weekView({ today: '2026-11-04', selected: null, settings: settings(), history: h, program: PROGRAM })
     const [mon, tue, wed, , , , sun] = v.days
-    expect(mon).toMatchObject({ dateWords: 'Monday Nov 2', sessionWords: 'Run: MBR', statusMark: '✓', statusWord: 'Done', reading: 'clean', logged: ['Run: MBR, 3 miles'], action: null, movable: true })
+    expect(mon).toMatchObject({ dateWords: 'Monday Nov 2', sessionWords: 'Run: MBR', statusMark: '✓', statusWord: 'Done', reading: 'clean', logged: ['Run: MBR, 3 miles'], action: null, movable: false, swappable: false })
+    expect(tue).toMatchObject({ movable: false, swappable: false })
+    expect(wed).toMatchObject({ movable: true, swappable: true })
     expect(tue).toMatchObject({ sessionWords: 'Session A', reading: 'clean', checkNote: null, action: { kind: 'summary', workoutId: '2026-11-03-p1-a' } })
     expect(wed).toMatchObject({ dateWords: 'Wednesday Nov 4', statusMark: '●', statusWord: 'Today', action: { kind: 'run' }, isToday: true })
-    expect(sun).toMatchObject({ sessionWords: 'Off: Kona walk and mobility only', statusWord: 'Off', movable: false })
+    expect(sun).toMatchObject({ sessionWords: 'Off: Kona walk and mobility only', statusWord: 'Off', movable: false, swappable: true })
   })
   it('follows moves: the strip, the moved-from line and the list with Undo', () => {
     const h = history({ sessionMoves: [{ id: 'move-000001', week: 1, dayA: 'tue', dayB: 'wed' }] })
     const v = weekView({ today: '2026-11-02', selected: null, settings: settings(), history: h, program: PROGRAM })
     expect(v.days[1]).toMatchObject({ sessionWords: 'Run: easy', movedFrom: 'Moved from Wednesday' })
     expect(v.days[2]).toMatchObject({ sessionWords: 'Session A', movedFrom: 'Moved from Tuesday' })
-    expect(v.moves).toHaveLength(1)
+    expect(v.moves).toMatchObject([{ id: 'move-000001', undoable: true }])
+    expect(v.undoNote).toBeNull()
     expect(weekView({ today: '2026-11-02', selected: 2, settings: settings(), history: h, program: PROGRAM }).moves).toEqual([])
+  })
+  it('keeps a finished session where it was logged: no move, no landing, no undo across it', () => {
+    // Session A finished on Tuesday; a later move put Thursday's B on Wednesday and back is not offered.
+    const h = history({
+      workouts: [workout('2026-11-03-p1-a', '2026-11-03', 'finished')],
+      setLogs: [set('2026-11-03-p1-a', 1, 2)],
+      sessionMoves: [
+        { id: 'move-000001', week: 1, dayA: 'thu', dayB: 'sat' },
+        { id: 'move-000002', week: 1, dayA: 'sat', dayB: 'tue' },
+      ],
+    })
+    const v = weekView({ today: '2026-11-04', selected: null, settings: settings(), history: h, program: PROGRAM })
+    expect(v.days[1]).toMatchObject({ movable: false, swappable: false })
+    expect(v.moves.map((m) => m.undoable)).toEqual([false, false])
+    expect(v.undoNote).toBe('The latest move touches a day with something logged, so it stays.')
+    expect(v.moveNote).toBeNull()
+  })
+  it('only the latest of several moves can be undone', () => {
+    const h = history({
+      sessionMoves: [
+        { id: 'move-000001', week: 1, dayA: 'tue', dayB: 'wed' },
+        { id: 'move-000002', week: 1, dayA: 'thu', dayB: 'sat' },
+      ],
+    })
+    const v = weekView({ today: '2026-11-02', selected: null, settings: settings(), history: h, program: PROGRAM })
+    expect(v.moves.map((m) => m.undoable)).toEqual([false, true])
+    expect(v.undoNote).toBe('Only the latest move can be undone; each one swapped days as they stood after the ones before it.')
+  })
+  it('a finished week stays as it happened', () => {
+    const h = history({ sessionMoves: [{ id: 'move-000001', week: 1, dayA: 'tue', dayB: 'wed' }] })
+    const v = weekView({ today: '2026-11-18', selected: 1, settings: settings(), history: h, program: PROGRAM })
+    expect(v.days.every((d) => !d.movable && !d.swappable)).toBe(true)
+    expect(v.moveNote).toBe('That week is over; its days stay as they happened.')
+    expect(v.moves.map((m) => m.undoable)).toEqual([false])
+    expect(v.undoNote).toBe('That week is over; its moves stay.')
   })
   it('a row already done today still says it is today', () => {
     const v = weekView({ today: '2026-11-02', selected: null, settings: settings(), history: history({ runs: [run('r', '2026-11-02', 3, 1, 'mbr')] }), program: PROGRAM })
@@ -316,7 +356,7 @@ describe('weekView', () => {
   })
   it('past week 12 shows the current week without a target', () => {
     const v = weekView({ today: '2027-02-03', selected: null, settings: settings(), history: history(), program: PROGRAM })
-    expect(v).toMatchObject({ week: 14, prev: 12, next: null, target: 'No target: week 14 is outside the 12-week plan', miles: '0 miles · no runs logged' })
+    expect(v).toMatchObject({ week: 14, prev: 13, next: null, target: 'No target: week 14 is outside the 12-week plan', miles: '0 miles · no runs logged' })
   })
   it('carries the stop message when the red-flag state is on', () => {
     const v = weekView({ today: '2026-11-04', selected: null, settings: settings({ redFlag: { active: true, items: ['locking'] } }), history: history(), program: PROGRAM })

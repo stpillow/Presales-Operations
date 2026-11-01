@@ -2,6 +2,7 @@ import type { History } from '../db/repo.ts'
 import { DAYS, addDays, dateOf, isDeloadWeek, weekOf, weekSchedule } from '../rules/calendar.ts'
 import { attachChecks, subjectReadings } from '../rules/history.ts'
 import { isSwap } from '../rules/mileage.ts'
+import { dayMovable, undoableMove, type MoveContext } from '../rules/moves.ts'
 import { morningCheckApplies, worst } from '../rules/reading.ts'
 import { stopMessage } from '../rules/redFlags.ts'
 import { readingsInWeek, runTypeFor, weekDays, weekMilesSummary, type DayStatus, type WeekDay, type WeekMiles } from '../rules/weekPlan.ts'
@@ -18,7 +19,7 @@ import { runLabel, sessionLabel, shortDateWords, workoutLabel } from './Today.he
 export type HistoryLike = Pick<History, 'workouts' | 'setLogs' | 'morningChecks' | 'runs' | 'sessionMoves'>
 export type ProgramLike = Pick<Program, 'weeklyTemplate' | 'weeklyTemplateRows' | 'mileagePlan' | 'templates' | 'redFlags'>
 
-/** The program's length: the screen pages through weeks 1 to 12, plus the current week once past it. */
+/** The program's length: the screen pages through weeks 1 to 12, and on to the current week once past it. */
 export const PROGRAM_WEEKS = 12
 
 export const WEEKDAY: Record<Day, string> = {
@@ -40,10 +41,9 @@ function monthAndDay(date: IsoDate): { month: string; day: number } {
   return { month, day: d }
 }
 
-/** The weeks the previous and next buttons step through: 1 to 12, plus the current week when it is past 12. */
+/** The weeks the previous and next buttons step through: 1 to 12, and every week up to the current one when it is past 12. */
 export function weekChoices(currentWeek: number): number[] {
-  const weeks = Array.from({ length: PROGRAM_WEEKS }, (_, i) => i + 1)
-  return currentWeek > PROGRAM_WEEKS ? [...weeks, currentWeek] : weeks
+  return Array.from({ length: Math.max(PROGRAM_WEEKS, currentWeek) }, (_, i) => i + 1)
 }
 
 /** The week the screen opens on: the current program week, or week 1 before the program starts. */
@@ -187,10 +187,12 @@ export interface MoveLine {
   id: string
   title: string
   detail: string
+  /** Only the week's latest move can be undone, and only while its two days could still trade (src/rules/moves). */
+  undoable: boolean
 }
 
 /** Each move this week in words, read against the schedule as it stood just before it. */
-export function moveLines(template: WeeklyTemplate, week: number, moves: readonly SessionMove[]): MoveLine[] {
+export function moveLines(template: WeeklyTemplate, week: number, moves: readonly SessionMove[], undoable: string | null = null): MoveLine[] {
   const own = movesForWeek(moves, week)
   return own.map((move, i) => {
     const before = weekSchedule(template, week, own.slice(0, i))
@@ -200,6 +202,7 @@ export function moveLines(template: WeeklyTemplate, week: number, moves: readonl
       id: move.id,
       title: `${WEEKDAY[move.dayA]} and ${WEEKDAY[move.dayB]} swapped`,
       detail: `${moved} now ${WEEKDAY[move.dayB]} · ${other} now ${WEEKDAY[move.dayA]}`,
+      undoable: move.id === undoable,
     }
   })
 }
@@ -230,6 +233,13 @@ export function movePrompt(session: DaySession, day: Day): string {
   return `Moving ${sessionLabel(session)} from ${WEEKDAY[day]}. Tap “Swap here” on the day it goes to; the two days trade sessions.`
 }
 
+/** Why an Undo is missing: only the latest move can be taken back, and not once its days hold a log. */
+export function undoWords(undoable: string | null, weekOver: boolean): string {
+  if (weekOver) return 'That week is over; its moves stay.'
+  if (undoable === null) return 'The latest move touches a day with something logged, so it stays.'
+  return 'Only the latest move can be undone; each one swapped days as they stood after the ones before it.'
+}
+
 export function errorWords(e: unknown): string {
   return e instanceof Error ? e.message : String(e)
 }
@@ -258,8 +268,10 @@ export interface DayRow {
   logged: string[]
   checkNote: string | null
   action: DayAction | null
-  /** A quiet Move sits on every day that is not off. */
+  /** A quiet Move sits on every day that is not off and has nothing logged, in a week not yet over. */
   movable: boolean
+  /** Whether a waiting move can land here: nothing logged, week not over (src/rules/moves). */
+  swappable: boolean
   isToday: boolean
 }
 
@@ -279,6 +291,10 @@ export interface WeekView {
   capped: boolean
   days: DayRow[]
   moves: MoveLine[]
+  /** Why nothing in the week can move, when that is so: a finished week stays as it happened. */
+  moveNote: string | null
+  /** Shown under the moves when earlier ones are kept: only the latest can be undone. */
+  undoNote: string | null
   stop: { headline: string; items: string[] } | null
 }
 
@@ -294,6 +310,10 @@ export function weekView(input: { today: IsoDate; selected: number | null; setti
   const previous = readingsInWeek(readings, startDate, week - 1).map((r) => r.result)
   const days = weekDays({ startDate, week, today, template: program.weeklyTemplate, moves: history.sessionMoves, runs: history.runs, workouts: history.workouts, readings })
   const { prev, next } = neighbourWeeks(week, currentWeek)
+  const moveCtx: MoveContext = { startDate, week, currentWeek, runs: history.runs, workouts: history.workouts }
+  const undoable = undoableMove(moveCtx, history.sessionMoves)
+  const moves = moveLines(program.weeklyTemplate, week, history.sessionMoves, undoable)
+  const weekOver = week < currentWeek
 
   return {
     week,
@@ -311,6 +331,7 @@ export function weekView(input: { today: IsoDate; selected: number | null; setti
       const { mark, word } = STATUS_WORDS[d.status]
       const from = movedFrom(program.weeklyTemplate, d.day, d.session)
       const isToday = d.date === today
+      const free = dayMovable(moveCtx, d.day).allowed
       return {
         day: d.day,
         date: d.date,
@@ -325,11 +346,14 @@ export function weekView(input: { today: IsoDate; selected: number | null; setti
         logged: loggedWords(d, program.templates),
         checkNote: d.reading ? checkNote(d, history.morningChecks, today) : null,
         action: dayAction(d, today),
-        movable: d.session !== 'off',
+        movable: free && d.session !== 'off',
+        swappable: free,
         isToday,
       }
     }),
-    moves: moveLines(program.weeklyTemplate, week, history.sessionMoves),
+    moves,
+    moveNote: weekOver ? 'That week is over; its days stay as they happened.' : null,
+    undoNote: moves.length > 1 || (moves.length === 1 && undoable === null) ? undoWords(undoable, weekOver) : null,
     stop: stopMessage(settings.redFlag, program.redFlags),
   }
 }
