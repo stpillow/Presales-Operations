@@ -2,7 +2,7 @@
 
 The status page. Ticked when done, not when started. Questions about the program live in [PROGRAM-QUESTIONS.md](PROGRAM-QUESTIONS.md); the questions for Shawn before M1 are at the bottom.
 
-**Now:** M3 (the daily loop) built, reviewed and merged; M4 (running) next, then M4b (where you train), M5, M6.
+**Now:** M4 (running) built and in adversarial review; M4b (where you train) seed and rules being staged alongside; then M5, M6.
 **Last updated:** Oct 31, 2026
 
 ## Milestones
@@ -61,15 +61,17 @@ Done when Shawn can run Session A on his phone end to end, do a morning check, a
 ### M4 · Running
 Done when three logged runs show against the week's target and a hold reading caps the following week.
 
-- [ ] Run logger: type, miles, minutes, effort, max pain, strides and tempo toggles, Strava link; week miles against target as you type
-- [ ] Week screen: seven-day strip with readings in words, deload badge, miles against target, move-session
-- [ ] The hold cap applied to next week's target
-- [ ] Three logged runs show against the target; a hold reading caps the following week
+- [x] Run logger: type, miles, minutes, effort, max pain, strides and tempo toggles, Strava link; week miles against target as you type
+- [x] Week screen: seven-day strip with readings in words, deload badge, miles against target, move-session
+- [x] Move limits in `src/rules/moves.ts`: logged days and finished weeks stay put; Undo only on the latest move (PROGRAM-QUESTIONS 59)
+- [x] The hold cap applied to next week's target
+- [x] Three logged runs show against the target; a hold reading caps the following week (browser drive, Nov 9 to 16: 10.5 of 11 miles, Friday's pain 4 reads hold, week 3 capped at 10.5)
+- [ ] Adversarial review
 
 ### M4b · Where you train (added Nov 1 at Shawn's request)
 Done when Shawn can type a gym's name, mark what it has or lacks, add equipment it has that isn't on the list, switch to it on Today, and get a Session A that uses only what's there, with each change said in words.
 
-- [ ] Design: `docs/locations-equipment-design.md` (design panel running)
+- [x] Design: `docs/locations-equipment-design.md` (11 open questions sent to Shawn; building on the defaults)
 - [ ] Equipment requirements per catalog exercise, transcribed from program.md's equipment and substitution tables
 - [ ] Locations: typed name, equipment present or missing, typed extras, dumbbell max per location; Dexie v3 with `dumbbellMax` migrated into a "Planet Fitness" location
 - [ ] Rule in `src/rules/` (tested): the first available of the slot's exercise and its substitutions, in the program's order, at the active location
@@ -114,6 +116,8 @@ Done when export, wipe, import restores everything, and a full Session B gets lo
 | 2026-10-31 | Model additions rather than content changes: week-banded slots, optional slots, a `stage` progression rule, `distanceYards`, `rpeTargetEnd` | Working agreement 6 |
 | 2026-10-31 | Two consecutive hold readings on one exercise escalate to back-off | program.md's "two off sessions in a row" row; the conservative reading. Built in M2 unless Shawn overrules (PROGRAM-QUESTIONS 4) |
 | 2026-11-01 | New milestone M4b, Where you train: typed gym locations and user-added equipment | Shawn's request on Nov 1. Sequenced after M4 unless he says otherwise. The app can only route to exercises the program already names; typed equipment with no matching exercise waits for a program.md update (PROMPT section 1). |
+| 2026-11-01 | A session move can't touch a day with anything logged or a finished week; Undo takes back only the week's latest move | A move swaps days, so moving a done Session A would have Today offer it twice; earlier moves can't be undone out of order without changing what later ones did (PROGRAM-QUESTIONS 59) |
+| 2026-11-01 | The Stepper keeps typed text while the field has focus | Typing 2.5 miles read as 25: the half-typed "2." parsed to 2 and the next keystroke appended to it |
 | 2026-11-01 | The Session runner hides the tab bar; a quiet "Today" link is the way out | A sweaty mis-tap on a tab mid-rest left the session; the space goes to the card |
 | 2026-11-01 | Done waits for a pain rating once per exercise ("Rate pain first"); a stop doesn't | M3 review: unrated pain read hold silently and two skipped ratings backed loads off. The rating is the one tap per exercise the design already asked for |
 | 2026-11-01 | Rest starts after the last step of a round: both sides of a set, every member of a superset round | Runner design panel; in `src/rules/runOrder.ts` |
