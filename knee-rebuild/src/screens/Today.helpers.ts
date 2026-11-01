@@ -1,9 +1,13 @@
 import type { History } from '../db/repo.ts'
 import { addDays, dayOf, isDeloadWeek, scheduledSession } from '../rules/calendar.ts'
 import { attachChecks, subjectReadings, workoutReading } from '../rules/history.ts'
-import { morningCheckApplies, type Reading } from '../rules/reading.ts'
+import { morningCheckApplies, morningReading, type Reading } from '../rules/reading.ts'
+import { phaseWeekOf } from '../rules/session.ts'
+import { runsInWeek, suggestRun, targetForWeek, type RunSuggestion } from '../rules/weekPlan.ts'
+import { weekMiles } from '../rules/mileage.ts'
 import { stopMessage } from '../rules/redFlags.ts'
 import type {
+  Run,
   Day,
   DaySession,
   IsoDate,
@@ -25,7 +29,7 @@ import type {
  */
 
 export type HistoryLike = Pick<History, 'workouts' | 'setLogs' | 'morningChecks' | 'runs' | 'sessionMoves'>
-export type ProgramLike = Pick<Program, 'phases' | 'weeklyTemplate' | 'weeklyTemplateRows' | 'redFlags' | 'templates'>
+export type ProgramLike = Pick<Program, 'phases' | 'weeklyTemplate' | 'weeklyTemplateRows' | 'redFlags' | 'templates' | 'mileagePlan'>
 type TemplateRows = ProgramLike['weeklyTemplateRows']
 
 const WEEKDAY: Record<Day, string> = {
@@ -205,7 +209,19 @@ export type TodayBody =
       reading: Reading | null
       checkDone: boolean
     }
-  | { kind: 'run'; label: string; note: string | null }
+  | {
+      kind: 'run'
+      label: string
+      note: string | null
+      /** The engine's suggestion for today's run (miles under the week's ceiling, strides, tempo, a swap). */
+      suggestion: RunSuggestion | null
+      /** This week's miles so far and the week's target (null outside the plan), with why when capped. */
+      weekMiles: number
+      target: number | null
+      targetReason: string
+      /** Runs already logged today. */
+      loggedToday: Run[]
+    }
   | { kind: 'off'; label: string }
 
 export interface TodayView {
@@ -258,5 +274,32 @@ export function todayView(input: { today: IsoDate; settings: Settings; history: 
     }
   }
   if (session === 'off') return { ...base, body: { kind: 'off', label: sessionLabel(session, program.weeklyTemplateRows) } }
-  return { ...base, body: { kind: 'run', label: sessionLabel(session), note: sessionNote(session, program.weeklyTemplateRows) } }
+  const records = attachChecks(history.workouts, history.setLogs, history.morningChecks)
+  const readings = subjectReadings(records, history.runs, history.morningChecks, settings.injuredSide)
+  const target = targetForWeek(program.mileagePlan, week, settings.startDate, history.runs, readings)
+  const before = runsInWeek(history.runs, settings.startDate, week).filter((r) => r.date < today)
+  const todays = history.runs.filter((r) => r.date === today)
+  const check = history.morningChecks.find((c) => c.date === today)
+  const suggestion = suggestRun({
+    session,
+    week,
+    target: target.target,
+    milesSoFar: weekMiles(before),
+    currentPhase: settings.currentPhase,
+    phaseWeek: phaseWeekOf(Math.max(week, settings.phaseEnteredWeek), settings.phaseEnteredWeek),
+    morning: check ? morningReading(check).result : null,
+  })
+  return {
+    ...base,
+    body: {
+      kind: 'run',
+      label: sessionLabel(session),
+      note: sessionNote(session, program.weeklyTemplateRows),
+      suggestion,
+      weekMiles: weekMiles([...before, ...todays]),
+      target: target.target,
+      targetReason: target.reason,
+      loggedToday: todays,
+    },
+  }
 }

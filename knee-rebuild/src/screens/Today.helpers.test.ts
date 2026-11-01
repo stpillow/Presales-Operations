@@ -45,6 +45,7 @@ const PROGRAM: ProgramLike = {
     { id: 'numbness', text: 'Numbness or tingling below the knee' },
   ],
   templates: [template('p1-a', 1, 'A'), template('p1-b', 1, 'B'), template('p1-c', 1, 'C'), template('p2-a', 2, 'A')],
+  mileagePlan: [10, 11, 12, 9, 13, 14, 15, 11, 16, 17, 18, 14].map((targetMiles, i) => ({ week: i + 1, targetMiles, isDown: [4, 8, 12].includes(i + 1) })),
 }
 
 const settings = (over: Partial<Settings> = {}): Settings => ({
@@ -251,7 +252,7 @@ describe('todayView', () => {
     expect(v.body.kind === 'lift' && v.body.template?.id).toBe('p2-a')
   })
   it('a run day points at the run logger with the program’s note; the off day carries its note', () => {
-    expect(view('2026-11-02').body).toEqual({ kind: 'run', label: 'Run: MBR', note: 'Easy and conversational' })
+    expect(view('2026-11-02').body).toMatchObject({ kind: 'run', label: 'Run: MBR', note: 'Easy and conversational', target: 10, weekMiles: 0, loggedToday: [] })
     expect(view('2026-11-08').body).toEqual({ kind: 'off', label: 'Off: Kona walk and mobility only' })
   })
   it('follows a moved session', () => {
@@ -302,5 +303,24 @@ describe('todayView', () => {
     expect(v.body.kind).toBe('run')
     expect(v.yesterday).toEqual([{ label: 'Session A', result: 'hold', checkDone: true }])
     expect(v.open).toEqual([{ workoutId: 'w0', label: 'Session C', dateWords: 'Monday, November 2' }])
+  })
+})
+
+describe('run days', () => {
+  const view = (today: string, s: Partial<Settings> = {}, h: Partial<HistoryLike> = {}) => todayView({ today, settings: settings(s), history: history(h), program: PROGRAM })
+  const run = (date: string, miles: number, type: Run['type'] = 'mbr'): Run => ({ id: `r-${date}`, date, type, miles, minutes: 30, effort: 'easy', maxPain: 1, strides: false, tempo: false })
+  it('suggests the run’s share of the week, under the ceiling', () => {
+    const v = view('2026-11-06', {}, { runs: [run('2026-11-02', 3), run('2026-11-04', 3, 'easy')] })
+    expect(v.body).toMatchObject({ kind: 'run', weekMiles: 6, target: 10 })
+    expect(v.body.kind === 'run' && v.body.suggestion?.miles).toBe(4)
+  })
+  it('shows what was already logged today', () => {
+    const v = view('2026-11-02', {}, { runs: [run('2026-11-02', 3)] })
+    expect(v.body.kind === 'run' && v.body.loggedToday.map((r: Run) => r.miles)).toEqual([3])
+  })
+  it('a hold morning suggests the swap', () => {
+    const check = { id: 'm', date: '2026-11-04', appliesTo: null, stiffnessUnder30Min: true, worseThanYesterday: true, visibleSwelling: false, warmth: false, painChangePoints: 1, redFlags: [] }
+    const v = view('2026-11-04', {}, { morningChecks: [check] })
+    expect(v.body.kind === 'run' && v.body.suggestion?.swapSuggested).toBe(true)
   })
 })
