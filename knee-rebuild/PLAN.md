@@ -2,7 +2,7 @@
 
 The status page. Ticked when done, not when started. Questions about the program live in [PROGRAM-QUESTIONS.md](PROGRAM-QUESTIONS.md); the questions for Shawn before M1 are at the bottom.
 
-**Now:** M1 merged. M2 (rules engine) is built with 114 tests and up as its own PR; Claude merges it once reviewed and green, then stops for Shawn's go on M3.
+**Now:** M2 merged. M3 (the daily loop) in progress: data layer, shell, Today, Session runner, Morning check, Settings basics.
 **Last updated:** Oct 31, 2026
 
 ## Milestones
@@ -17,7 +17,7 @@ Done when the app installs to an iPhone home screen and loads in airplane mode a
 - [x] Vitest wired, one smoke test
 - [x] `CLAUDE.md` for the app (stack, commands, layout, glossary, the two non-negotiable rules)
 - [x] Vercel project with a preview deploy on every push, builds skipped when `knee-rebuild/` is untouched
-- [x] Shawn: add to the home screen, reload in airplane mode, say go (merged Oct 31; phone result not reported yet)
+- [x] Shawn: add to the home screen, reload in airplane mode, say go (merged Oct 31; "it loaded on my phone", Nov 1)
 
 ### M1 · Seed data
 Done when the schema validates, the script output matches program.md on a spot check of all three phases, and PROGRAM-QUESTIONS.md lists anything ambiguous.
