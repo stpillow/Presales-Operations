@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Exercise, SetLog, Slot } from '../schema/index.ts'
-import { backOffLoad, effectiveReading, prescribe, type PrescriptionInput } from './prescription.ts'
+import { backOffLoad, effectiveReading, prescribe, progressionNeedsRpe, type PrescriptionInput } from './prescription.ts'
 
 const ex = (over: Partial<Exercise> = {}): Exercise => ({
   id: 'leg-press', name: 'Leg press', pattern: 'squat', equipment: 'seated leg press', loadType: 'stack', loadUnit: 'plate', increment: 1, loadDirection: 'up', unilateral: false, ...over,
@@ -202,5 +202,16 @@ describe('sides', () => {
   })
   it('bilateral slots prescribe once, for both', () => {
     expect(prescribe(input()).map((p) => p.side)).toEqual(['both'])
+  })
+})
+
+describe('progressionNeedsRpe', () => {
+  it('is true for the load rules only', () => {
+    expect(progressionNeedsRpe({ progressionRule: 'double-progression' })).toBe(true)
+    expect(progressionNeedsRpe({ progressionRule: 'height-then-load' })).toBe(true)
+    expect(progressionNeedsRpe({ progressionRule: 'range-then-load' })).toBe(true)
+    expect(progressionNeedsRpe({ progressionRule: 'stage' })).toBe(false)
+    expect(progressionNeedsRpe({ progressionRule: 'time' })).toBe(false)
+    expect(progressionNeedsRpe({ progressionRule: 'fixed' })).toBe(false)
   })
 })

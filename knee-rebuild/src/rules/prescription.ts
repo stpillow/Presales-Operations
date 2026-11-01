@@ -103,9 +103,14 @@ function startLoad(exercise: Exercise): number | null {
   }
 }
 
+/** Whether the slot's load can only step up with an RPE logged on every set (the load rules do; fixed, time and stage don't). */
+export function progressionNeedsRpe(slot: Pick<Slot, 'progressionRule'>): boolean {
+  return LOAD_RULES.has(slot.progressionRule)
+}
+
 function hitTop(sets: readonly SetLog[], slot: Slot): boolean {
   if (sets.length === 0) return false
-  const needsRpe = LOAD_RULES.has(slot.progressionRule)
+  const needsRpe = progressionNeedsRpe(slot)
   return sets.every((s) => !s.stopped && value(s) >= slot.repsMax && (!needsRpe || (s.rpe !== undefined && s.rpe <= RPE_CEILING)))
 }
 
