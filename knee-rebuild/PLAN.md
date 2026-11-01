@@ -65,6 +65,18 @@ Done when three logged runs show against the week's target and a hold reading ca
 - [ ] The hold cap applied to next week's target
 - [ ] Three logged runs show against the target; a hold reading caps the following week
 
+### M4b · Where you train (added Nov 1 at Shawn's request)
+Done when Shawn can type a gym's name, mark what it has or lacks, add equipment it has that isn't on the list, switch to it on Today, and get a Session A that uses only what's there, with each change said in words.
+
+- [ ] Design: `docs/locations-equipment-design.md` (design panel running)
+- [ ] Equipment requirements per catalog exercise, transcribed from program.md's equipment and substitution tables
+- [ ] Locations: typed name, equipment present or missing, typed extras, dumbbell max per location; Dexie v3 with `dumbbellMax` migrated into a "Planet Fitness" location
+- [ ] Rule in `src/rules/` (tested): the first available of the slot's exercise and its substitutions, in the program's order, at the active location
+- [ ] Engine and runner: prescriptions for the available exercise, with "Not at <gym>: using <exercise>" in words; Swap still overrides
+- [ ] Screens: add and edit locations, add typed equipment, switch the active location from Today
+- [ ] Typed equipment no exercise uses is kept and listed for the next program.md update; the app never invents an exercise for it
+- [ ] Run swaps (elliptical, rower) respect what the location has
+
 ### M5 · Gates and progress
 Done when gate 1 evaluates from logged data alone and the hop-test symmetry matches the worked example.
 
@@ -100,6 +112,7 @@ Done when export, wipe, import restores everything, and a full Session B gets lo
 | 2026-10-31 | TypeScript 7 and oxlint, as create-vite ships them | typescript-eslint doesn't support TS 7 yet; oxlint is zero-config and small |
 | 2026-10-31 | Model additions rather than content changes: week-banded slots, optional slots, a `stage` progression rule, `distanceYards`, `rpeTargetEnd` | Working agreement 6 |
 | 2026-10-31 | Two consecutive hold readings on one exercise escalate to back-off | program.md's "two off sessions in a row" row; the conservative reading. Built in M2 unless Shawn overrules (PROGRAM-QUESTIONS 4) |
+| 2026-11-01 | New milestone M4b, Where you train: typed gym locations and user-added equipment | Shawn's request on Nov 1. Sequenced after M4 unless he says otherwise. The app can only route to exercises the program already names; typed equipment with no matching exercise waits for a program.md update (PROMPT section 1). |
 | 2026-10-31 | Claude merges milestone PRs once CI and the preview are green, then stops for Shawn's go on the next milestone | Shawn's ask after merging M0: "in the future, I want you to just handle merges" |
 | 2026-10-31 | Every milestone PR gets an adversarial review pass (security and correctness) before merge; the standing plan is `docs/review-plan.md` | Shawn's ask on M1 |
 | 2026-10-31 | Model additions in M1, none of them content changes: `loadUnit` (stacks log the plate number), `dumbbell-single` and `plates` load types, `quad` and `cardio` patterns, `repUnit`, `perSideLabel` (the program's own "each leg" / "each side"), `prescriptionText` kept verbatim per slot, `loadBeforeHeightLb`, `rangeStopDeg`, `heightIn`/`heightMaxIn` | Working agreement 6: change the model, not the content |
