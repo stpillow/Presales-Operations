@@ -17,8 +17,15 @@ export function parseHash(hash: string): Route {
   const parts = hash.replace(/^#\/?/, '').split('/').filter(Boolean)
   const [head, arg] = parts
   switch (head) {
-    case 'session':
-      return arg ? { name: 'session', workoutId: decodeURIComponent(arg) } : { name: 'today' }
+    case 'session': {
+      if (!arg) return { name: 'today' }
+      try {
+        return { name: 'session', workoutId: decodeURIComponent(arg) }
+      } catch {
+        // A malformed escape (a link cut off when copied) lands on Today instead of a blank app.
+        return { name: 'today' }
+      }
+    }
     case 'morning':
     case 'run':
     case 'week':

@@ -6,7 +6,7 @@ import { Button } from '../components/Button.tsx'
 import { ReadingWord, readingSentence } from '../components/ReadingWord.tsx'
 import { Screen } from '../components/Screen.tsx'
 import { useHistory, useSettings } from '../db/hooks.ts'
-import { putWorkout } from '../db/repo.ts'
+import { putWorkout, reopenWorkout } from '../db/repo.ts'
 import type { IsoDate, Settings } from '../schema/index.ts'
 import { newWorkoutId, todayView, type OpenWorkout, type TodayBody, type TodayView, type YesterdayLine } from './Today.helpers.ts'
 
@@ -133,6 +133,20 @@ function LiftBlock({ body, settings, today, takenIds }: { body: Lift; settings: 
       navigate({ name: 'session', workoutId: workout.id })
       return
     }
+    if (workout?.status === 'abandoned') {
+      // One workout per lift day: an attempt ended early today is reopened, its sets kept, never duplicated.
+      setBusy(true)
+      setError(null)
+      try {
+        await reopenWorkout(workout.id)
+        navigate({ name: 'session', workoutId: workout.id })
+      } catch (e: unknown) {
+        setError(`Could not reopen today’s session: ${e instanceof Error ? e.message : String(e)}.`)
+      } finally {
+        setBusy(false)
+      }
+      return
+    }
     setBusy(true)
     setError(null)
     const id = newWorkoutId(today, template.id, takenIds)
@@ -176,10 +190,10 @@ function LiftBlock({ body, settings, today, takenIds }: { body: Lift; settings: 
           {workout?.status === 'in-progress' ? (
             <p className="text-body text-on-dark-dim">{label} is in progress. Pick up where you left off.</p>
           ) : workout?.status === 'abandoned' ? (
-            <p className="text-body text-on-dark-dim">{label} was left early today; what was logged is kept and counts. Start again when ready.</p>
+            <p className="text-body text-on-dark-dim">{label} was left early today; what was logged is kept. Resume to carry on in the same session.</p>
           ) : null}
           <Button variant="primary" wide disabled={busy} onClick={() => void start()}>
-            {busy ? 'Saving…' : workout?.status === 'in-progress' ? `Resume ${label}` : `Start ${label}`}
+            {busy ? 'Saving…' : workout?.status === 'in-progress' || workout?.status === 'abandoned' ? `Resume ${label}` : `Start ${label}`}
           </Button>
           {error ? (
             <p role="alert" className="text-body text-on-dark">

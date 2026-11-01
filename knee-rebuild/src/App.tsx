@@ -5,23 +5,13 @@ import { Button } from './components/Button.tsx'
 import { TabBar } from './components/TabBar.tsx'
 import { useSettings } from './db/hooks.ts'
 import { defaultSettings, ensureSettings, requestPersistentStorage } from './db/repo.ts'
-import { program, programError } from './program/program.ts'
+import { program } from './program/program.ts'
 import { MorningCheck } from './screens/MorningCheck.tsx'
 import { More } from './screens/More.tsx'
 import { Placeholder } from './screens/Placeholder.tsx'
 import { SessionRunner } from './screens/SessionRunner.tsx'
 import { Settings } from './screens/Settings.tsx'
 import { Today } from './screens/Today.tsx'
-
-function ProgramError({ error }: { error: string }) {
-  return (
-    <main className="mx-auto flex min-h-dvh max-w-[36rem] flex-col gap-4 px-4 py-12">
-      <h1 className="font-display text-h2 text-on-dark">The program data did not validate</h1>
-      <p className="text-body text-on-dark-dim">The app cannot run until `data/program.json` matches its schema. The validator said:</p>
-      <pre className="whitespace-pre-wrap font-mono text-small text-on-dark">{error}</pre>
-    </main>
-  )
-}
 
 export function App() {
   const route = useRoute()
@@ -33,14 +23,19 @@ export function App() {
   } = useRegisterSW()
 
   useEffect(() => {
-    if (programError) return
     ensureSettings(defaultSettings(program))
       .then(() => requestPersistentStorage())
       .catch((e: unknown) => setSeedError(e instanceof Error ? e.message : String(e)))
   }, [])
 
-  if (programError) return <ProgramError error={programError} />
-  if (seedError) return <ProgramError error={`Storage could not be opened: ${seedError}. Private browsing blocks it on iOS.`} />
+  if (seedError) {
+    return (
+      <main className="mx-auto flex min-h-dvh max-w-[36rem] flex-col gap-4 px-4 py-12">
+        <h1 className="font-display text-h2 text-on-dark">Storage could not be opened</h1>
+        <p className="text-body text-on-dark-dim">The app keeps everything on this phone, and the phone refused: {seedError}. Private browsing blocks it on iOS; open the app from the home screen icon instead.</p>
+      </main>
+    )
+  }
   if (settings === undefined || settings === null) {
     return (
       <main className="mx-auto flex min-h-dvh max-w-[36rem] flex-col gap-4 px-4 py-12">

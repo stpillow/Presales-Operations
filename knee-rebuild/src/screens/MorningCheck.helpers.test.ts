@@ -117,7 +117,7 @@ describe('the form', () => {
 describe('buildCheck', () => {
   it('keys the check on the date, links the subject, orders flags as the program lists them, drops a blank note', () => {
     const form = { ...emptyForm(), stiffnessUnder30Min: true, painChangePoints: 2, redFlags: ['locking', 'swelling-48h'], notes: '   ' }
-    const built = buildCheck({ today: '2026-11-04', subject: { kind: 'workout', workout: workout('w1') }, form, catalog })
+    const built = buildCheck({ today: '2026-11-04', link: { kind: 'workout', id: 'w1' }, form, catalog })
     expect(built).toEqual({
       id: 'mc-2026-11-04',
       date: '2026-11-04',
@@ -132,12 +132,12 @@ describe('buildCheck', () => {
     expect(checkId('2026-11-04')).toBe('mc-2026-11-04')
   })
   it('keeps a trimmed note and a null subject', () => {
-    const built = buildCheck({ today: '2026-11-04', subject: null, form: { ...emptyForm(), notes: '  stairs fine  ' }, catalog })
+    const built = buildCheck({ today: '2026-11-04', link: null, form: { ...emptyForm(), notes: '  stairs fine  ' }, catalog })
     expect(built.appliesTo).toBeNull()
     expect(built.notes).toBe('stairs fine')
   })
   it('ignores a ticked id that is not in the catalog', () => {
-    expect(buildCheck({ today: '2026-11-04', subject: null, form: { ...emptyForm(), redFlags: ['made-up'] }, catalog }).redFlags).toEqual([])
+    expect(buildCheck({ today: '2026-11-04', link: null, form: { ...emptyForm(), redFlags: ['made-up'] }, catalog }).redFlags).toEqual([])
   })
 })
 
@@ -173,8 +173,10 @@ describe('next time', () => {
   const plan = (over: Partial<SlotPlan> = {}): SlotPlan => ({ slot: slot(), exercise: exercise(), substitutions: [], prescriptions: [prescription()], ...over })
 
   it('the next time a session comes round is next week', () => {
-    expect(nextWeekFor({ week: 1 })).toBe(2)
-    expect(nextWeekFor({ week: 3 })).toBe(4)
+    expect(nextWeekFor({ date: '2026-11-03' }, '2026-11-02')).toBe(2)
+    expect(nextWeekFor({ date: '2026-11-17' }, '2026-11-02')).toBe(4)
+    // The start date moved a week later after the session: next week is week 3, not a week-4 deload.
+    expect(nextWeekFor({ date: '2026-11-17' }, '2026-11-09')).toBe(3)
   })
   it('one sentence per exercise, from the prescription note', () => {
     expect(exerciseSentences([plan()], 'right')).toEqual([{ slotId: 'p1a-1', name: 'Leg press', optional: false, lines: ['Clean once: same load, same target; clean again to progress.'] }])

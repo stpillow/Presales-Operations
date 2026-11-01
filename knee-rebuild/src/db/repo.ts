@@ -53,6 +53,24 @@ export async function putWorkout(workout: Workout): Promise<void> {
   await db.workouts.put(Workout.parse(workout))
 }
 
+/** Puts an abandoned (or finished) workout back in progress, keeping its sets: one workout per lift day. */
+export async function reopenWorkout(id: string): Promise<void> {
+  const current = await db.workouts.get(id)
+  if (!current) throw new Error(`no workout ${id}`)
+  const { finishedAt: _f, maxPainDuring: _m, ...rest } = current
+  void _f
+  void _m
+  await db.workouts.put(Workout.parse({ ...rest, status: 'in-progress' }))
+}
+
+/** Deletes a workout and its sets: for a session started by mistake with nothing logged. */
+export async function deleteWorkout(id: string): Promise<void> {
+  await db.transaction('rw', db.workouts, db.setLogs, async () => {
+    await db.setLogs.where('workoutId').equals(id).delete()
+    await db.workouts.delete(id)
+  })
+}
+
 export async function updateWorkout(id: string, patch: Partial<Workout>): Promise<void> {
   const current = await db.workouts.get(id)
   if (!current) throw new Error(`no workout ${id}`)
@@ -111,10 +129,24 @@ export async function loadHistory(): Promise<History> {
 }
 
 /** Wipes every table, settings included. The Settings screen asks twice before calling this. */
+/** The prefix the Session runner stores a workout's swaps under in local storage. */
+export const SWAP_KEY_PREFIX = 'knee-rebuild:swaps:'
+
 export async function resetAll(): Promise<void> {
   await db.transaction('rw', db.tables, async () => {
     for (const table of db.tables) await table.clear()
   })
+  // Workout ids repeat after a reset (they are the date and template), so stale swaps would come back.
+  try {
+    const keys: string[] = []
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const key = window.localStorage.key(i)
+      if (key?.startsWith(SWAP_KEY_PREFIX)) keys.push(key)
+    }
+    for (const key of keys) window.localStorage.removeItem(key)
+  } catch {
+    // Private browsing: nothing was stored.
+  }
 }
 
 /** Asks the browser to keep this origin's storage out of eviction. Best effort; iOS may say no. */

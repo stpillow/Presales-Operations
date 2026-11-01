@@ -1,8 +1,8 @@
 import { exerciseById, program, templateFor } from '../program/program.ts'
-import { attachChecks, exerciseReadings, lastSetsFor, type WorkoutRecord } from '../rules/history.ts'
+import { attachChecks, exerciseReadings, lastSetsBySide, recordsBefore, type WorkoutRecord } from '../rules/history.ts'
 import { prescribe, type Prescription } from '../rules/prescription.ts'
 import { phaseWeekOf, slotsForPhaseWeek } from '../rules/session.ts'
-import type { Exercise, SessionLetter, SessionTemplate, Settings, Slot } from '../schema/index.ts'
+import type { Exercise, IsoDate, SessionLetter, SessionTemplate, Settings, Slot } from '../schema/index.ts'
 import type { History } from '../db/repo.ts'
 
 export interface SlotPlan {
@@ -26,12 +26,17 @@ export function planSession(input: {
   history: History
   /** A swap made for this session, by slot id. */
   chosenExercise?: Record<string, string | undefined>
+  /** Plan only from sessions dated before this day: the session being run, and any earlier attempt that day, never plan it. */
+  before?: IsoDate
 }): SlotPlan[] {
   const { template, week, settings, history } = input
-  const records: WorkoutRecord[] = attachChecks(history.workouts, history.setLogs, history.morningChecks)
+  const all: WorkoutRecord[] = attachChecks(history.workouts, history.setLogs, history.morningChecks)
+  const records = input.before ? recordsBefore(all, input.before) : all
   const phaseWeek = phaseWeekOf(Math.max(week, settings.phaseEnteredWeek), settings.phaseEnteredWeek)
   return slotsForPhaseWeek(template, phaseWeek).map((slot) => {
-    const exercise = exerciseById(input.chosenExercise?.[slot.id] ?? slot.exerciseId)
+    const choice = input.chosenExercise?.[slot.id]
+    const allowed = choice !== undefined && (choice === slot.exerciseId || slot.substitutionIds.includes(choice))
+    const exercise = exerciseById(allowed ? choice : slot.exerciseId)
     const substitutions = slot.substitutionIds.map(exerciseById)
     const readings = exerciseReadings(records, exercise.id, settings.injuredSide).map((r) => r.reading.result)
     const prescriptions = prescribe({
@@ -39,7 +44,7 @@ export function planSession(input: {
       exercise,
       substitutions,
       readings,
-      lastSets: lastSetsFor(records, exercise.id),
+      lastSets: lastSetsBySide(records, exercise.id),
       week,
       injuredSide: settings.injuredSide,
       dumbbellMax: settings.dumbbellMax,

@@ -5,15 +5,14 @@ import {
   buildSet,
   countField,
   countLabel,
+  countWords,
   draftFromSet,
   durationWords,
   loadMax,
   loadWords,
   loggedMaxPain,
   mergeSwaps,
-  needsLoadPick,
   parseStoredSwaps,
-  prefill,
   prescriptionWords,
   rangeStopOptions,
   setWords,
@@ -51,8 +50,8 @@ describe('fields and words', () => {
     expect(prescriptionWords(rx({ perSet: [{ load: 8, reps: 12 }, { load: 8, reps: 11 }] }), slot(), ex())).toBe('3 × 12, 11 · RPE 6→7 · plate 8')
   })
   it('says a set in words, including unrated pain and a stop', () => {
-    expect(setWords(set(), slot(), ex())).toBe('12 × plate 8 · RPE 7 · pain 2')
-    expect(setWords(set({ painDuring: undefined, stopped: true, stopReason: 'sharp-joint-line-pain' }), slot(), ex())).toBe('12 × plate 8 · RPE 7 · pain not rated · stopped: sharp joint-line pain')
+    expect(setWords(set(), 'reps', ex())).toBe('12 × plate 8 · RPE 7 · pain 2')
+    expect(setWords(set({ painDuring: undefined, stopped: true, stopReason: 'sharp-joint-line-pain' }), 'reps', ex())).toBe('12 × plate 8 · RPE 7 · pain not rated · stopped: sharp joint-line pain')
   })
   it('offers only the engine’s range stops, never past the phase stop', () => {
     expect(rangeStopOptions(45)).toEqual([45])
@@ -60,53 +59,10 @@ describe('fields and words', () => {
   })
 })
 
-describe('prefill', () => {
-  const base = { slot: slot(), setNumber: 1, slotSets: [] as SetLog[], budget: null, historyRpe: null, painPerSet: false }
-  it('first set: the prescription, the RPE target, pain not rated', () => {
-    expect(prefill({ ...base, prescription: rx() })).toEqual({ load: 8, count: 10, rpe: 6, pain: null })
-  })
-  it('a load to pick shows 0 and blocks Done until it moves', () => {
-    const d = prefill({ ...base, prescription: rx({ load: null }) })
-    expect(d.load).toBe(0)
-    expect(needsLoadPick(rx({ load: null }), ex(), d)).toBe(true)
-    expect(needsLoadPick(rx({ load: null }), ex(), { ...d, load: 5 })).toBe(false)
-    expect(needsLoadPick(rx({ load: 8 }), ex(), { ...d, load: 0 })).toBe(false)
-  })
-  it('carries a corrected load from the last set on the same side, but never the reps', () => {
-    const d = prefill({ ...base, setNumber: 2, prescription: rx(), slotSets: [set({ load: 9, reps: 12 })] })
-    expect(d.load).toBe(9)
-    expect(d.count).toBe(10)
-  })
-  it('repeats the last session set by set when the prescription says so', () => {
-    const p = rx({ perSet: [{ load: 8, reps: 12 }, { load: 8, reps: 11 }, { load: 8, reps: 10 }] })
-    expect(prefill({ ...base, setNumber: 2, prescription: p }).count).toBe(11)
-  })
-  it('the healthy side takes its budget from the injured side', () => {
-    const p = rx({ side: 'left', repsTarget: 8 })
-    expect(prefill({ ...base, setNumber: 3, prescription: p, budget: [8, 8, 7] }).count).toBe(7)
-  })
-  it('RPE without a target comes from the last logged, else stays unrated', () => {
-    const s = slot({ rpeTarget: undefined, rpeTargetEnd: undefined })
-    expect(prefill({ ...base, slot: s, prescription: rx(), historyRpe: 8 }).rpe).toBe(8)
-    expect(prefill({ ...base, slot: s, prescription: rx() }).rpe).toBeNull()
-  })
-  it('per exercise, pain is what the exercise’s sets already carry; per set, the previous set’s', () => {
-    const logged = [set({ painDuring: 3 })]
-    expect(prefill({ ...base, setNumber: 2, prescription: rx(), slotSets: logged }).pain).toBe(3)
-    expect(prefill({ ...base, setNumber: 2, prescription: rx(), slotSets: logged, painPerSet: true }).pain).toBe(3)
-    expect(prefill({ ...base, setNumber: 2, prescription: rx(), slotSets: [set({ painDuring: undefined })], painPerSet: true }).pain).toBeNull()
-  })
-  it('height, range and stage carry from the last set, else the prescription', () => {
-    const p = rx({ heightIn: 6 })
-    expect(prefill({ ...base, prescription: p }).heightIn).toBe(6)
-    expect(prefill({ ...base, setNumber: 2, prescription: p, slotSets: [set({ heightIn: 8 })] }).heightIn).toBe(8)
-  })
-})
-
 describe('buildSet and draftFromSet', () => {
   it('stores seconds as seconds, drops unrated pain and RPE, records a stop', () => {
     const plank = slot({ repUnit: 'seconds' })
-    const s = buildSet({ workoutId: 'w1', slot: plank, exercise: ex({ loadType: 'time', loadUnit: 's', increment: 5 }), side: 'right', setNumber: 1, draft: { load: 0, count: 20, rpe: null, pain: null }, loggedAt: 't', stop: 'form' })
+    const s = buildSet({ workoutId: 'w1', slot: plank, repUnit: 'seconds', exercise: ex({ loadType: 'time', loadUnit: 's', increment: 5 }), side: 'right', setNumber: 1, draft: { load: 0, count: 20, rpe: null, pain: null }, loggedAt: 't', stop: 'form' })
     expect(s).toMatchObject({ seconds: 20, stopped: true, stopReason: 'form', loadUnit: 's', load: 0 })
     expect(s.reps).toBeUndefined()
     expect(s.painDuring).toBeUndefined()
@@ -114,7 +70,7 @@ describe('buildSet and draftFromSet', () => {
   })
   it('stores a step-up’s dumbbells in lb with its height', () => {
     const stepUp = ex({ id: 'step-up', loadType: 'step-height', loadUnit: 'in', increment: 2, holdsLoad: 'dumbbell-each' })
-    expect(buildSet({ workoutId: 'w1', slot: slot(), exercise: stepUp, side: 'right', setNumber: 1, draft: { load: 20, count: 10, rpe: 6, pain: 1, heightIn: 6 }, loggedAt: 't' })).toMatchObject({ load: 20, loadUnit: 'lb', heightIn: 6, reps: 10 })
+    expect(buildSet({ workoutId: 'w1', slot: slot(), repUnit: 'reps', exercise: stepUp, side: 'right', setNumber: 1, draft: { load: 20, count: 10, rpe: 6, pain: 1, heightIn: 6 }, loggedAt: 't' })).toMatchObject({ load: 20, loadUnit: 'lb', heightIn: 6, reps: 10 })
   })
   it('round-trips a logged set into a draft', () => {
     expect(draftFromSet(set())).toEqual({ load: 8, count: 12, rpe: 7, pain: 2 })
@@ -152,5 +108,14 @@ describe('summary helpers', () => {
     expect(durationWords('2026-11-03T22:00:00Z', '2026-11-04T00:05:00Z')).toBe('2 h 5 min')
     expect(durationWords(undefined, 'x')).toBeNull()
     expect(durationWords('2026-11-03T22:00:00Z', '2026-11-03T22:00:20Z')).toBeNull()
+  })
+})
+
+describe('per-side words', () => {
+  it('says "each side" on two-sided slots the program counts per side', () => {
+    const pallof = slot({ repsMin: 10, repsMax: 10, perSideLabel: 'each side', rpeTarget: undefined, rpeTargetEnd: undefined })
+    expect(prescriptionWords(rx({ sets: 2, repsTarget: 10 }), pallof, ex())).toBe('2 × 10 each side · plate 8')
+    expect(countWords(10, 'reps', pallof)).toBe('10 reps each side')
+    expect(countWords(30, 'seconds', slot({ unilateral: true, perSideLabel: 'each leg' }))).toBe('30 s')
   })
 })

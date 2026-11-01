@@ -1,6 +1,6 @@
 import type { SlotPlan } from '../app/session.ts'
 import type { History } from '../db/repo.ts'
-import { dayOf } from '../rules/calendar.ts'
+import { addDays, dayOf, weekOf } from '../rules/calendar.ts'
 import { afterMorningCheck } from '../rules/redFlags.ts'
 import type { Day, IsoDate, MorningCheck, RedFlag, Run, RunType, SessionTemplate, SetSide, Settings, Side, Workout } from '../schema/index.ts'
 
@@ -134,13 +134,13 @@ export function checkId(date: IsoDate): string {
 }
 
 /** The record to save. Flags are stored in the program's order; a blank note is left off. */
-export function buildCheck(input: { today: IsoDate; subject: CheckSubject | null; form: CheckForm; catalog: readonly RedFlag[] }): MorningCheck {
-  const { today, subject, form, catalog } = input
+export function buildCheck(input: { today: IsoDate; link: MorningCheck['appliesTo']; form: CheckForm; catalog: readonly RedFlag[] }): MorningCheck {
+  const { today, link, form, catalog } = input
   const notes = form.notes.trim()
   return {
     id: checkId(today),
     date: today,
-    appliesTo: appliesTo(subject),
+    appliesTo: link,
     stiffnessUnder30Min: form.stiffnessUnder30Min,
     worseThanYesterday: form.worseThanYesterday,
     visibleSwelling: form.visibleSwelling,
@@ -162,9 +162,9 @@ export function withCheck(history: History, check: MorningCheck): History {
   return { ...history, morningChecks: [...history.morningChecks.filter((c) => c.id !== check.id), check] }
 }
 
-/** Each session letter runs once a week, so the next time this session comes round is next week. */
-export function nextWeekFor(workout: Pick<Workout, 'week'>): number {
-  return workout.week + 1
+/** The program week a session comes round again: a week after its date, from the current start date (it may have been edited since). */
+export function nextWeekFor(workout: Pick<Workout, 'date'>, startDate: IsoDate): number {
+  return Math.max(1, weekOf(addDays(workout.date, 7), startDate))
 }
 
 function capitalise(word: string): string {

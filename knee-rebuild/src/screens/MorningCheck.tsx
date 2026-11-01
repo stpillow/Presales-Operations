@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { checkLink } from '../rules/morningLink.ts'
 import { navigate } from '../app/router.ts'
 import { PROGRAM, planSession } from '../app/session.ts'
 import { useToday } from '../app/today.ts'
@@ -135,7 +136,7 @@ function CheckFormScreen({
   const existingReading = initial ? morningReading(initial) : null
 
   async function save() {
-    const check = buildCheck({ today, subject, form, catalog: PROGRAM.redFlags })
+    const check = buildCheck({ today, link: checkLink(history.workouts, history.runs, yesterday), form, catalog: PROGRAM.redFlags })
     const next = settingsAfter(settings, check)
     setSaving(true)
     setError(null)
@@ -281,7 +282,7 @@ function NextTime({ subject, settings, history }: { subject: CheckSubject | null
   if (!template) {
     return <p className="text-body text-on-dark-dim">Yesterday's session uses a template this program does not have ({workout.templateId}), so there is nothing to plan from.</p>
   }
-  const week = nextWeekFor(workout)
+  const week = nextWeekFor(workout, settings.startDate)
   let sentences: ExerciseSentence[]
   try {
     sentences = exerciseSentences(planSession({ template, week, settings, history }), settings.injuredSide)

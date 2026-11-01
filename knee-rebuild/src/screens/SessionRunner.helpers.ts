@@ -1,4 +1,5 @@
 import { HELD_LOAD_INCREMENT_LB, RANGE_LADDER_DEG, type Prescription } from '../rules/prescription.ts'
+import type { Draft } from '../rules/prefill.ts'
 import { stepKey } from '../rules/runOrder.ts'
 import type { Exercise, LoadUnit, RepUnit, SessionTemplate, SetLog, SetSide, Side, Slot, StopReason, Workout } from '../schema/index.ts'
 
@@ -6,16 +7,6 @@ import type { Exercise, LoadUnit, RepUnit, SessionTemplate, SetLog, SetSide, Sid
  * Pure helpers for the Session runner: what to prefill, what to call things, how to say a set in
  * words. Nothing here decides a load, a reading or an order; those come from src/rules.
  */
-
-export interface Draft {
-  load: number
-  count: number
-  rpe: number | null
-  pain: number | null
-  heightIn?: number
-  rangeStopDeg?: number
-  stage?: number
-}
 
 export const STOP_REASONS: { value: StopReason; label: string }[] = [
   { value: 'sharp-joint-line-pain', label: 'Sharp joint-line pain' },
@@ -104,7 +95,8 @@ export function loadWords(load: number | null, exercise: Exercise): string {
 /** The prescription in words: "3 × 10–12 · RPE 6→7 · plate 8". */
 export function prescriptionWords(p: Prescription, slot: Slot, exercise: Exercise): string {
   const count = p.perSet && p.perSet.length > 0 ? p.perSet.map((s) => s.reps).join(', ') : `${p.repsTarget}`
-  const reps = `${p.sets} × ${count}${unitWord(slot.repUnit)}`
+  const perSide = !slot.unilateral && slot.perSideLabel ? ` ${slot.perSideLabel}` : ''
+  const reps = `${p.sets} × ${count}${unitWord(p.repUnit)}${perSide}`
   const rpe = slot.rpeTarget !== undefined ? ` · RPE ${slot.rpeTarget}${slot.rpeTargetEnd ? `→${slot.rpeTargetEnd}` : ''}` : ''
   const load = showsLoad(exercise) ? ` · ${loadWords(p.load, exercise)}` : ''
   const extra = [
@@ -116,9 +108,9 @@ export function prescriptionWords(p: Prescription, slot: Slot, exercise: Exercis
 }
 
 /** One logged set in words: "12 × plate 8 · RPE 7 · pain 2". */
-export function setWords(set: SetLog, slot: Slot, exercise: Exercise): string {
+export function setWords(set: SetLog, repUnit: RepUnit, exercise: Exercise): string {
   const count = set.seconds ?? set.reps ?? 0
-  const parts = [`${count}${unitWord(slot.repUnit)}`]
+  const parts = [`${count}${unitWord(set.seconds !== undefined ? 'seconds' : repUnit === 'seconds' ? 'reps' : repUnit)}`]
   if (showsLoad(exercise)) parts[0] = `${parts[0]} × ${loadWords(set.load, exercise)}`
   if (set.heightIn !== undefined) parts.push(`${set.heightIn} in.`)
   if (set.rangeStopDeg !== undefined) parts.push(`to ${set.rangeStopDeg}°`)
@@ -150,51 +142,6 @@ export function lastRpeFor(exerciseId: string, sets: readonly SetLog[]): number 
   return newest(sets.filter((s) => s.exerciseId === exerciseId && s.rpe !== undefined))?.rpe ?? null
 }
 
-/** Pain stored on an exercise's sets this session (per-exercise mode writes the same value on each). */
-export function loggedPain(slotSets: readonly SetLog[]): number | null {
-  return newest(slotSets.filter((s) => s.painDuring !== undefined))?.painDuring ?? null
-}
-
-export interface PrefillInput {
-  prescription: Prescription
-  slot: Slot
-  setNumber: number
-  /** This slot's sets already logged this session, all sides. */
-  slotSets: readonly SetLog[]
-  /** The healthy side's per-set targets from the injured side's logged reps, or null on the injured side. */
-  budget: number[] | null
-  /** The last RPE logged for this exercise anywhere, for slots without a target. */
-  historyRpe: number | null
-  painPerSet: boolean
-}
-
-/**
- * What the editor shows before any tap. Load carries the last set logged on this slot and side (a
- * corrected pin carries forward), else the per-set repeat, else the prescription; a load to pick
- * shows 0. Count is the per-set repeat, else the healthy side's budget, else the target. RPE is the
- * slot's target, else the last logged; pain is never invented.
- */
-export function prefill(input: PrefillInput): Draft {
-  const { prescription: p, slot, setNumber, slotSets, budget } = input
-  const sameSide = slotSets.filter((s) => s.side === p.side)
-  const previous = newest(sameSide)
-  const repeat = p.perSet?.[setNumber - 1]
-  const load = previous?.load ?? repeat?.load ?? p.load ?? 0
-  const budgeted = budget?.[setNumber - 1]
-  const count = repeat?.reps ?? budgeted ?? p.repsTarget
-  const rpe = slot.rpeTarget ?? (previous?.rpe ?? input.historyRpe)
-  const pain = input.painPerSet ? (previous?.painDuring ?? null) : loggedPain(slotSets)
-  return {
-    load,
-    count,
-    rpe: rpe ?? null,
-    pain,
-    ...(p.heightIn !== undefined ? { heightIn: previous?.heightIn ?? p.heightIn } : {}),
-    ...(p.rangeStopDeg !== undefined ? { rangeStopDeg: previous?.rangeStopDeg ?? p.rangeStopDeg } : {}),
-    ...(p.stage !== undefined ? { stage: previous?.stage ?? p.stage } : {}),
-  }
-}
-
 /** A draft from a set already logged, for editing it. */
 export function draftFromSet(set: SetLog): Draft {
   return {
@@ -208,16 +155,13 @@ export function draftFromSet(set: SetLog): Draft {
   }
 }
 
-/** A first-time load still at 0 can't be logged: 0 would poison the history. */
-export function needsLoadPick(prescription: Prescription, exercise: Exercise, draft: Draft): boolean {
-  return prescription.load === null && showsLoad(exercise) && exercise.loadDirection !== 'down' && draft.load <= 0
-}
-
 /** The set as it will be stored. `loggedAt` is kept on corrections and stamped only on new sets. */
 export function buildSet(input: {
   workoutId: string
   slot: Slot
   exercise: Exercise
+  /** What the set counts: the prescription's unit, which follows the exercise after a swap. */
+  repUnit: RepUnit
   side: SetSide
   setNumber: number
   draft: Draft
@@ -225,7 +169,7 @@ export function buildSet(input: {
   stop?: StopReason
 }): SetLog {
   const { slot, exercise, draft } = input
-  const field = countField(slot.repUnit)
+  const field = countField(input.repUnit)
   return {
     id: '',
     workoutId: input.workoutId,
@@ -297,4 +241,11 @@ export function durationWords(startedAt: string | undefined, finishedAt: string 
   const minutes = Math.round((Date.parse(finishedAt) - Date.parse(startedAt)) / 60_000)
   if (!Number.isFinite(minutes) || minutes < 1) return null
   return minutes >= 90 ? `${Math.floor(minutes / 60)} h ${minutes % 60} min` : `${minutes} min`
+}
+
+/** The count in words for the Done bar: "10 reps each side", "30 s", "40 yd". */
+export function countWords(count: number, repUnit: RepUnit, slot: Pick<Slot, 'unilateral' | 'perSideLabel'>): string {
+  const unit = { reps: ' reps', seconds: ' s', minutes: ' min', yards: ' yd', steps: ' steps' }[repUnit]
+  const perSide = !slot.unilateral && slot.perSideLabel ? ` ${slot.perSideLabel}` : ''
+  return `${count}${unit}${perSide}`
 }

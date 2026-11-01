@@ -4,25 +4,26 @@ import { Button } from '../../components/Button.tsx'
 import { PAIN_SCALE, RPE_SCALE, ScalePicker } from '../../components/ScalePicker.tsx'
 import { Stepper } from '../../components/Stepper.tsx'
 import { exerciseById } from '../../program/program.ts'
+import { effectiveSlot } from '../../rules/effectiveSlot.ts'
+import { needsLoadPick, prefill, type Draft } from '../../rules/prefill.ts'
 import { progressionNeedsRpe } from '../../rules/prescription.ts'
 import type { Step } from '../../rules/runOrder.ts'
-import type { SetLog, Side, StopReason } from '../../schema/index.ts'
+import type { SetLog, SetSide, Side, StopReason } from '../../schema/index.ts'
 import {
   STOP_REASONS,
   countLabel,
   countStep,
+  countWords,
   draftFromSet,
   loadLabel,
   loadMax,
   loadStep,
-  needsLoadPick,
-  prefill,
+  loadWords,
   prescriptionWords,
   rangeStopOptions,
   setWords,
   showsLoad,
   sideWords,
-  type Draft,
 } from '../SessionRunner.helpers.ts'
 import { DoneBar } from './DoneBar.tsx'
 
@@ -35,12 +36,14 @@ export interface ActiveCardProps {
   slotSets: SetLog[]
   /** Sets prescribed for each side, for "set 2 of 3". */
   setsBySide: Record<string, number>
+  /** Sides of a two-sided slot and whether each still has an open set, for the side toggle. */
+  sides: { side: SetSide; open: boolean }[]
   injuredSide: Side
   painPerSet: boolean
   dumbbellMax: number
   historyRpe: number | null
   budget: number[] | null
-  /** Pain for the whole exercise when pain is logged once per exercise. */
+  /** Pain for the exercise on the card when pain is logged once per exercise. */
   exercisePain: number | null
   onExercisePain: (value: number) => void
   swapped: boolean
@@ -54,6 +57,7 @@ export interface ActiveCardProps {
   onRemove: (set: SetLog) => void
   onEdit: (set: SetLog | null) => void
   onSwap: (exerciseId: string | null) => void
+  onPickSide: (side: SetSide) => void
 }
 
 const sideOrder = (side: string, injured: Side) => (side === 'both' || side === injured ? 0 : 1)
@@ -64,48 +68,56 @@ const sideOrder = (side: string, injured: Side) => (side === 'both' || side === 
  */
 export function ActiveCard(props: ActiveCardProps) {
   const { plan, step, editing, slotSets, injuredSide } = props
-  const { slot, substitutions } = plan
+  const { substitutions } = plan
   const prescription = plan.prescriptions.find((p) => p.side === (editing?.side ?? step?.side)) ?? plan.prescriptions[0]
   const exercise = exerciseById(editing?.exerciseId ?? prescription?.exerciseId ?? plan.exercise.id)
+  // The slot as it applies to the exercise on the card: after a swap, unit, targets and rule follow it.
+  const slot = effectiveSlot(plan.slot, exercise)
+  const repUnit = prescription?.exerciseId === exercise.id ? prescription.repUnit : slot.repUnit
   const [draft, setDraft] = useState<Draft | null>(() => {
     if (editing) return draftFromSet(editing)
     if (step && prescription) {
-      return prefill({ prescription, slot, setNumber: step.setNumber, slotSets, budget: step.side !== injuredSide && step.side !== 'both' ? props.budget : null, historyRpe: props.historyRpe, painPerSet: props.painPerSet })
+      const healthy = step.side !== injuredSide && step.side !== 'both'
+      return prefill({ prescription, slot, setNumber: step.setNumber, slotSets, budget: healthy ? props.budget : null, historyRpe: props.historyRpe, painPerSet: props.painPerSet })
     }
     return null
   })
   const [panel, setPanel] = useState<'swap' | 'stop' | null>(null)
   const [change, setChange] = useState<'height' | 'range' | 'stage' | null>(null)
   const [showCues, setShowCues] = useState(slotSets.length === 0)
+  const [confirmRemove, setConfirmRemove] = useState(false)
   const set = (patch: Partial<Draft>) => setDraft((d) => (d ? { ...d, ...patch } : d))
 
   if (!prescription) return null
-  const groupLabel = slot.groupId ? `Superset · slot ${slot.label}` : `Slot ${slot.label}`
   const doneRows = [...slotSets].sort((a, b) => a.setNumber - b.setNumber || sideOrder(a.side, injuredSide) - sideOrder(b.side, injuredSide))
   const activeSide = editing?.side ?? step?.side
   const totalForSide = activeSide ? (props.setsBySide[activeSide] ?? prescription.sets) : prescription.sets
   const setNumber = editing?.setNumber ?? step?.setNumber
   const needsRpe = progressionNeedsRpe(slot)
   const showRpe = slot.rpeTarget !== undefined || needsRpe
-  const blockedOnLoad = !editing && draft !== null && needsLoadPick(prescription, exercise, draft)
-  const moved = prescription.exerciseId !== slot.exerciseId && !props.swapped
-  const bothForUnilateral = !slot.unilateral && exercise.unilateral
-  const budgetLine =
-    step && step.side !== 'both' && step.side !== injuredSide
-      ? props.budget && props.budget[step.setNumber - 1] !== undefined
-        ? `Budget ${props.budget[step.setNumber - 1]}: the injured side did that on set ${step.setNumber}.`
-        : 'Budget: log the injured side first.'
-      : null
+  const hasLoad = showsLoad(exercise)
+  const blockedOnLoad = !editing && draft !== null && needsLoadPick(prescription, hasLoad, exercise.loadDirection, draft)
+  const pain = props.painPerSet ? (draft?.pain ?? null) : props.exercisePain
+  const blockedOnPain = !editing && step !== null && pain === null
+  const moved = prescription.exerciseId !== plan.slot.exerciseId && !props.swapped
+  const bothForUnilateral = !plan.slot.unilateral && exercise.unilateral
+  const healthyStep = step && step.side !== 'both' && step.side !== injuredSide
+  const budgetLine = healthyStep
+    ? props.budget && props.budget[step.setNumber - 1] !== undefined
+      ? `Budget ${props.budget[step.setNumber - 1]}: the injured side did that on set ${step.setNumber}.`
+      : 'Budget: the injured side goes first; its reps set this side’s target.'
+    : null
 
   const sideText = activeSide ? sideWords(activeSide, injuredSide) : ''
   const draftLine = draft
     ? [
-        `${exercise.name}`,
+        exercise.name,
         setNumber ? `set ${setNumber} of ${totalForSide}` : '',
         sideText,
-        showsLoad(exercise) ? `load ${draft.load}` : '',
-        `${draft.count} ${countLabel(slot.repUnit).toLowerCase()}`,
+        hasLoad ? loadWords(draft.load, exercise) : '',
+        countWords(draft.count, repUnit, slot),
         draft.rpe !== null ? `RPE ${draft.rpe}` : '',
+        pain !== null ? `pain ${pain}` : 'pain not rated',
       ]
         .filter(Boolean)
         .join(' · ')
@@ -113,19 +125,35 @@ export function ActiveCard(props: ActiveCardProps) {
 
   let barLabel = props.idleBar.label
   let barPress = props.idleBar.onPress
+  let barDisabled = false
   if (editing && draft) {
     barLabel = `Save set ${editing.setNumber}`
     barPress = () => props.onSave(editing, draft)
   } else if (step && draft) {
-    barLabel = blockedOnLoad ? 'Pick a load first' : `Done: set ${step.setNumber} of ${totalForSide}${sideText ? `, ${sideText.split(' · ')[0]?.toLowerCase()}` : ''}`
+    const sideWord = sideText ? `, ${sideText.split(' · ')[0]?.toLowerCase()}` : ''
+    barLabel = blockedOnLoad ? 'Pick a load first' : blockedOnPain ? 'Rate pain first' : `Done: set ${step.setNumber} of ${totalForSide}${sideWord}`
+    barDisabled = blockedOnLoad || blockedOnPain
     barPress = () => props.onLog(draft)
   }
+
+  const painPicker = (
+    <>
+      <ScalePicker
+        label={props.painPerSet ? 'Pain, this set' : 'Pain, this exercise'}
+        value={pain}
+        options={PAIN_SCALE}
+        onChange={(v) => (props.painPerSet ? set({ pain: v }) : props.onExercisePain(v))}
+        ariaLabel={props.painPerSet ? 'Pain this set' : 'Pain this exercise'}
+      />
+      {pain === null && step && !editing ? <p className="text-small text-on-dark">Rate the pain to log: unrated pain would read hold, and two holds back the load off.</p> : null}
+    </>
+  )
 
   return (
     <>
       <section aria-label="Now" className="flex flex-col gap-4 rounded-md bg-navy-lift p-4">
         <header className="flex flex-col gap-1">
-          <p className="font-mono text-label uppercase tracking-[0.22em] text-on-dark-muted">{groupLabel}</p>
+          <p className="font-mono text-label uppercase tracking-[0.22em] text-on-dark-muted">{plan.slot.groupId ? `Superset · slot ${plan.slot.label}` : `Slot ${plan.slot.label}`}</p>
           <h2 className="font-sans text-h3 font-semibold text-on-dark">{exercise.name}</h2>
           <p className="text-body text-on-dark-dim">{prescriptionWords(prescription, slot, exercise)}</p>
           {prescription.note ? <p className="text-small text-on-dark-dim">{prescription.note}</p> : null}
@@ -134,10 +162,10 @@ export function ActiveCard(props: ActiveCardProps) {
           {exercise.sideMeaning ? <p className="text-small text-on-dark-dim">{exercise.sideMeaning}</p> : null}
         </header>
 
-        {slot.cues.length > 0 ? (
+        {plan.slot.cues.length > 0 ? (
           showCues ? (
             <ul className="flex flex-col gap-1">
-              {slot.cues.map((cue) => (
+              {plan.slot.cues.map((cue) => (
                 <li key={cue} className="text-small text-on-dark">
                   {cue}
                 </li>
@@ -150,15 +178,14 @@ export function ActiveCard(props: ActiveCardProps) {
           )
         ) : null}
 
-        {!props.painPerSet ? (
-          <ScalePicker label="Pain, this exercise" value={props.exercisePain} options={PAIN_SCALE} onChange={props.onExercisePain} ariaLabel="Pain this exercise" />
-        ) : null}
+        {!props.painPerSet ? painPicker : null}
 
         {doneRows.length > 0 ? (
           <ul aria-label="Logged sets" className="flex flex-col">
             {doneRows.map((s) => {
               const side = sideWords(s.side, injuredSide)
               const isEditing = editing?.id === s.id
+              const own = exerciseById(s.exerciseId)
               return (
                 <li key={s.id}>
                   <button
@@ -169,12 +196,28 @@ export function ActiveCard(props: ActiveCardProps) {
                   >
                     <span aria-hidden="true">{s.stopped ? '– ' : '✓ '}</span>
                     Set {s.setNumber}
-                    {side ? ` · ${side}` : ''} · {setWords(s, slot, exercise)}
+                    {side ? ` · ${side}` : ''}
+                    {own.id !== exercise.id ? ` · ${own.name}` : ''} · {setWords(s, effectiveSlot(plan.slot, own).repUnit, own)}
                   </button>
                 </li>
               )
             })}
           </ul>
+        ) : null}
+
+        {props.sides.length > 1 && !editing ? (
+          <div role="group" aria-label="Side" className="flex gap-2">
+            {props.sides.map(({ side, open }) => {
+              const on = activeSide === side
+              return (
+                <Button key={side} variant={on ? 'primary' : 'secondary'} aria-pressed={on} disabled={!open && !on} onClick={() => props.onPickSide(side)}>
+                  {on ? '✓ ' : ''}
+                  {sideWords(side, injuredSide)}
+                  {!open ? ' · done' : ''}
+                </Button>
+              )
+            })}
+          </div>
         ) : null}
 
         {draft && (step || editing) ? (
@@ -183,7 +226,7 @@ export function ActiveCard(props: ActiveCardProps) {
               {editing ? `Editing set ${editing.setNumber}` : `Set ${step?.setNumber} of ${totalForSide}`}
               {sideText ? ` · ${sideText}` : ''}
             </p>
-            {slot.injuredOnly ? <p className="text-small text-on-dark-dim">{injuredSide === 'left' ? 'Left' : 'Right'} (injured) only.</p> : null}
+            {plan.slot.injuredOnly ? <p className="text-small text-on-dark-dim">{injuredSide === 'left' ? 'Left' : 'Right'} (injured) only.</p> : null}
             {budgetLine ? <p className="text-small text-on-dark">{budgetLine}</p> : null}
 
             {draft.heightIn !== undefined ? (
@@ -208,7 +251,7 @@ export function ActiveCard(props: ActiveCardProps) {
                   <div className="flex gap-2">
                     {rangeStopOptions(slot.rangeStopDeg).map((deg) => (
                       <Button key={deg} variant={draft.rangeStopDeg === deg ? 'primary' : 'secondary'} aria-pressed={draft.rangeStopDeg === deg} onClick={() => set({ rangeStopDeg: deg })}>
-                        to {deg}°
+                        {draft.rangeStopDeg === deg ? '✓ ' : ''}to {deg}°
                       </Button>
                     ))}
                   </div>
@@ -235,12 +278,19 @@ export function ActiveCard(props: ActiveCardProps) {
               </div>
             ) : null}
 
-            {showsLoad(exercise) ? (
+            {hasLoad ? (
               <Stepper label={loadLabel(exercise)} value={draft.load} step={loadStep(exercise)} min={0} max={loadMax(exercise, props.dumbbellMax)} onChange={(v) => set({ load: v })} />
             ) : null}
             {blockedOnLoad ? <p className="text-small text-on-dark">First time on this exercise: pick a load that lands at the target RPE.</p> : null}
 
-            <Stepper label={countLabel(slot.repUnit)} value={draft.count} step={countStep(slot.repUnit)} min={0} max={600} onChange={(v) => set({ count: v })} />
+            <Stepper
+              label={panel === 'stop' ? `${countLabel(repUnit)} done before stopping` : countLabel(repUnit)}
+              value={draft.count}
+              step={countStep(repUnit)}
+              min={0}
+              max={600}
+              onChange={(v) => set({ count: v })}
+            />
 
             {showRpe ? (
               <>
@@ -249,17 +299,29 @@ export function ActiveCard(props: ActiveCardProps) {
               </>
             ) : null}
 
-            {props.painPerSet ? <ScalePicker label="Pain, this set" value={draft.pain} options={PAIN_SCALE} onChange={(v) => set({ pain: v })} /> : null}
-            {draft.pain === null && props.painPerSet ? <p className="text-small text-on-dark-dim">Unrated pain reads hold: unknown is not clean.</p> : null}
+            {props.painPerSet ? painPicker : null}
 
             {editing ? (
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-col gap-3">
                 <Button variant="quiet" onClick={() => props.onEdit(null)}>
-                  Back
+                  Back without saving
                 </Button>
-                <Button variant="quiet" onClick={() => props.onRemove(editing)}>
-                  Remove this set
-                </Button>
+                <div className="border-t border-on-dark-faint pt-3">
+                  {confirmRemove ? (
+                    <div className="flex flex-wrap gap-2">
+                      <Button onClick={() => props.onRemove(editing)} disabled={props.busy}>
+                        Yes, remove set {editing.setNumber}
+                      </Button>
+                      <Button variant="quiet" onClick={() => setConfirmRemove(false)}>
+                        Keep it
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button variant="quiet" onClick={() => setConfirmRemove(true)}>
+                      Remove this set
+                    </Button>
+                  )}
+                </div>
               </div>
             ) : null}
           </div>
@@ -268,9 +330,10 @@ export function ActiveCard(props: ActiveCardProps) {
         {!editing && step && draft ? (
           panel === 'stop' ? (
             <div aria-label="Stop this exercise" className="flex flex-col gap-2">
-              <p className="text-body text-on-dark">Why stop? The set logs with the count above, then this exercise is done for today.</p>
+              <p className="text-body text-on-dark">Why stop? The set logs with the count above, then this exercise is done for today, both sides.</p>
+              {blockedOnLoad ? <p className="text-small text-on-dark">Enter the load you used above first.</p> : null}
               {STOP_REASONS.map((r) => (
-                <Button key={r.value} wide onClick={() => props.onLog(draft, r.value)} disabled={props.busy}>
+                <Button key={r.value} wide onClick={() => props.onLog(draft, r.value)} disabled={props.busy || blockedOnLoad}>
                   {r.label}
                 </Button>
               ))}
@@ -282,14 +345,28 @@ export function ActiveCard(props: ActiveCardProps) {
             <div aria-label="Swap" className="flex flex-col gap-2">
               <p className="text-body text-on-dark">Swap for this session. The slot&apos;s job stays the same.</p>
               {substitutions.map((sub) => (
-                <Button key={sub.id} wide onClick={() => { props.onSwap(sub.id); setPanel(null) }} aria-pressed={exercise.id === sub.id}>
+                <Button
+                  key={sub.id}
+                  wide
+                  onClick={() => {
+                    props.onSwap(sub.id)
+                    setPanel(null)
+                  }}
+                  aria-pressed={exercise.id === sub.id}
+                >
                   {exercise.id === sub.id ? '✓ ' : ''}
                   {sub.name}
                 </Button>
               ))}
               {props.swapped ? (
-                <Button wide onClick={() => { props.onSwap(null); setPanel(null) }}>
-                  Back to {plan.slot.exerciseId === exercise.id ? exercise.name : exerciseById(slot.exerciseId).name}
+                <Button
+                  wide
+                  onClick={() => {
+                    props.onSwap(null)
+                    setPanel(null)
+                  }}
+                >
+                  Back to {exerciseById(plan.slot.exerciseId).name}
                 </Button>
               ) : null}
               <Button variant="quiet" onClick={() => setPanel(null)}>
@@ -298,8 +375,14 @@ export function ActiveCard(props: ActiveCardProps) {
             </div>
           ) : (
             <div className="flex flex-wrap gap-2">
-              {substitutions.length > 0 ? <Button variant="quiet" onClick={() => setPanel('swap')}>Swap</Button> : null}
-              <Button variant="quiet" onClick={() => setPanel('stop')}>Stop this exercise</Button>
+              {substitutions.length > 0 ? (
+                <Button variant="quiet" onClick={() => setPanel('swap')}>
+                  Swap
+                </Button>
+              ) : null}
+              <Button variant="quiet" onClick={() => setPanel('stop')}>
+                Stop this exercise
+              </Button>
             </div>
           )
         ) : null}
@@ -310,7 +393,7 @@ export function ActiveCard(props: ActiveCardProps) {
           </p>
         ) : null}
       </section>
-      <DoneBar timer={props.timer} line={draftLine} label={barLabel} disabled={props.busy || blockedOnLoad} onPress={barPress} />
+      <DoneBar timer={props.timer} line={draftLine} label={barLabel} disabled={props.busy || barDisabled} onPress={barPress} />
     </>
   )
 }

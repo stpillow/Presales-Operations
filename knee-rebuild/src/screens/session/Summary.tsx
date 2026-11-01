@@ -65,12 +65,12 @@ export function Summary({ workout, template, sets, injuredSide }: { workout: Wor
               ))}
               {stop ? <p className="text-small text-on-dark">Stopped: {stopReasonLabel(stop.stopReason).toLowerCase()}.</p> : null}
               <ReadingWord result={reading.result} />
-              <p className="text-small text-on-dark-dim">{readingSentence(reading.result)}</p>
+              <p className="text-small text-on-dark-dim">Because: {reading.reasons.join('; ') || readingSentence(reading.result)}.</p>
             </li>
           )
         })}
       </ul>
-      <p className="text-body text-on-dark-dim">Tomorrow&apos;s morning check completes each reading; until then it reads hold.</p>
+      <p className="text-body text-on-dark-dim">These are the session readings. Tomorrow&apos;s morning check completes them, and the Morning check screen then says what changes next time; until it is done, each reads hold.</p>
       <Button variant="primary" wide onClick={() => navigate({ name: 'today' })}>
         Back to Today
       </Button>

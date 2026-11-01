@@ -1,16 +1,19 @@
-import raw from '../../data/program.json'
 import { Program, type Exercise, type Phase, type SessionLetter, type SessionTemplate } from '../schema/index.ts'
+import { seedError, seedProgram } from './seed.ts'
 
 /**
  * The seed program, validated once at import. Transcribed by hand from docs/program.md in M1;
- * never parsed from the Markdown at runtime, never "improved" here.
+ * never parsed from the Markdown at runtime, never "improved" here. Modules that import this only
+ * load after main.tsx has checked seedError, so the throw below is a guard, not the error path.
  */
-const parsed = Program.safeParse(raw)
+export const programError: string | null = seedError
 
-/** Null when the seed validates; otherwise the reason, for a readable error screen instead of a blank one. */
-export const programError: string | null = parsed.success ? null : parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ')
+function requireProgram(): Program {
+  if (!seedProgram) throw new Error(`data/program.json failed validation: ${seedError ?? 'unknown error'}`)
+  return seedProgram
+}
 
-export const program: Program = parsed.success ? parsed.data : (() => { throw new Error(`data/program.json failed validation: ${programError}`) })()
+export const program: Program = requireProgram()
 
 const exercisesById = new Map(program.exercises.map((e) => [e.id, e]))
 
