@@ -23,7 +23,7 @@ export const Exercise = z.strictObject({
   equipment: z.string().min(1),
   loadType: LoadType,
   loadUnit: LoadUnit,
-  /** Smallest step in `loadUnit`: 5 lb per dumbbell, 1 stack plate, 10 lb on the Smith, 2 in. of step. */
+  /** Smallest step in `loadUnit`: 5 lb per dumbbell, 5 lb on a machine stack, 10 lb on the Smith, 2 in. of step. */
   increment: z.number().nonnegative(),
   /** `down` for assisted pull-ups, where less assist is the progression. */
   loadDirection: z.enum(['up', 'down']).default('up'),
@@ -151,6 +151,10 @@ export type Gate = z.infer<typeof Gate>
 export const MileageWeek = z.strictObject({
   week: z.number().int().min(1).max(12),
   targetMiles: z.number().positive(),
+  /**
+   * A deload week (4, 8, 12). program.md drops the miles here; Shawn's Nov 1 call holds them flat
+   * at the week before instead, so the plan never decreases (PROGRAM-QUESTIONS 1).
+   */
   isDown: z.boolean(),
 })
 export type MileageWeek = z.infer<typeof MileageWeek>

@@ -8,6 +8,7 @@ import {
   countWords,
   draftFromSet,
   durationWords,
+  loadLabel,
   loadMax,
   loadWords,
   loggedMaxPain,
@@ -44,6 +45,11 @@ describe('fields and words', () => {
   })
   it('says loads and prescriptions in words', () => {
     expect(loadWords(8, ex())).toBe('plate 8')
+    expect(loadWords(90, ex({ loadUnit: 'lb', increment: 5 }))).toBe('90 lb')
+    expect(loadWords(40, ex({ loadUnit: 'lb', increment: 5, loadDirection: 'down' }))).toBe('assist 40 lb')
+    expect(loadLabel(ex({ loadUnit: 'lb', increment: 5 }))).toBe('Weight (lb)')
+    expect(loadLabel(ex({ loadUnit: 'lb', increment: 5, loadDirection: 'down' }))).toBe('Assist (lb)')
+    expect(loadLabel(ex())).toBe('Plate')
     expect(loadWords(null, ex())).toBe('load to pick')
     expect(loadWords(20, ex({ loadType: 'dumbbell-each', loadUnit: 'lb', increment: 5 }))).toBe('20 lb each')
     expect(prescriptionWords(rx(), slot(), ex())).toBe('3 × 10 · RPE 6→7 · plate 8')

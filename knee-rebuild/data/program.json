@@ -2432,7 +2432,7 @@
     },
     {
       "week": 4,
-      "targetMiles": 9,
+      "targetMiles": 12,
       "isDown": true
     },
     {
@@ -2452,7 +2452,7 @@
     },
     {
       "week": 8,
-      "targetMiles": 11,
+      "targetMiles": 15,
       "isDown": true
     },
     {
@@ -2472,7 +2472,7 @@
     },
     {
       "week": 12,
-      "targetMiles": 14,
+      "targetMiles": 18,
       "isDown": true
     }
   ],
@@ -2483,8 +2483,8 @@
       "pattern": "squat",
       "equipment": "Seated leg press",
       "loadType": "stack",
-      "loadUnit": "plate",
-      "increment": 1,
+      "loadUnit": "lb",
+      "increment": 5,
       "unilateral": false
     },
     {
@@ -2503,8 +2503,8 @@
       "pattern": "single-leg",
       "equipment": "Seated leg press, one leg at a time",
       "loadType": "stack",
-      "loadUnit": "plate",
-      "increment": 1,
+      "loadUnit": "lb",
+      "increment": 5,
       "unilateral": true
     },
     {
@@ -2533,8 +2533,8 @@
       "pattern": "quad",
       "equipment": "Leg extension machine",
       "loadType": "stack",
-      "loadUnit": "plate",
-      "increment": 1,
+      "loadUnit": "lb",
+      "increment": 5,
       "unilateral": false
     },
     {
@@ -2633,8 +2633,8 @@
       "pattern": "hip",
       "equipment": "Hip abductor machine",
       "loadType": "stack",
-      "loadUnit": "plate",
-      "increment": 1,
+      "loadUnit": "lb",
+      "increment": 5,
       "unilateral": false
     },
     {
@@ -2643,8 +2643,8 @@
       "pattern": "hip",
       "equipment": "Hip adductor machine",
       "loadType": "stack",
-      "loadUnit": "plate",
-      "increment": 1,
+      "loadUnit": "lb",
+      "increment": 5,
       "unilateral": false
     },
     {
@@ -2653,8 +2653,8 @@
       "pattern": "hip",
       "equipment": "Cable station, ankle strap",
       "loadType": "stack",
-      "loadUnit": "plate",
-      "increment": 1,
+      "loadUnit": "lb",
+      "increment": 5,
       "unilateral": true,
       "sideMeaning": "The standing leg is the one training: log the leg you stand on."
     },
@@ -2664,8 +2664,8 @@
       "pattern": "hip",
       "equipment": "Cable station, ankle strap",
       "loadType": "stack",
-      "loadUnit": "plate",
-      "increment": 1,
+      "loadUnit": "lb",
+      "increment": 5,
       "unilateral": true
     },
     {
@@ -2706,8 +2706,8 @@
       "pattern": "hamstring",
       "equipment": "Seated leg curl machine",
       "loadType": "stack",
-      "loadUnit": "plate",
-      "increment": 1,
+      "loadUnit": "lb",
+      "increment": 5,
       "unilateral": false
     },
     {
@@ -2716,8 +2716,8 @@
       "pattern": "hamstring",
       "equipment": "Seated leg curl machine, one leg",
       "loadType": "stack",
-      "loadUnit": "plate",
-      "increment": 1,
+      "loadUnit": "lb",
+      "increment": 5,
       "unilateral": true
     },
     {
@@ -2726,8 +2726,8 @@
       "pattern": "hamstring",
       "equipment": "Lying leg curl machine",
       "loadType": "stack",
-      "loadUnit": "plate",
-      "increment": 1,
+      "loadUnit": "lb",
+      "increment": 5,
       "unilateral": false
     },
     {
@@ -2842,8 +2842,8 @@
       "pattern": "calf",
       "equipment": "Leg press or Smith machine",
       "loadType": "stack",
-      "loadUnit": "plate",
-      "increment": 1,
+      "loadUnit": "lb",
+      "increment": 5,
       "unilateral": false
     },
     {
@@ -2852,8 +2852,8 @@
       "pattern": "calf",
       "equipment": "Seated calf machine",
       "loadType": "stack",
-      "loadUnit": "plate",
-      "increment": 1,
+      "loadUnit": "lb",
+      "increment": 5,
       "unilateral": false
     },
     {
@@ -2925,8 +2925,8 @@
       "pattern": "push",
       "equipment": "Chest press machine",
       "loadType": "stack",
-      "loadUnit": "plate",
-      "increment": 1,
+      "loadUnit": "lb",
+      "increment": 5,
       "unilateral": false
     },
     {
@@ -2955,8 +2955,8 @@
       "pattern": "pull",
       "equipment": "Lat pulldown",
       "loadType": "stack",
-      "loadUnit": "plate",
-      "increment": 1,
+      "loadUnit": "lb",
+      "increment": 5,
       "unilateral": false
     },
     {
@@ -2965,8 +2965,8 @@
       "pattern": "pull",
       "equipment": "Assisted pull-up machine",
       "loadType": "stack",
-      "loadUnit": "plate",
-      "increment": 1,
+      "loadUnit": "lb",
+      "increment": 5,
       "unilateral": false,
       "loadDirection": "down",
       "notes": "The stack is the assist: a lower plate number is harder."
@@ -2977,8 +2977,8 @@
       "pattern": "pull",
       "equipment": "Cable station",
       "loadType": "stack",
-      "loadUnit": "plate",
-      "increment": 1,
+      "loadUnit": "lb",
+      "increment": 5,
       "unilateral": false
     },
     {
@@ -2987,8 +2987,8 @@
       "pattern": "pull",
       "equipment": "Seated row",
       "loadType": "stack",
-      "loadUnit": "plate",
-      "increment": 1,
+      "loadUnit": "lb",
+      "increment": 5,
       "unilateral": false
     },
     {
@@ -3007,8 +3007,8 @@
       "pattern": "pull",
       "equipment": "Cable station",
       "loadType": "stack",
-      "loadUnit": "plate",
-      "increment": 1,
+      "loadUnit": "lb",
+      "increment": 5,
       "unilateral": false
     },
     {
@@ -3017,8 +3017,8 @@
       "pattern": "pull",
       "equipment": "Cable crossover, rope",
       "loadType": "stack",
-      "loadUnit": "plate",
-      "increment": 1,
+      "loadUnit": "lb",
+      "increment": 5,
       "unilateral": false
     },
     {
@@ -3027,8 +3027,8 @@
       "pattern": "pull",
       "equipment": "Rear-delt machine",
       "loadType": "stack",
-      "loadUnit": "plate",
-      "increment": 1,
+      "loadUnit": "lb",
+      "increment": 5,
       "unilateral": false
     },
     {
@@ -3057,8 +3057,8 @@
       "pattern": "core",
       "equipment": "Cable station",
       "loadType": "stack",
-      "loadUnit": "plate",
-      "increment": 1,
+      "loadUnit": "lb",
+      "increment": 5,
       "unilateral": false
     },
     {

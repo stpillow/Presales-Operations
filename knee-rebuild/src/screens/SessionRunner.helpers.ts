@@ -72,12 +72,15 @@ export function loadMax(exercise: Exercise, dumbbellMax: number): number {
 export function loadLabel(exercise: Exercise): string {
   if (exercise.holdsLoad !== undefined || exercise.loadType === 'dumbbell-each') return 'Dumbbells (lb each)'
   if (exercise.loadType === 'dumbbell-single') return 'Dumbbell (lb)'
-  if (exercise.loadType === 'stack') return exercise.loadDirection === 'down' ? 'Assist (plate)' : 'Plate'
+  if (exercise.loadType === 'stack') {
+    const unit = exercise.loadUnit === 'plate' ? 'plate' : 'lb'
+    return exercise.loadDirection === 'down' ? `Assist (${unit})` : unit === 'plate' ? 'Plate' : 'Weight (lb)'
+  }
   if (exercise.loadType === 'smith-plates') return 'Plates on the Smith (lb)'
   return 'Load (lb)'
 }
 
-/** A load in words: "plate 8", "20 lb each", "bodyweight". */
+/** A load in words: "90 lb", "plate 8", "20 lb each", "assist 40 lb", "bodyweight". */
 export function loadWords(load: number | null, exercise: Exercise): string {
   if (!showsLoad(exercise)) return 'bodyweight'
   if (load === null) return 'load to pick'
@@ -86,7 +89,8 @@ export function loadWords(load: number | null, exercise: Exercise): string {
     case 'dumbbell-each':
       return `${load} lb each`
     case 'stack':
-      return exercise.loadDirection === 'down' ? `assist ${load}` : `plate ${load}`
+      if (exercise.loadUnit === 'plate') return exercise.loadDirection === 'down' ? `assist ${load}` : `plate ${load}`
+      return exercise.loadDirection === 'down' ? `assist ${load} lb` : `${load} lb`
     default:
       return `${load} lb`
   }
