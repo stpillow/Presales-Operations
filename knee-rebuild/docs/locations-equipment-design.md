@@ -92,7 +92,23 @@ Add `equipment[]`, `planetFitness`, `requires` on all 71 exercises, `stageRequir
 
 Tests: ids resolve; aliases are unique; every `source` is verbatim in program.md; dumbbell requirements match loadType, with the load-only list pinned. `npm run program -- --equipment` prints them for a spot check.
 
-## 9. Open questions for Shawn
+## 9. Shawn's answers (Nov 1)
+
+These replace the defaults below wherever they differ; build on these.
+
+1. Order: M4b, then M5, then M6.
+2. His club has a bosu or balance pad, a stability ball and a usable stair; it has no lying leg curl. `planetFitness` includes the first three and not the lying leg curl.
+3. He has both the ankle strap and the mini band.
+4. **Changed:** machine loads are pounds, not plate numbers ("I'll always give weight, not plate count"), in 5 lb steps, and they carry between gyms ("pounds are pounds"). `gymLoads.ts` loses its per-gym history: every load type carries; only the rack cap and `rackCapped` remain.
+5. Lighter rack with nothing to swap to: the heaviest dumbbell there, rack-capped, not counted as clean.
+6. Nothing from a slot's list here: show it with Skip or Do it anyway.
+7. **Changed:** a Hold run day at a gym with neither machine gets no suggestion; the logger says neither is here and he picks.
+8. Floor work anywhere; a mat only as a balance surface or under Nordic knees. Kept.
+9. An away gym stays active until he changes it, named on Today.
+10. The gym locks at the first set.
+11. program.md's words only. Kept.
+
+## 9a. The questions as first asked, with the defaults
 
 1. Build order? Default: finish M3, then M4, then M4b before week 4 (Nov 23); lift tasks jump ahead of M4 if he trains elsewhere sooner.
 2. Bosu, lying leg curl, stability ball, usable stair at his club? Default: not here until marked (balance stops at folded mat, eyes closed); Swap still offers them.
