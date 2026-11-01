@@ -1,0 +1,67 @@
+import { describe, expect, it } from 'vitest'
+import { homeLocation } from '../db/migrations.ts'
+import { availableEquipment, forNextProgramUpdate, locationCoverage, routeSlot, stageCeiling, suggestedRunSwap } from '../rules/equipment.ts'
+import { exerciseById, program } from './program.ts'
+
+// The live seed through the equipment rules (design section 3): Shawn's club runs the program as written.
+
+const byId = new Map(program.exercises.map((e) => [e.id, e]))
+const kit = program.equipment.filter((e) => e.carried).map((e) => e.id)
+const home = homeLocation(80, program.planetFitness, '2026-11-01', program.equipmentListVersion)
+const available = availableEquipment(home, program.equipment, program.planetFitness, kit)
+
+describe('the home gym on the live seed', () => {
+  it('carries both items in the bag', () => {
+    expect([...kit].sort()).toEqual(['ankle-strap', 'mini-band'])
+  })
+
+  it('routes every slot of all nine templates to its own exercise', () => {
+    expect(program.templates).toHaveLength(9)
+    const moved: string[] = []
+    for (const template of program.templates) {
+      for (const slot of template.slots) {
+        const route = routeSlot(slot, byId, available)
+        if (route.kind !== 'own') moved.push(`${template.id} ${slot.id}: ${route.kind} to ${route.exerciseId} (${JSON.stringify(route.passedOver)})`)
+      }
+    }
+    expect(moved).toEqual([])
+  })
+
+  it('changes nothing in any week of any phase', () => {
+    for (const phaseWeek of [1, 2, 3, 4, 5, 9]) {
+      for (const coverage of locationCoverage(program.templates, phaseWeek, byId, available)) expect(coverage.moves, `${coverage.templateId} week ${phaseWeek}`).toEqual([])
+    }
+  })
+
+  it('lets both balance ladders run every stage: his club has a bosu (Shawn, Nov 1)', () => {
+    for (const id of ['single-leg-balance', 'balance-mat-bosu']) {
+      const exercise = exerciseById(id)
+      expect(exercise.stages?.length, id).toBeGreaterThan(0)
+      expect(stageCeiling(exercise, available), id).toBeNull()
+    }
+  })
+
+  it('suggests the elliptical on a Hold run day', () => {
+    expect(suggestedRunSwap(available)).toBe('elliptical-swap')
+  })
+
+  it('has dumbbells from its max and the 45° press from Shawn\'s answers, which Planet Fitness\'s list lacks', () => {
+    expect(available.has('dumbbells')).toBe(true)
+    expect(program.planetFitness).not.toContain('leg-press-45')
+    expect(available.has('leg-press-45')).toBe(true)
+    expect(available.has('lying-leg-curl')).toBe(false)
+  })
+
+  it('names the eight list items no exercise uses for the next program update (PROGRAM-QUESTIONS 75)', () => {
+    expect(forNextProgramUpdate([home], program.equipment, program.exercises).map((n) => n.text)).toEqual([
+      'Weight plate',
+      'Floor tape',
+      'Cable crossover',
+      'Shoulder press machine',
+      'Upright bike',
+      'Treadmill',
+      'Rower',
+      'Stair climber',
+    ])
+  })
+})
