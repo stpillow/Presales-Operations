@@ -1,99 +1,85 @@
 import { useEffect, useState } from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
-import { db } from './db/db'
+import { useRoute } from './app/router.ts'
+import { Button } from './components/Button.tsx'
+import { TabBar } from './components/TabBar.tsx'
+import { useSettings } from './db/hooks.ts'
+import { defaultSettings, ensureSettings, requestPersistentStorage } from './db/repo.ts'
+import { program } from './program/program.ts'
+import { MorningCheck } from './screens/MorningCheck.tsx'
+import { More } from './screens/More.tsx'
+import { Placeholder } from './screens/Placeholder.tsx'
+import { SessionRunner } from './screens/SessionRunner.tsx'
+import { Settings } from './screens/Settings.tsx'
+import { Today } from './screens/Today.tsx'
 
-type StorageState = 'opening' | 'ready' | 'failed'
-
-/**
- * M0 shell. Proves the three things the scaffold has to prove on a phone:
- * the page loads offline, IndexedDB opens, and a new deploy waits for a tap instead of reloading.
- * Screens arrive in M3. Nothing here decides anything; decisions live in src/rules/.
- */
 export function App() {
-  const [storage, setStorage] = useState<StorageState>('opening')
-  const [online, setOnline] = useState(() => navigator.onLine)
+  const route = useRoute()
+  const settings = useSettings()
+  const [seedError, setSeedError] = useState<string | null>(null)
   const {
     needRefresh: [needRefresh],
     updateServiceWorker,
   } = useRegisterSW()
 
   useEffect(() => {
-    let cancelled = false
-    db.open()
-      .then(() => {
-        if (!cancelled) setStorage('ready')
-      })
-      .catch(() => {
-        if (!cancelled) setStorage('failed')
-      })
-    return () => {
-      cancelled = true
-    }
+    ensureSettings(defaultSettings(program))
+      .then(() => requestPersistentStorage())
+      .catch((e: unknown) => setSeedError(e instanceof Error ? e.message : String(e)))
   }, [])
 
-  useEffect(() => {
-    const goOnline = () => setOnline(true)
-    const goOffline = () => setOnline(false)
-    window.addEventListener('online', goOnline)
-    window.addEventListener('offline', goOffline)
-    return () => {
-      window.removeEventListener('online', goOnline)
-      window.removeEventListener('offline', goOffline)
-    }
-  }, [])
+  if (seedError) {
+    return (
+      <main className="mx-auto flex min-h-dvh max-w-[36rem] flex-col gap-4 px-4 py-12">
+        <h1 className="font-display text-h2 text-on-dark">Storage could not be opened</h1>
+        <p className="text-body text-on-dark-dim">The app keeps everything on this phone, and the phone refused: {seedError}. Private browsing blocks it on iOS; open the app from the home screen icon instead.</p>
+      </main>
+    )
+  }
+  if (settings === undefined || settings === null) {
+    return (
+      <main className="mx-auto flex min-h-dvh max-w-[36rem] flex-col gap-4 px-4 py-12">
+        <h1 className="font-display text-h2 text-on-dark">Knee Rebuild</h1>
+        <p className="text-body text-on-dark-dim">Opening storage…</p>
+      </main>
+    )
+  }
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-[36rem] flex-col gap-8 px-4 py-12">
-      <header className="flex flex-col gap-4">
-        <h1 className="font-display text-h1 text-on-dark">Knee Rebuild</h1>
-        <p className="max-w-[32rem] text-lead text-on-dark-dim">
-          Says what to do <span className="text-green-bright">today</span>, logs what happened,
-          reads the knee, and decides what comes next.
-        </p>
-      </header>
-
-      <section aria-labelledby="status-heading" className="flex flex-col gap-3">
-        <h2 id="status-heading" className="font-display text-h3 text-on-dark">
-          Scaffold status
-        </h2>
-        <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-body">
-          <dt className="text-on-dark-muted">Program</dt>
-          <dd className="text-on-dark">Week 1 starts Monday, Nov 2, 2026</dd>
-          <dt className="text-on-dark-muted">Storage</dt>
-          <dd className="text-on-dark">{storageLabel(storage)}</dd>
-          <dt className="text-on-dark-muted">Network</dt>
-          <dd className="text-on-dark">{online ? 'Online' : 'Offline, running from cache'}</dd>
-          <dt className="text-on-dark-muted">Build</dt>
-          <dd className="text-on-dark">M0 scaffold. Screens arrive in M3.</dd>
-        </dl>
-      </section>
-
+    <>
       {needRefresh ? (
-        <section
-          role="status"
-          className="flex flex-col gap-3 border-t border-on-dark-faint pt-6 text-body"
-        >
-          <p className="text-on-dark">A new version is ready. It will not reload on its own.</p>
-          <button
-            type="button"
-            onClick={() => void updateServiceWorker(true)}
-            className="tap w-fit rounded-sm bg-paper px-6 py-3 font-sans text-body font-medium text-on-light"
-          >
+        <div role="status" className="mx-auto flex max-w-[36rem] items-center justify-between gap-4 px-4 pt-4 text-small text-on-dark">
+          <span>A new version is ready. It will not reload on its own.</span>
+          <Button variant="primary" onClick={() => void updateServiceWorker(true)}>
             Reload now
-          </button>
-        </section>
+          </Button>
+        </div>
       ) : null}
-    </main>
+      {(() => {
+        switch (route.name) {
+          case 'today':
+            return <Today />
+          case 'session':
+            return <SessionRunner workoutId={route.workoutId} />
+          case 'morning':
+            return <MorningCheck />
+          case 'settings':
+            return <Settings />
+          case 'more':
+            return <More />
+          case 'run':
+            return <Placeholder title="Run logger" milestone="M4" what="Type, miles, minutes, effort, max pain, strides and tempo, a Strava link, and the week's miles against target." />
+          case 'week':
+            return <Placeholder title="Week" milestone="M4" what="Seven days with each day's session and reading in words, the deload badge, miles against target, and a move-session action." />
+          case 'progress':
+            return <Placeholder title="Progress" milestone="M5" what="Load over time per exercise, symmetry per unilateral exercise, weekly miles against plan, consecutive clean days." />
+          case 'gates':
+            return <Placeholder title="Gates" milestone="M5" what="The current gate's checklist evaluated live, hop-test entry, and the Advance phase button." />
+          case 'program':
+            return <Placeholder title="Program" milestone="M6" what="The current phase's sessions, an editor for cues and substitutions, and program.md as reference." />
+        }
+      })()}
+      {route.name === 'session' ? null : <TabBar route={route} />}
+    </>
   )
-}
-
-function storageLabel(state: StorageState): string {
-  switch (state) {
-    case 'opening':
-      return 'Opening IndexedDB…'
-    case 'ready':
-      return 'IndexedDB ready (Dexie, empty schema)'
-    case 'failed':
-      return 'IndexedDB failed to open. Private browsing blocks it on iOS.'
-  }
 }

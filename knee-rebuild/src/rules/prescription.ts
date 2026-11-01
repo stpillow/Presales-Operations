@@ -1,6 +1,7 @@
 import type { Exercise, LoadUnit, ReadingResult, RepUnit, SetLog, SetSide, Side, Slot } from '../schema/index.ts'
 import { isDeloadWeek } from './calendar.ts'
 import { prescribedSets } from './deload.ts'
+import { effectiveSlot } from './effectiveSlot.ts'
 
 /** Why the prescription is what it is. Every basis has a one-sentence note for the screen. */
 export type Basis =
@@ -103,14 +104,35 @@ function startLoad(exercise: Exercise): number | null {
   }
 }
 
+/**
+ * The next easier version: the substitution after the exercise the slot is on now, in the
+ * program's order. On the slot's own exercise that is the first substitution; on the last one there is none.
+ */
+export function nextSubstitution(exercise: Pick<Exercise, 'id'>, substitutions: readonly Exercise[]): Exercise | undefined {
+  const at = substitutions.findIndex((s) => s.id === exercise.id)
+  return substitutions[at + 1]
+}
+
+/** Whether the slot's load can only step up with an RPE logged on every set (the load rules do; fixed, time and stage don't). */
+export function progressionNeedsRpe(slot: Pick<Slot, 'progressionRule'>): boolean {
+  return LOAD_RULES.has(slot.progressionRule)
+}
+
+/** The lightest version of a loaded exercise: one step of its increment (5 lb dumbbells, one plate, 10 lb on the Smith). */
+export function lightestLoad(exercise: Exercise): number {
+  return exercise.holdsLoad !== undefined ? HELD_LOAD_INCREMENT_LB : Math.max(exercise.increment, 1)
+}
+
 function hitTop(sets: readonly SetLog[], slot: Slot): boolean {
   if (sets.length === 0) return false
-  const needsRpe = LOAD_RULES.has(slot.progressionRule)
+  const needsRpe = progressionNeedsRpe(slot)
   return sets.every((s) => !s.stopped && value(s) >= slot.repsMax && (!needsRpe || (s.rpe !== undefined && s.rpe <= RPE_CEILING)))
 }
 
 /** Rule 4: the next prescription for one slot, per side, injured side first. */
-export function prescribe(input: PrescriptionInput): Prescription[] {
+export function prescribe(raw: PrescriptionInput): Prescription[] {
+  // The slot as it applies to the exercise actually run: after a swap, units, targets and rule follow it.
+  const input: PrescriptionInput = { ...raw, slot: effectiveSlot(raw.slot, raw.exercise) }
   const sides = sidesFor(input.slot, input.injuredSide)
   const out: Prescription[] = []
   let injuredTarget: number | undefined
@@ -143,7 +165,8 @@ function prescribeSide(input: PrescriptionInput, side: SetSide): Prescription {
   }
 
   if (last.length === 0) {
-    const load = startLoad(exercise)
+    // In a deload week a new exercise runs its lightest version (PROGRAM-QUESTIONS 8): the smallest step, nothing to pick.
+    const load = startLoad(exercise) ?? (deload && exercise.loadDirection !== 'down' ? lightestLoad(exercise) : null)
     const rpe = slot.rpeTarget === undefined ? '' : ` that lands at RPE ${slot.rpeTarget}`
     return {
       ...base,
@@ -295,7 +318,7 @@ function backOff(
     }
   }
   if (exercise.loadType === 'bodyweight' || exercise.loadType === 'step-height' || lastLoad <= 0) {
-    const sub = input.substitutions[0]
+    const sub = nextSubstitution(exercise, input.substitutions)
     if (sub) return result({ exerciseId: sub.id, load: startLoad(sub), note: `Back off: the easier version, ${sub.name}.` })
     const fewer = Math.max(1, Math.floor(sets * 0.75))
     return result({ sets: fewer, note: `Back off: ${fewer} sets instead of ${sets}; nothing lighter is written.` })
@@ -309,7 +332,7 @@ function capDumbbells(input: PrescriptionInput, p: Prescription): Prescription {
   const { exercise } = input
   const holdsDumbbells = DUMBBELL_TYPES.has(exercise.loadType) || (exercise.holdsLoad !== undefined && DUMBBELL_TYPES.has(exercise.holdsLoad))
   if (!holdsDumbbells || p.load === null || p.load <= input.dumbbellMax || p.exerciseId !== exercise.id) return p
-  const sub = input.substitutions[0]
+  const sub = nextSubstitution(exercise, input.substitutions)
   if (!sub) return { ...p, load: input.dumbbellMax, note: `${p.note} The rack stops at ${input.dumbbellMax} lb and nothing is written to swap to.` }
   return { ...p, exerciseId: sub.id, load: null, note: `${p.note} That is past the rack’s ${input.dumbbellMax} lb dumbbells: swap to ${sub.name} and pick its load.` }
 }

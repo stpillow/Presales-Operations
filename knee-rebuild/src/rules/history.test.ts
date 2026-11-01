@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { MorningCheck, Run, SetLog, Workout } from '../schema/index.ts'
-import { attachChecks, exerciseReadings, lastSetsFor, runReading, subjectReadings, workoutReading } from './history.ts'
+import { attachChecks, exerciseReadings, lastSetsBySide, lastSetsFor, recordsBefore, runReading, subjectReadings, workoutReading } from './history.ts'
 
 const workout = (id: string, date: string, status: Workout['status'] = 'finished'): Workout => ({ id, date, templateId: 'p1-a', phase: 1, week: 1, isDeload: false, status })
 const set = (workoutId: string, exerciseId: string, setNumber: number, painDuring: number, reps = 12): SetLog => ({ id: `${workoutId}-${exerciseId}-${setNumber}`, workoutId, slotId: 'x', exerciseId, setNumber, side: 'both', load: 8, loadUnit: 'plate', reps, painDuring, stopped: false })
@@ -67,5 +67,20 @@ describe('workoutReading and runReading', () => {
       { kind: 'run', id: 'r1', date: '2026-11-02', result: 'clean' },
       { kind: 'workout', id: 'w1', date: '2026-11-03', result: 'clean' },
     ])
+  })
+})
+
+describe('recordsBefore and lastSetsBySide', () => {
+  const side = (workoutId: string, s: SetLog['side'], n: number, reps: number): SetLog => ({ id: `${workoutId}-${s}-${n}`, workoutId, slotId: 'x', exerciseId: 'cable-hip-abduction', setNumber: n, side: s, load: 4, loadUnit: 'plate', reps, painDuring: 1, stopped: false })
+  const w1 = workout('w1', '2026-11-07')
+  const w2 = workout('w2', '2026-11-14', 'abandoned')
+  const records = attachChecks([w1, w2], [side('w1', 'right', 1, 12), side('w1', 'left', 1, 12), { ...side('w2', 'right', 1, 4), stopped: true, stopReason: 'sharp-joint-line-pain' }], [])
+  it('a side missing from the latest session falls back to its own last sets', () => {
+    const got = lastSetsBySide(records, 'cable-hip-abduction')
+    expect(got.map((s) => s.id).sort()).toEqual(['w1-left-1', 'w2-right-1'])
+  })
+  it('keeps only sessions dated before the day being planned', () => {
+    expect(recordsBefore(records, '2026-11-14').map((r) => r.workout.id)).toEqual(['w1'])
+    expect(recordsBefore(records, '2026-11-15').map((r) => r.workout.id)).toEqual(['w1', 'w2'])
   })
 })

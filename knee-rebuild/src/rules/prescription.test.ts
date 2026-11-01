@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Exercise, SetLog, Slot } from '../schema/index.ts'
-import { backOffLoad, effectiveReading, prescribe, type PrescriptionInput } from './prescription.ts'
+import { backOffLoad, effectiveReading, nextSubstitution, prescribe, progressionNeedsRpe, type PrescriptionInput } from './prescription.ts'
 
 const ex = (over: Partial<Exercise> = {}): Exercise => ({
   id: 'leg-press', name: 'Leg press', pattern: 'squat', equipment: 'seated leg press', loadType: 'stack', loadUnit: 'plate', increment: 1, loadDirection: 'up', unilateral: false, ...over,
@@ -101,7 +101,17 @@ describe('first session, deload and red flag', () => {
     expect(one({ lastSets: [], readings: [], exercise: ex({ loadType: 'bodyweight', loadUnit: 'none', increment: 0 }) }).load).toBe(0)
   })
   it('a new slot in a deload week runs its lightest version with deload sets (PROGRAM-QUESTIONS 8)', () => {
-    expect(one({ lastSets: [], readings: [], week: 4 })).toMatchObject({ sets: 2, basis: 'first' })
+    expect(one({ lastSets: [], readings: [], week: 4 })).toMatchObject({ sets: 2, basis: 'first', load: 1 })
+    expect(one({ lastSets: [], readings: [], week: 8, exercise: ex({ loadType: 'dumbbell-each', loadUnit: 'lb', increment: 5 }) }).load).toBe(5)
+    expect(one({ lastSets: [], readings: [], week: 4, exercise: ex({ loadDirection: 'down' }) }).load).toBeNull()
+    expect(one({ lastSets: [], readings: [], week: 5 }).load).toBeNull()
+  })
+  it('after a swap to a timed substitution the prescription counts seconds', () => {
+    const wallSit = ex({ id: 'wall-sit', pattern: 'quad', loadType: 'time', loadUnit: 's', increment: 5 })
+    const legExt = slot({ exerciseId: 'leg-extension', sets: 2, repsMin: 15, repsMax: 15, progressionRule: 'range-then-load', rangeStopDeg: 45 })
+    const p = one({ slot: legExt, exercise: wallSit, lastSets: [], readings: [] })
+    expect(p).toMatchObject({ repUnit: 'seconds', repsTarget: 30, load: 0 })
+    expect(p.rangeStopDeg).toBeUndefined()
   })
   it('deload weeks skip progression even when clean twice at the top', () => {
     expect(one({ week: 8 })).toMatchObject({ sets: 2, load: 8, basis: 'deload' })
@@ -202,5 +212,54 @@ describe('sides', () => {
   })
   it('bilateral slots prescribe once, for both', () => {
     expect(prescribe(input()).map((p) => p.side)).toEqual(['both'])
+  })
+})
+
+describe('progressionNeedsRpe', () => {
+  it('is true for the load rules only', () => {
+    expect(progressionNeedsRpe({ progressionRule: 'double-progression' })).toBe(true)
+    expect(progressionNeedsRpe({ progressionRule: 'height-then-load' })).toBe(true)
+    expect(progressionNeedsRpe({ progressionRule: 'range-then-load' })).toBe(true)
+    expect(progressionNeedsRpe({ progressionRule: 'stage' })).toBe(false)
+    expect(progressionNeedsRpe({ progressionRule: 'time' })).toBe(false)
+    expect(progressionNeedsRpe({ progressionRule: 'fixed' })).toBe(false)
+  })
+})
+
+describe('the next easier version is the one after the current exercise', () => {
+  const own = ex({ id: 'single-leg-hip-thrust', pattern: 'hip', loadType: 'bodyweight', loadUnit: 'none', increment: 0, unilateral: true })
+  const smith = ex({ id: 'smith-hip-thrust', pattern: 'hip', loadType: 'smith-plates', loadUnit: 'lb', increment: 10 })
+  const db = ex({ id: 'db-hip-thrust', pattern: 'hip', loadType: 'dumbbell-single', loadUnit: 'lb', increment: 5 })
+  const s = slot({ exerciseId: 'single-leg-hip-thrust', repsMin: 10, repsMax: 10, progressionRule: 'fixed', substitutionIds: ['smith-hip-thrust', 'db-hip-thrust'] })
+  it('a back-off on a bodyweight substitution moves to the one after it, never to itself', () => {
+    const band = ex({ id: 'lateral-band-walk', pattern: 'hip', loadType: 'band', loadUnit: 'none', increment: 0 })
+    const cable = ex({ id: 'cable-hip-abduction', pattern: 'hip', unilateral: true })
+    const abd = slot({ exerciseId: 'hip-abductor-machine', progressionRule: 'fixed', substitutionIds: ['cable-hip-abduction', 'lateral-band-walk', 'copenhagen-plank-short'] })
+    const plank = ex({ id: 'copenhagen-plank-short', pattern: 'hip', loadType: 'time', loadUnit: 's', increment: 5, unilateral: true })
+    const p = one({ slot: abd, exercise: band, substitutions: [cable, band, plank], readings: ['back-off'], lastSets: threeSets({ exerciseId: 'lateral-band-walk', load: 0, loadUnit: 'none', reps: 12 }) })
+    expect(p.exerciseId).toBe('copenhagen-plank-short')
+  })
+  it('the slot’s own bodyweight exercise backs off to the first substitution', () => {
+    expect(one({ slot: s, exercise: own, substitutions: [smith, db], readings: ['back-off'], lastSets: threeSets({ load: 0, loadUnit: 'none', reps: 10 }) }).exerciseId).toBe('smith-hip-thrust')
+  })
+  it('the dumbbell cap on a substitution moves on, not back to itself', () => {
+    const rdl = ex({ id: 'db-rdl', pattern: 'hinge', loadType: 'dumbbell-each', loadUnit: 'lb', increment: 5 })
+    const slRdl = ex({ id: 'single-leg-rdl', pattern: 'hinge', loadType: 'dumbbell-single', loadUnit: 'lb', increment: 5, unilateral: true })
+    const smithRdl = ex({ id: 'smith-rdl', pattern: 'hinge', loadType: 'smith-plates', loadUnit: 'lb', increment: 10 })
+    const sl = slot({ exerciseId: 'single-leg-rdl', repsMin: 8, repsMax: 8, unilateral: false, substitutionIds: ['db-rdl', 'smith-rdl'] })
+    // Phase 2 C2: single-leg RDL's substitutions are DB RDL then Smith RDL; on DB RDL at the rack's top, the next is Smith RDL.
+    const p = one({ slot: sl, exercise: rdl, substitutions: [rdl, smithRdl], lastSets: threeSets({ exerciseId: 'db-rdl', load: 80, loadUnit: 'lb', reps: 8 }) })
+    expect(p.exerciseId).toBe('smith-rdl')
+    void slRdl
+  })
+})
+
+describe('nextSubstitution', () => {
+  const a = ex({ id: 'a' })
+  const b = ex({ id: 'b' })
+  it('is the first substitution from the slot’s own exercise, the next one from a substitution, none from the last', () => {
+    expect(nextSubstitution({ id: 'own' }, [a, b])?.id).toBe('a')
+    expect(nextSubstitution({ id: 'a' }, [a, b])?.id).toBe('b')
+    expect(nextSubstitution({ id: 'b' }, [a, b])).toBeUndefined()
   })
 })

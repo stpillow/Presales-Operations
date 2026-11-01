@@ -41,6 +41,30 @@ export function exerciseReadings(records: readonly WorkoutRecord[], exerciseId: 
     .reverse()
 }
 
+/** Only the sessions dated before a day: the session being run never plans itself, and a same-day earlier attempt doesn't either. */
+export function recordsBefore(records: readonly WorkoutRecord[], date: IsoDate): WorkoutRecord[] {
+  return records.filter((r) => r.workout.date < date)
+}
+
+/**
+ * For each side, the sets from the most recent session that logged that side of this exercise. A
+ * stop on the injured side leaves the healthy side unlogged; its own last sets still stand.
+ */
+export function lastSetsBySide(records: readonly WorkoutRecord[], exerciseId: string): SetLog[] {
+  const out: SetLog[] = []
+  const seen = new Set<string>()
+  for (const record of [...records].reverse()) {
+    if (!finished(record)) continue
+    const own = record.sets.filter((s) => s.exerciseId === exerciseId)
+    for (const side of new Set(own.map((s) => s.side))) {
+      if (seen.has(side)) continue
+      seen.add(side)
+      out.push(...own.filter((s) => s.side === side))
+    }
+  }
+  return out
+}
+
 /** The most recent session's sets for an exercise, abandoned sessions included. */
 export function lastSetsFor(records: readonly WorkoutRecord[], exerciseId: string): SetLog[] {
   const record = [...records].reverse().find((r) => finished(r) && r.sets.some((s) => s.exerciseId === exerciseId))

@@ -74,3 +74,11 @@ Status key: **confirm** = reading taken, Shawn to confirm or overrule · **open*
 51. **"Two consecutive clean weeks"** requires at least one reading in each of the two weeks; an empty fortnight is not clean. **FYI**
 52. **Rule 3's 36-hour window** works at the day granularity checks are logged in: a check dated the same day or the next day applies to a session; an explicit link wins. **FYI**
 53. **Runs get readings too.** A run's max pain uses rule 1's thresholds (3 and 5) and combines with its morning check like a workout does, so runs can trip the hold cap and the gate's clean-weeks item. **FYI**
+
+## Found while building the daily loop (M3)
+
+54. **A two-legged slot swapped to a one-sided substitution** (hip abductor machine to cable hip abduction, ankle strap) logs as "both", because sides come from the slot, not the exercise. The runner says "Logs as both sides" so the record isn't a surprise. Reading: leave it; the slot's job is two-legged in the program. **confirm**
+55. **After a back-off moves a slot to its easier version, nothing moves it back.** The engine reads the slot's own exercise's readings; once the slot runs the substitution, the own exercise gets no new readings, so the back-off stands and the slot stays on the substitution indefinitely. Proposed reading: the slot returns to its own exercise, at its last load, once the substitution reads clean twice; until then the substitution progresses on its own history. This is an engine change (rule 4) and lands with a test before Phase 2. **open**
+56. *(Reserved: used by the M4 week-planning rules, landing with M4.)*
+57. **Targets after a swap that changes what is counted.** The program writes one time-based substitution target (the wall sit, "2 × 30–45 s"); the others aren't written. Reading: a swap to a timed exercise targets 30 to 45 s; a timed slot swapped to a counted exercise targets 10 to 15 reps; the progression rule follows the exercise (time, double progression, or fixed for bodyweight). **confirm**
+58. **A new exercise in a deload week** now starts at its lightest load (one dumbbell step, one plate, 10 lb on the Smith) instead of asking for a pick, per question 8's "lightest version". **FYI**

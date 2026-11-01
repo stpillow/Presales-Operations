@@ -75,3 +75,36 @@ Correctness pass: eight review angles over `src/rules/`, then the boundary walk 
 | 22 | `backOff` carried an unused `side` parameter | Cleanup | Fixed |
 | 23 | Two readings of one exercise count as consecutive whatever the calendar gap between them | Accepted: "twice in a row" is about that slot's sessions, and a slot can skip a week on a move or a swap | Logged |
 | 24 | The per-exercise pain storage convention lived only in a comment | Convention | Fixed: stated in CLAUDE.md's glossary |
+
+## Findings, M3 (Nov 1, 2026)
+
+Method: a five-angle adversarial review run as a workflow (data integrity; rule fidelity and placement; the gym experience against the brief and the runner design; security and robustness; dates, phases and edge cases). Each reviewer reported up to eight findings with a concrete scenario; each finding then went to three skeptics told to refute it (by code reading, against the spec, and by reproduction). A finding survived on two confirmations of three. 32 reported, 31 survived, most reproduced with a script; many were the same defect seen from two angles. The locations design panel found one more (a slot already on its first substitution was "moved" to itself).
+
+| # | Finding | Fix |
+|---|---|---|
+| 25 | A back-off or the dumbbell cap took the slot's first substitution even when the slot was already on it | `nextSubstitution`: the one after the current exercise; tests |
+| 26 | After a mid-exercise swap, the old exercise's load, height and stage prefilled the new one, slipping past "Pick a load first" | Prefill moved to `src/rules/prefill.ts`; only sets of the same exercise carry; tests |
+| 27 | Per-exercise pain was keyed by slot, so after a swap one exercise's pain rewrote the other's sets (hold turned clean, reproduced) | Pain keyed by slot and exercise; a rating rewrites only that exercise's sets |
+| 28 | The healthy side's reps took last session's per-set repeat ahead of the injured side's budget in hold, deload and red-flag weeks (rule 5) | Budget first; tests |
+| 29 | Unrated pain in the default per-exercise mode read hold silently; two skipped ratings backed loads off 25% | Done waits for a pain rating ("Rate pain first") with a line saying why; the bar line says "pain not rated". A stop doesn't need a rating |
+| 30 | Stop skipped the load check and labelled the count as the target | Stop waits for a load on a first-time exercise; the count reads "Reps done before stopping" while the panel is open |
+| 31 | End, then Start again created a second workout planned from the abandoned one; the next morning's check covered only one | Start reopens today's abandoned workout (one workout per lift day); planning reads only sessions before the day; a morning check links one session only when exactly one happened |
+| 32 | A stop on the injured side left the healthy side looking like a first-ever session next time | `lastSetsBySide`: each side's own most recent sets; test |
+| 33 | An accidental Start, then End or Finish, kept an empty session that read hold and capped next week's miles | A session with nothing logged is discarded |
+| 34 | A swap to a substitution of another kind kept the slot's unit, targets, step height and range stop | `effectiveSlot`: unit, targets and rule follow the exercise done (PROGRAM-QUESTIONS 57); tests |
+| 35 | Finish, End and slot-row taps changed the screen far above the thumb | The card or panel scrolls into view |
+| 36 | No side toggle on two-sided slots, against the brief and the design | Side buttons with a mark, landing on that side's open set (`openStepForSide`, tested) |
+| 37 | readingSentence stated a consequence that contradicted the engine (two holds back off; a second clean progresses) | It now describes the reading; the summary shows the reading's actual reasons |
+| 38 | The card dropped "each side" and "each way"; the bar said "load 8" with no unit | Both fixed |
+| 39 | "Remove this set" was one tap, next to Back | Two taps, on its own row |
+| 40 | A malformed escape in the URL blanked the app | `parseHash` lands on Today; test |
+| 41 | Reset left this workout's swaps in local storage; ids repeat after a reset | `resetAll` clears them |
+| 42 | The seed threw at import, so the readable seed-error screen could never show | `seed.ts` validates without throwing; `main.tsx` shows the error or loads the app |
+| 43 | The Morning check's "Next time" used the stored week + 1, wrong after a start-date edit | From the calendar |
+| 44 | Switching to per-exercise pain mid-session could flatten a per-set climb | A rating overwrites only unrated or uniform sets (`painRewriteAllowed`, tested) |
+| 45 | A first time in a deload week gave two conflicting load instructions | The engine prescribes the lightest load (PROGRAM-QUESTIONS 58) |
+| 46 | (refuted, kept as hardening) A stored swap id the seed lacks would crash the runner | `planSession` only honours the slot's own exercise or its substitutions |
+
+Not fixed, logged: the Stop panel's count starts at the prefilled target rather than blank (relabelled instead); the engine never moves a slot back from a back-off substitution (PROGRAM-QUESTIONS 55, before Phase 2).
+
+Verified in a browser drive after the fixes: the full Session A loop, a mid-exercise swap asking for a load again, End then Resume reopening the same session, and a malformed link landing on Today, with no console errors.
