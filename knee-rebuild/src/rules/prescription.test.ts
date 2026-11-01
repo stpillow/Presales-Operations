@@ -101,7 +101,17 @@ describe('first session, deload and red flag', () => {
     expect(one({ lastSets: [], readings: [], exercise: ex({ loadType: 'bodyweight', loadUnit: 'none', increment: 0 }) }).load).toBe(0)
   })
   it('a new slot in a deload week runs its lightest version with deload sets (PROGRAM-QUESTIONS 8)', () => {
-    expect(one({ lastSets: [], readings: [], week: 4 })).toMatchObject({ sets: 2, basis: 'first' })
+    expect(one({ lastSets: [], readings: [], week: 4 })).toMatchObject({ sets: 2, basis: 'first', load: 1 })
+    expect(one({ lastSets: [], readings: [], week: 8, exercise: ex({ loadType: 'dumbbell-each', loadUnit: 'lb', increment: 5 }) }).load).toBe(5)
+    expect(one({ lastSets: [], readings: [], week: 4, exercise: ex({ loadDirection: 'down' }) }).load).toBeNull()
+    expect(one({ lastSets: [], readings: [], week: 5 }).load).toBeNull()
+  })
+  it('after a swap to a timed substitution the prescription counts seconds', () => {
+    const wallSit = ex({ id: 'wall-sit', pattern: 'quad', loadType: 'time', loadUnit: 's', increment: 5 })
+    const legExt = slot({ exerciseId: 'leg-extension', sets: 2, repsMin: 15, repsMax: 15, progressionRule: 'range-then-load', rangeStopDeg: 45 })
+    const p = one({ slot: legExt, exercise: wallSit, lastSets: [], readings: [] })
+    expect(p).toMatchObject({ repUnit: 'seconds', repsTarget: 30, load: 0 })
+    expect(p.rangeStopDeg).toBeUndefined()
   })
   it('deload weeks skip progression even when clean twice at the top', () => {
     expect(one({ week: 8 })).toMatchObject({ sets: 2, load: 8, basis: 'deload' })

@@ -84,3 +84,8 @@ export function restAfter(steps: readonly Step[], key: string, done: ReadonlySet
   const following = steps.slice(index + 1).find((s) => s.unit === step.unit && open(s, done, stopped))
   return !following || following.setNumber > step.setNumber
 }
+
+/** The open step on one side of a slot: where the side toggle lands (the lowest open set on that side). */
+export function openStepForSide(steps: readonly Step[], slotId: string, side: SetSide, done: ReadonlySet<string>, stopped: ReadonlySet<string>): Step | null {
+  return steps.find((s) => s.slotId === slotId && s.side === side && open(s, done, stopped)) ?? null
+}

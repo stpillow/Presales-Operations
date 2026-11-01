@@ -1,6 +1,7 @@
 import type { Exercise, LoadUnit, ReadingResult, RepUnit, SetLog, SetSide, Side, Slot } from '../schema/index.ts'
 import { isDeloadWeek } from './calendar.ts'
 import { prescribedSets } from './deload.ts'
+import { effectiveSlot } from './effectiveSlot.ts'
 
 /** Why the prescription is what it is. Every basis has a one-sentence note for the screen. */
 export type Basis =
@@ -117,6 +118,11 @@ export function progressionNeedsRpe(slot: Pick<Slot, 'progressionRule'>): boolea
   return LOAD_RULES.has(slot.progressionRule)
 }
 
+/** The lightest version of a loaded exercise: one step of its increment (5 lb dumbbells, one plate, 10 lb on the Smith). */
+export function lightestLoad(exercise: Exercise): number {
+  return exercise.holdsLoad !== undefined ? HELD_LOAD_INCREMENT_LB : Math.max(exercise.increment, 1)
+}
+
 function hitTop(sets: readonly SetLog[], slot: Slot): boolean {
   if (sets.length === 0) return false
   const needsRpe = progressionNeedsRpe(slot)
@@ -124,7 +130,9 @@ function hitTop(sets: readonly SetLog[], slot: Slot): boolean {
 }
 
 /** Rule 4: the next prescription for one slot, per side, injured side first. */
-export function prescribe(input: PrescriptionInput): Prescription[] {
+export function prescribe(raw: PrescriptionInput): Prescription[] {
+  // The slot as it applies to the exercise actually run: after a swap, units, targets and rule follow it.
+  const input: PrescriptionInput = { ...raw, slot: effectiveSlot(raw.slot, raw.exercise) }
   const sides = sidesFor(input.slot, input.injuredSide)
   const out: Prescription[] = []
   let injuredTarget: number | undefined
@@ -157,7 +165,8 @@ function prescribeSide(input: PrescriptionInput, side: SetSide): Prescription {
   }
 
   if (last.length === 0) {
-    const load = startLoad(exercise)
+    // In a deload week a new exercise runs its lightest version (PROGRAM-QUESTIONS 8): the smallest step, nothing to pick.
+    const load = startLoad(exercise) ?? (deload && exercise.loadDirection !== 'down' ? lightestLoad(exercise) : null)
     const rpe = slot.rpeTarget === undefined ? '' : ` that lands at RPE ${slot.rpeTarget}`
     return {
       ...base,

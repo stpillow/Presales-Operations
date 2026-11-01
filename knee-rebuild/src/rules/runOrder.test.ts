@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { firstOpenStepOf, nextStep, restAfter, sessionSteps, stepKey, type StepSlot } from './runOrder.ts'
+import { firstOpenStepOf, nextStep, openStepForSide, restAfter, sessionSteps, stepKey, type StepSlot } from './runOrder.ts'
 
 // Session A, Phase 1, right knee: 1 leg press (3), 5 abductor (2), 6 calf (3), 7 balance (3, right only), 9 elliptical (1, optional).
 const slots: StepSlot[] = [
@@ -80,5 +80,14 @@ describe('restAfter', () => {
   })
   it('builds keys from slot, side and set number', () => {
     expect(stepKey('a1', 'both', 2)).toBe('a1:both:2')
+  })
+})
+
+describe('openStepForSide', () => {
+  it('lands on the lowest open set of the chosen side', () => {
+    const u = sessionSteps(uni)
+    expect(openStepForSide(u, 'b1', 'left', none, none)?.key).toBe('b1:left:1')
+    expect(openStepForSide(u, 'b1', 'left', new Set(['b1:left:1']), none)?.key).toBe('b1:left:2')
+    expect(openStepForSide(u, 'b1', 'left', none, new Set(['b1']))).toBeNull()
   })
 })
