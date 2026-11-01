@@ -12,6 +12,10 @@ export const Settings = z.strictObject({
   restTimerSeconds: z.number().int().positive(),
   /** Pain per set when true; once per exercise when false. */
   painPerSet: z.boolean(),
+  /** The phase the app is in. Advances only when Shawn confirms a gate, never by the calendar. */
+  currentPhase: z.number().int().min(1).max(4).default(1),
+  /** The program week the current phase was entered in; week-banded slots count from it. */
+  phaseEnteredWeek: z.number().int().min(1).default(1),
   /** Set by any ticked red flag on a morning check; cleared from Settings with a note. */
   redFlag: z
     .strictObject({

@@ -5,7 +5,12 @@ import { Program, type Exercise, type Phase, type SessionLetter, type SessionTem
  * The seed program, validated once at import. Transcribed by hand from docs/program.md in M1;
  * never parsed from the Markdown at runtime, never "improved" here.
  */
-export const program: Program = Program.parse(raw)
+const parsed = Program.safeParse(raw)
+
+/** Null when the seed validates; otherwise the reason, for a readable error screen instead of a blank one. */
+export const programError: string | null = parsed.success ? null : parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ')
+
+export const program: Program = parsed.success ? parsed.data : (() => { throw new Error(`data/program.json failed validation: ${programError}`) })()
 
 const exercisesById = new Map(program.exercises.map((e) => [e.id, e]))
 
