@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { IsoDate } from './enums.ts'
-import { DEFAULT_KIT, Location, MorningCheck, PLANET_FITNESS_LOCATION_ID, Run, SetLog, Settings, Workout, showsText } from './log.ts'
+import { DEFAULT_KIT, EXTRA_TEXT_MAX, Location, MorningCheck, PLANET_FITNESS_LOCATION_ID, Run, SetLog, Settings, Workout, showsText } from './log.ts'
 
 describe('IsoDate', () => {
   it('accepts real dates and rejects impossible ones', () => {
@@ -102,6 +102,13 @@ describe('Location (M4b)', () => {
     expect(Location.safeParse({ ...home, name: '   ' }).success).toBe(false)
     expect(Location.safeParse({ ...home, name: 'x'.repeat(60) }).success).toBe(true)
     expect(Location.safeParse({ ...home, name: 'x'.repeat(61) }).success).toBe(false)
+  })
+  it('typed equipment runs 1 to 80 characters, trimmed, so a mistaken paste isn’t kept (PROGRAM-QUESTIONS 93)', () => {
+    const extra = (text: string) => ({ ...home, extras: [{ id: 'extra-1', text, addedOn: '2026-11-10' }] })
+    expect(EXTRA_TEXT_MAX).toBe(80)
+    expect(Location.safeParse(extra('x'.repeat(80))).success).toBe(true)
+    expect(Location.safeParse(extra(` ${'x'.repeat(80)} `)).success).toBe(true)
+    expect(Location.safeParse(extra('x'.repeat(81))).success).toBe(false)
   })
   it('a name has to show something: zero-width spaces, fillers and the blank braille cell alone are refused', () => {
     for (const blank of ['\u200B', '\u200B\u200B', ' \u200D ', '\u3164', '\uFFA0', '\u2800', '\uFE0F']) expect(Location.safeParse({ ...home, name: blank }).success, JSON.stringify(blank)).toBe(false)

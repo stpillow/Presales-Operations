@@ -58,6 +58,9 @@ export const Settings = z.strictObject({
 })
 export type Settings = z.infer<typeof Settings>
 
+/** Typed equipment kept as text ("Something else here?") runs 1 to this many characters, trimmed: a name, not a pasted message. */
+export const EXTRA_TEXT_MAX = 80
+
 /**
  * A gym Shawn trains at (M4b, design section 2). `present` holds what is there; dumbbells are the
  * max, not an item (0 means none); things typed that program.md doesn't name are `extras`, kept
@@ -73,7 +76,7 @@ export const Location = z.strictObject({
   startedFrom: z.enum(['planet-fitness', 'empty']),
   /** Program.equipmentListVersion when this gym's list was made; items added to the program's list later are new to it. */
   listVersion: z.number().int().positive(),
-  extras: z.array(z.strictObject({ id, text: z.string().trim().min(1), addedOn: IsoDate })),
+  extras: z.array(z.strictObject({ id, text: z.string().trim().min(1).max(EXTRA_TEXT_MAX), addedOn: IsoDate })),
   /** Items marked not here from the runner or Today, and since when. */
   markedOff: z.array(z.strictObject({ id: EquipmentId, on: IsoDate })),
   createdOn: IsoDate,

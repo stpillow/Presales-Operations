@@ -1,4 +1,4 @@
-import { PLANET_FITNESS_LOCATION_ID, type EquipmentId, type IsoDate, type Location, type Workout } from '../schema/index.ts'
+import { EXTRA_TEXT_MAX, PLANET_FITNESS_LOCATION_ID, type EquipmentId, type IsoDate, type Location, type Workout } from '../schema/index.ts'
 import { normalizeTyped } from './equipment.ts'
 
 /*
@@ -108,6 +108,14 @@ export function withExtra(location: Location, text: string, addedOn: IsoDate): {
   while (taken.has(`extra-${n}`)) n += 1
   const extra: Extra = { id: `extra-${n}`, text: text.trim(), addedOn }
   return { location: { ...location, extras: [...location.extras, extra] }, extra }
+}
+
+/**
+ * Whether typed text is too long to keep as an extra (`EXTRA_TEXT_MAX`, trimmed): the editor says
+ * so instead of keeping it, so a mistaken paste never lands on the next-update list.
+ */
+export function extraTooLong(text: string): boolean {
+  return text.trim().length > EXTRA_TEXT_MAX
 }
 
 /** Archiving the active gym returns to Planet Fitness (design section 5); archiving another leaves the active one. */

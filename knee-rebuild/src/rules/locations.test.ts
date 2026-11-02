@@ -3,6 +3,7 @@ import { Location, PLANET_FITNESS_LOCATION_ID } from '../schema/index.ts'
 import {
   activeAfterArchive,
   canArchive,
+  extraTooLong,
   gymLocked,
   inListOrder,
   listedLocations,
@@ -117,6 +118,12 @@ describe('something else here', () => {
     expect(again.location).toEqual(one.location)
     expect(again.extra).toEqual(one.extra)
     expect(withExtra(one.location, 'kettle bells', '2026-11-20').location.extras).toHaveLength(2)
+  })
+
+  it('typed text past 80 characters, trimmed, is too long to keep (PROGRAM-QUESTIONS 93)', () => {
+    expect(extraTooLong('Kettlebells')).toBe(false)
+    expect(extraTooLong(` ${'x'.repeat(80)} `)).toBe(false)
+    expect(extraTooLong('x'.repeat(81))).toBe(true)
   })
 })
 

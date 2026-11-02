@@ -89,6 +89,12 @@ describe('what is here', () => {
     await expect(addExtra(gym.id, '  ', '2026-11-13')).rejects.toThrow()
     expect((await getLocation(gym.id))?.extras).toHaveLength(1)
   })
+
+  it('refuses typed text past 80 characters, so a mistaken paste is never kept', async () => {
+    const gym = await hotel()
+    await expect(addExtra(gym.id, `https://example.com/${'x'.repeat(3000)}`, '2026-11-13')).rejects.toThrow()
+    expect((await getLocation(gym.id))?.extras).toEqual([])
+  })
 })
 
 describe('the active gym and the bag', () => {
