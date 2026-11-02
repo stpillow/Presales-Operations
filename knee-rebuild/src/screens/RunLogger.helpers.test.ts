@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { Run, type MorningCheck, type Settings } from '../schema/index.ts'
 import {
+  MILES_MAX,
   RUN_TYPES,
   dateChoices,
   dayChoiceWords,
@@ -207,6 +208,13 @@ describe('words for the view', () => {
     expect(isSwapType('rower-swap')).toBe(true)
     expect(isSwapType('long')).toBe(false)
     expect(isSwapType(null)).toBe(false)
+  })
+})
+
+describe('MILES_MAX', () => {
+  it('is a single run’s ceiling: well over the plan’s longest run, under a stray extra digit like 34.5', () => {
+    expect(MILES_MAX).toBe(30)
+    expect(Math.max(...PROGRAM.mileagePlan.map((w) => w.targetMiles))).toBeLessThan(MILES_MAX)
   })
 })
 

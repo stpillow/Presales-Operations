@@ -26,7 +26,8 @@ export const SWAP_TYPES: readonly RunType[] = ['elliptical-swap', 'rower-swap']
 export const EFFORTS: readonly Effort[] = Effort.options
 
 export const MILES_STEP = 0.25
-export const MILES_MAX = 50
+/** One run's ceiling: far over any run in the plan, low enough that a stray extra digit can't save as typed. */
+export const MILES_MAX = 30
 export const MINUTES_STEP = 5
 export const MINUTES_MAX = 600
 
