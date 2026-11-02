@@ -54,6 +54,13 @@ describe('substitutions: the Swap list and the gym’s routing', () => {
     expect(slot(phaseOneA(historyOf({ programOverrides: [added] })), 'p1a-1').substitutions.map((e) => e.id)).toEqual(['smith-box-squat', 'single-leg-leg-press'])
   })
 
+  it('an edit naming an exercise the slot can’t count or step, which only an imported file can bring, never reaches the Swap list (PROGRAM-QUESTIONS 130)', () => {
+    const stepUp = edit({ slotId: 'p2b-1', substitutionIds: ['smith-box-squat', 'step-up', 'goblet-squat-bench'] })
+    const plans = planSession({ template: templateFor(2, 'B'), week: 5, settings: settingsIn(2, 4), history: historyOf({ programOverrides: [stepUp] }), gym: home })
+    expect(slot(plans, 'p2b-1').substitutions.map((e) => e.id)).toEqual(['smith-box-squat', 'goblet-squat-bench'])
+    expect(slot(plans, 'p2b-1').slot.substitutionIds).toEqual(['smith-box-squat', 'goblet-squat-bench'])
+  })
+
   // A gym with a Smith machine, a bench and dumbbells, and neither leg press.
   const noPresses: Location = { ...home.location, id: 'loc-1', name: 'Hotel', present: ['smith-machine', 'flat-bench'], dumbbellMaxLb: 50, startedFrom: 'empty' }
   const gym: Gym = { location: noPresses, kit: DEFAULT_KIT }

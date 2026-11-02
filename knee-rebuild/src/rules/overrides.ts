@@ -1,4 +1,4 @@
-import { CUE_MAX, showsText, type Exercise, type IsoDate, type ProgramOverride, type SessionTemplate, type Slot } from '../schema/index.ts'
+import { CUE_MAX, showsText, type Exercise, type IsoDate, type ProgramOverride, type RepUnit, type SessionTemplate, type Slot } from '../schema/index.ts'
 
 /*
  * The Program screen's edits (M6, brief section 1). Shawn can rewrite a slot's cues and reorder,
@@ -23,16 +23,64 @@ export interface Edited {
 
 const sameList = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((x, i) => x === b[i])
 
+/** What the fit check reads of an exercise. */
+export type StandIn = Pick<Exercise, 'id' | 'name' | 'pattern' | 'loadType'>
+
+/**
+ * The catalog as the engine is handed it: the ids it has, or each exercise by id. Given the
+ * exercises, an edited list also drops what the slot can't count or step (`substitutionProblem`).
+ */
+export type Known = ReadonlySet<string> | ReadonlyMap<string, StandIn>
+
+function isCatalog(known: Known): known is ReadonlyMap<string, StandIn> {
+  return typeof (known as ReadonlyMap<string, StandIn>).get === 'function'
+}
+
+/** The units only some exercises are counted in, and which: a carry's yards, cardio's minutes, a band walk's steps. */
+const COUNTED_ONLY: Partial<Record<RepUnit, { fits: (e: StandIn) => boolean; words: string }>> = {
+  yards: { fits: (e) => e.pattern === 'carry', words: 'only a carry is' },
+  minutes: { fits: (e) => e.pattern === 'cardio', words: 'only cardio is' },
+  steps: { fits: (e) => e.loadType === 'band', words: 'only a band walk is' },
+}
+/** The patterns counted in one unit only, and that unit. */
+const COUNTED_IN: Partial<Record<StandIn['pattern'], RepUnit>> = { carry: 'yards', cardio: 'minutes' }
+
+/**
+ * Why an exercise can't stand in on a slot, in words; null when it can (PROGRAM-QUESTIONS 130).
+ * Whatever program.md lists on the slot always can, so `slot` is program.md's slot. The engine
+ * carries seconds and reps across a swap (question 57) and drops a step height the exercise doesn't
+ * use, but it can't make up a step height, count a carry in reps, or an RDL in yards: an exercise
+ * stepped by height needs a slot that writes a height to start from; a slot counted in yards, minutes
+ * or steps takes only an exercise counted that way; a carry or cardio goes only on a slot counted
+ * its way. Anything else stands in, of any pattern.
+ */
+export function substitutionProblem(slot: Slot, exercise: StandIn): string | null {
+  if (slot.substitutionIds.includes(exercise.id)) return null
+  if (exercise.loadType === 'step-height' && slot.heightIn === undefined) {
+    return `${exercise.name} is stepped by height, and this slot writes no step height to start from, so it can’t stand in here.`
+  }
+  const only = COUNTED_ONLY[slot.repUnit]
+  if (only && !only.fits(exercise)) return `This slot is counted in ${slot.repUnit}, which ${only.words}, so ${exercise.name} can’t stand in here.`
+  const unit = COUNTED_IN[exercise.pattern]
+  if (unit !== undefined && unit !== slot.repUnit) return `${exercise.name} is counted in ${unit} and this slot in ${slot.repUnit}, so it can’t stand in here.`
+  return null
+}
+
 /**
  * A substitution list as it can run on this slot: the slot's own exercise and repeats taken out,
  * and, with the catalog given, ids it no longer has (a later program.md may retire an exercise an
- * edit added), so the list never names something the engine can't look up.
+ * edit added), so the list never names something the engine can't look up; given the catalog's
+ * exercises, also any the slot can't count or step (an imported file's edit; the repo refuses one).
  */
-function runnable(slot: Slot, ids: readonly string[], known?: ReadonlySet<string>): string[] {
+function runnable(slot: Slot, ids: readonly string[], known?: Known): string[] {
   const seen = new Set<string>([slot.exerciseId])
   const out: string[] = []
   for (const id of ids) {
     if (seen.has(id) || (known !== undefined && !known.has(id))) continue
+    if (known !== undefined && isCatalog(known)) {
+      const exercise = known.get(id)
+      if (exercise && substitutionProblem(slot, exercise) !== null) continue
+    }
     seen.add(id)
     out.push(id)
   }
@@ -46,7 +94,7 @@ function runnable(slot: Slot, ids: readonly string[], known?: ReadonlySet<string
  * override for another slot is ignored. `known`, the catalog's exercise ids, drops a substitution
  * the catalog no longer has; the slot's own exercise and repeats are always dropped.
  */
-export function applyOverrides(slot: Slot, override: ProgramOverride | undefined, known?: ReadonlySet<string>): Slot {
+export function applyOverrides(slot: Slot, override: ProgramOverride | undefined, known?: Known): Slot {
   const own = { ...slot, cues: [...slot.cues], substitutionIds: [...slot.substitutionIds] }
   if (!override || override.slotId !== slot.id) return own
   return {
@@ -62,18 +110,18 @@ export function overridesBySlot(overrides: readonly ProgramOverride[]): Map<stri
 }
 
 /** A template with each slot's override laid over it (`applyOverrides`); the template as written is left alone. */
-export function applyToTemplate(template: SessionTemplate, overrides: ReadonlyMap<string, ProgramOverride>, known?: ReadonlySet<string>): SessionTemplate {
+export function applyToTemplate(template: SessionTemplate, overrides: ReadonlyMap<string, ProgramOverride>, known?: Known): SessionTemplate {
   return { ...template, slots: template.slots.map((slot) => applyOverrides(slot, overrides.get(slot.id), known)) }
 }
 
 /** The slot's lists as they run: what the editor starts from. */
-export function slotEdit(slot: Slot, override: ProgramOverride | undefined, known?: ReadonlySet<string>): SlotEdit {
+export function slotEdit(slot: Slot, override: ProgramOverride | undefined, known?: Known): SlotEdit {
   const applied = applyOverrides(slot, override, known)
   return { cues: applied.cues, substitutionIds: applied.substitutionIds }
 }
 
 /** Which part runs on Shawn's words: a list counts as edited only when what runs differs from what program.md writes. */
-export function editedParts(slot: Slot, override: ProgramOverride | undefined, known?: ReadonlySet<string>): Edited {
+export function editedParts(slot: Slot, override: ProgramOverride | undefined, known?: Known): Edited {
   const applied = applyOverrides(slot, override, known)
   return { cues: !sameList(applied.cues, slot.cues), substitutions: !sameList(applied.substitutionIds, slot.substitutionIds) }
 }
@@ -122,17 +170,21 @@ export function overrideFor(slot: Slot, edit: SlotEdit, editedOn: IsoDate): Prog
 /**
  * Why a row can't be stored for this slot, in words, one sentence a problem; empty when it can. The
  * repo refuses a row with any: substitutions come from the catalog only, never the slot's own
- * exercise, each once; each cue is one the screen would take.
+ * exercise, each once, each one the slot can count and step (`substitutionProblem`); each cue is
+ * one the screen would take.
  */
-export function overrideProblems(slot: Slot, override: ProgramOverride, catalog: ReadonlyMap<string, Pick<Exercise, 'id' | 'name'>>): string[] {
+export function overrideProblems(slot: Slot, override: ProgramOverride, catalog: ReadonlyMap<string, StandIn>): string[] {
   if (override.slotId !== slot.id) return [`That edit is for slot ${override.slotId}, not ${slot.id}.`]
   const problems: string[] = []
   const name = (id: string) => catalog.get(id)?.name ?? id
   const seen = new Set<string>()
   for (const id of override.substitutionIds ?? []) {
+    const exercise = catalog.get(id)
+    const misfit = exercise ? substitutionProblem(slot, exercise) : null
     if (id === slot.exerciseId) problems.push(`${name(id)} is this slot’s own exercise, so it is never its substitution.`)
-    else if (!catalog.has(id)) problems.push(`${id} is not in the program’s catalog; substitutions come from the catalog only.`)
+    else if (!exercise) problems.push(`${id} is not in the program’s catalog; substitutions come from the catalog only.`)
     else if (seen.has(id)) problems.push(`${name(id)} is listed twice.`)
+    else if (misfit) problems.push(misfit)
     seen.add(id)
   }
   ;(override.cues ?? []).forEach((cue, i) => {
@@ -207,7 +259,8 @@ export function withSubstitutionAdded(slot: Slot, edit: SlotEdit, exerciseId: st
  * What Add can offer a slot: every catalog exercise but its own and those already on its list
  * (never a new exercise). Its own exercise's pattern first, as most likely to do the slot's job;
  * then the rest, grouped by pattern in the order the patterns first appear in the catalog, catalog
- * order inside each.
+ * order inside each. An exercise the slot can't count or step is still listed here; the repo
+ * refuses it on save in `substitutionProblem`'s words, which a screen can ask first.
  */
 export function addableSubstitutions(slot: Slot, edit: SlotEdit, catalog: readonly Exercise[]): { samePattern: Exercise[]; others: Exercise[] } {
   const taken = new Set([slot.exerciseId, ...edit.substitutionIds])

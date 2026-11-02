@@ -33,8 +33,8 @@ export interface Gym {
 }
 
 const EQUIPMENT_NAMES: ReadonlyMap<EquipmentId, string> = new Map(program.equipment.map((e) => [e.id, e.name]))
-/** The catalog's exercise ids: an edit naming one the seed no longer has is dropped, never looked up. */
-const EXERCISE_IDS: ReadonlySet<string> = new Set(program.exercises.map((e) => e.id))
+/** The catalog by id: an edit naming an exercise the seed no longer has, or one the slot can't count or step, is dropped, never looked up. */
+const CATALOG: ReadonlyMap<string, Exercise> = new Map(program.exercises.map((e) => [e.id, e]))
 
 /** What is here at a gym: its list (the program's list as of the gym's version), its dumbbells and the bag, less what is marked off. */
 export function availableAt(gym: Gym): Available {
@@ -74,7 +74,7 @@ export function planSession(input: {
   const overrides = overridesBySlot(history.programOverrides ?? [])
   return slotsForPhaseWeek(template, phaseWeek).map((written) => {
     // Shawn's edits laid over program.md's slot before anything routes or prescribes from it; the seed is never written.
-    const slot = applyOverrides(written, overrides.get(written.id), EXERCISE_IDS)
+    const slot = applyOverrides(written, overrides.get(written.id), CATALOG)
     const own = exerciseById(slot.exerciseId)
     const substitutions = slot.substitutionIds.map(exerciseById)
     // A swap chosen for this session beats the gym and the slot's history; the gym routes forward from the history (slotExercise.ts).

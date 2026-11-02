@@ -37,6 +37,10 @@ describe('saving a slot’s edit', () => {
     await expect(saveProgramOverride(edit({ slotId: 'p9a-1', cues: [] }), program)).rejects.toThrow('No slot p9a-1 in the program.')
     await expect(saveProgramOverride(edit({ substitutionIds: ['leg-press'] }), program)).rejects.toThrow('Leg press, both legs is this slot’s own exercise, so it is never its substitution.')
     await expect(saveProgramOverride(edit({ substitutionIds: ['kettlebell-swing'] }), program)).rejects.toThrow('kettlebell-swing is not in the program’s catalog')
+    // An exercise the slot can't count or step (PROGRAM-QUESTIONS 130).
+    await expect(saveProgramOverride(edit({ slotId: 'p1c-7', substitutionIds: ['suitcase-carry', 'db-rdl'] }), program)).rejects.toThrow(
+      'This slot is counted in yards, which only a carry is, so Dumbbell Romanian deadlift can’t stand in here.',
+    )
     expect(await getProgramOverrides()).toEqual([{ slotId: 'p1a-1', cues: ['Feet high'], editedOn: '2026-11-16' }])
   })
 

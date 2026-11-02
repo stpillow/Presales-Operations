@@ -18,6 +18,7 @@ import {
   replaceItem,
   sameEdit,
   slotEdit,
+  substitutionProblem,
   withCueAdded,
   withPutBack,
   withSubstitutionAdded,
@@ -199,6 +200,63 @@ describe('cues: cleanCue and cueProblem', () => {
       expect(cleanCue(cue)).toBe(cue)
       expect(cueProblem(cue)).toBeNull()
     }
+  })
+})
+
+describe('substitutionProblem: what can stand in on a slot (PROGRAM-QUESTIONS 130)', () => {
+  const seedSlot = (id: string): Slot => {
+    const found = program.templates.flatMap((t) => t.slots).find((s) => s.id === id)
+    if (!found) throw new Error(`no slot ${id}`)
+    return found
+  }
+  const exercise = (id: string): Exercise => {
+    const found = BY_ID.get(id)
+    if (!found) throw new Error(`no exercise ${id}`)
+    return found
+  }
+
+  it('an exercise stepped by height needs a slot that writes a step height to start from', () => {
+    expect(substitutionProblem(seedSlot('p2b-1'), exercise('step-up'))).toBe('Step-up is stepped by height, and this slot writes no step height to start from, so it can’t stand in here.')
+    expect(substitutionProblem(seedSlot('p1a-5'), exercise('lateral-step-down'))).toBe('Lateral step-down is stepped by height, and this slot writes no step height to start from, so it can’t stand in here.')
+    // The lateral step-down's slot writes 6 in., so a step-up can start there.
+    expect(substitutionProblem(seedSlot('p2b-6'), exercise('step-up'))).toBeNull()
+  })
+
+  it('a slot counted in yards, minutes or steps takes only an exercise counted that way', () => {
+    expect(substitutionProblem(seedSlot('p1c-7'), exercise('db-rdl'))).toBe('This slot is counted in yards, which only a carry is, so Dumbbell Romanian deadlift can’t stand in here.')
+    expect(substitutionProblem(seedSlot('p1a-9'), exercise('leg-press'))).toBe('This slot is counted in minutes, which only cardio is, so Leg press, both legs can’t stand in here.')
+    expect(substitutionProblem(seedSlot('p2c-8a'), exercise('leg-press'))).toBe('This slot is counted in steps, which only a band walk is, so Leg press, both legs can’t stand in here.')
+    expect(substitutionProblem(seedSlot('p2c-7'), exercise('walking-lunge'))).not.toBeNull()
+  })
+
+  it('a carry or cardio goes only on a slot counted its way', () => {
+    expect(substitutionProblem(legPress(), exercise('farmers-carry'))).toBe("Farmer's carry is counted in yards and this slot in reps, so it can’t stand in here.")
+    expect(substitutionProblem(seedSlot('p2b-7'), exercise('elliptical-easy'))).toBe('Elliptical, easy is counted in minutes and this slot in seconds, so it can’t stand in here.')
+  })
+
+  it('anything else stands in, of any pattern: seconds and reps carry over as question 57 has it', () => {
+    expect(substitutionProblem(legPress(), exercise('copenhagen-plank-short'))).toBeNull()
+    expect(substitutionProblem(seedSlot('p2b-7'), exercise('copenhagen-plank-short'))).toBeNull()
+    expect(substitutionProblem(seedSlot('p1a-5'), exercise('walking-lunge'))).toBeNull()
+    expect(substitutionProblem(seedSlot('p1c-7'), exercise('suitcase-carry'))).toBeNull()
+  })
+
+  it('what program.md lists on a slot always stands in there', () => {
+    for (const slot of program.templates.flatMap((t) => t.slots)) {
+      for (const id of slot.substitutionIds) expect(substitutionProblem(slot, exercise(id)), `${slot.id} ${id}`).toBeNull()
+    }
+  })
+
+  it('the repo refuses such an edit in the rule’s words, and the engine, handed the catalog, drops one that got in (an imported file)', () => {
+    const bulgarian = seedSlot('p2b-1')
+    const added = row({ slotId: 'p2b-1', substitutionIds: ['smith-box-squat', 'step-up', 'goblet-squat-bench'] })
+    expect(overrideProblems(bulgarian, added, BY_ID)).toEqual(['Step-up is stepped by height, and this slot writes no step height to start from, so it can’t stand in here.'])
+    expect(applyOverrides(bulgarian, added, BY_ID).substitutionIds).toEqual(['smith-box-squat', 'goblet-squat-bench'])
+    expect(slotEdit(bulgarian, added, BY_ID).substitutionIds).toEqual(['smith-box-squat', 'goblet-squat-bench'])
+    // Handed ids only, the engine can't tell, and keeps it.
+    expect(applyOverrides(bulgarian, added, KNOWN).substitutionIds).toEqual(['smith-box-squat', 'step-up', 'goblet-squat-bench'])
+    // And a catalog lacking an id still drops it, as a set of ids does.
+    expect(applyOverrides(bulgarian, row({ slotId: 'p2b-1', substitutionIds: ['retired-press', 'goblet-squat-bench'] }), BY_ID).substitutionIds).toEqual(['goblet-squat-bench'])
   })
 })
 
