@@ -90,3 +90,15 @@ test('the import confirm says what the file changes, and a tap on the form while
   await expect(restField(page)).toHaveValue('135')
   await expect(page.getByText('Phase 2: Single-leg strength and balance')).toBeVisible()
 })
+
+test('a refused import quoting a long unbroken key wraps inside the phone’s width', async ({ page }) => {
+  await openSettings(page)
+  const backup = await exported(page)
+  // A key the app doesn't keep, wide and unbroken: the refusal quotes it, cut to 40 characters.
+  backup.settings = { ...backup.settings, ['W'.repeat(60)]: 1 }
+  await page.locator('input[type="file"]').setInputFiles({ name: 'odd.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(backup)) })
+  const refusal = page.getByRole('region', { name: 'Import' }).getByRole('alert')
+  await expect(refusal).toContainText('WWWWWWWWWW')
+  expect(await refusal.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+})

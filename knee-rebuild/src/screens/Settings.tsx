@@ -875,8 +875,9 @@ function ImportSection({ held, onReplace }: { held: string | null; onReplace: (b
         {step === 'reading' ? 'Reading the file…' : 'Choose a backup file'}
       </label>
       <input id={inputId} type="file" accept=".json,application/json" disabled={step !== 'idle' || held !== null} onChange={(e) => void choose(e)} className="sr-only" />
+      {/* A refusal can quote a key from the file, cut to 40 characters but unbroken: it wraps anywhere, like the lines beside it. */}
       {refusal ? (
-        <p role="alert" className="text-body text-on-dark">
+        <p role="alert" className="text-body text-on-dark wrap-anywhere">
           {refusal}
         </p>
       ) : null}
