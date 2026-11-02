@@ -15,10 +15,12 @@ import {
   type Extra,
   type NewLocationInput,
 } from '../rules/locations.ts'
+import { overrideProblems } from '../rules/overrides.ts'
 import {
   GateTest,
   Location,
   MorningCheck,
+  ProgramOverride,
   Run,
   SessionMove,
   SetLog,
@@ -312,6 +314,35 @@ export async function deleteRun(id: string): Promise<void> {
   await db.runs.delete(id)
 }
 
+/** What a Program screen edit is checked against before it is written: program.md's slots and the exercise catalog. */
+export type OverrideSeed = Pick<Program, 'templates' | 'exercises'>
+
+/** The Program screen's edits, one row per edited slot. */
+export async function getProgramOverrides(): Promise<ProgramOverride[]> {
+  return (await db.programOverrides.toArray()).map((row) => ProgramOverride.parse(row))
+}
+
+/**
+ * Stores a slot's edit from the Program screen in place of its earlier one: parsed, then checked
+ * against program.md's slot (`overrideProblems`: substitutions from the catalog only, never the
+ * slot's own exercise). A refusal throws its first sentence and writes nothing. The seed is never
+ * written; the engine lays the row over it (`applyOverrides`). Returns the row written.
+ */
+export async function saveProgramOverride(override: ProgramOverride, seed: OverrideSeed): Promise<ProgramOverride> {
+  const parsed = ProgramOverride.parse(override)
+  const slot = seed.templates.flatMap((t) => t.slots).find((s) => s.id === parsed.slotId)
+  if (!slot) throw new Error(`No slot ${parsed.slotId} in the program.`)
+  const [problem] = overrideProblems(slot, parsed, new Map(seed.exercises.map((e) => [e.id, e])))
+  if (problem) throw new Error(problem)
+  await db.programOverrides.put(parsed)
+  return parsed
+}
+
+/** "Back to program.md's": the slot's row goes, so it runs as program.md writes it. */
+export async function clearProgramOverride(slotId: string): Promise<void> {
+  await db.programOverrides.delete(slotId)
+}
+
 export interface History {
   workouts: Workout[]
   setLogs: SetLog[]
@@ -319,19 +350,25 @@ export interface History {
   runs: Run[]
   gateTests: GateTest[]
   sessionMoves: SessionMove[]
+  /**
+   * The Program screen's edits (M6), which `planSession` lays over program.md's slots. Optional so
+   * a history built by hand (a test fixture) reads as no edits: every slot as program.md writes it.
+   */
+  programOverrides?: ProgramOverride[]
 }
 
 /** Everything the engine reads, in one go. The tables are small: one person, twelve weeks. */
 export async function loadHistory(): Promise<History> {
-  const [workouts, setLogs, morningChecks, runs, gateTests, sessionMoves] = await Promise.all([
+  const [workouts, setLogs, morningChecks, runs, gateTests, sessionMoves, programOverrides] = await Promise.all([
     db.workouts.toArray(),
     db.setLogs.toArray(),
     db.morningChecks.toArray(),
     db.runs.toArray(),
     db.gateTests.toArray(),
     db.sessionMoves.toArray(),
+    db.programOverrides.toArray(),
   ])
-  return { workouts, setLogs, morningChecks, runs, gateTests, sessionMoves }
+  return { workouts, setLogs, morningChecks, runs, gateTests, sessionMoves, programOverrides }
 }
 
 /** The prefix the Session runner stores a workout's swaps under in local storage. */

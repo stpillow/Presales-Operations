@@ -1,8 +1,8 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from './db.ts'
-import { getLocations, getSettings, loadHistory, type History } from './repo.ts'
+import { getLocations, getProgramOverrides, getSettings, loadHistory, type History } from './repo.ts'
 import { locationOrHome } from '../rules/locations.ts'
-import type { Location, SetLog, Settings, Workout } from '../schema/index.ts'
+import type { Location, ProgramOverride, SetLog, Settings, Workout } from '../schema/index.ts'
 
 /** Undefined while loading; null when no settings row exists yet. */
 export function useSettings(): Settings | null | undefined {
@@ -42,4 +42,9 @@ export function useActiveLocation(): Location | null | undefined {
     const [settings, locations] = await Promise.all([getSettings(), getLocations()])
     return settings ? locationOrHome(locations, settings.activeLocationId) : null
   }, [])
+}
+
+/** The Program screen's edits, one row per edited slot (`applyOverrides` lays them over program.md's). Undefined while loading. */
+export function useProgramOverrides(): ProgramOverride[] | undefined {
+  return useLiveQuery(() => getProgramOverrides(), [])
 }
