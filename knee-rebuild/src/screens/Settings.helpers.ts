@@ -2,7 +2,7 @@ import { DAYS, DELOAD_WEEKS, addDays, dayOf, daysBetween, isDeloadWeek, isMonday
 import { rebaseMoves, rebaseWeekNumber } from '../rules/moves.ts'
 import { clearRedFlag, stopMessage, type RedFlagState } from '../rules/redFlags.ts'
 import { TABLE_WORDS, daysSinceExport, exportDay, type BackupSummary, type BackupTable, type SettingChange, type SettingsOnImport } from '../rules/backup.ts'
-import { IsoDate, type Day, type IsoDateTime, type Phase, type RedFlag, type SessionMove, type Settings, type Side } from '../schema/index.ts'
+import { IsoDate, REST_TIMER_MAX, REST_TIMER_MIN, type Day, type IsoDateTime, type Phase, type RedFlag, type SessionMove, type Settings, type Side } from '../schema/index.ts'
 
 /**
  * Pure helpers for the Settings screen: words for dates, the start-date check, the red-flag state
@@ -45,10 +45,10 @@ export const DUMBBELLS_LINE = 'Dumbbells are set per gym in Where you train.'
 /** Under the Phase section, beside a way to the Gates screen: the phase is shown here, and advanced there. */
 export const PHASE_NOTE = 'Read-only here. The Gates screen advances the phase once every item of its gate passes and you confirm.'
 
-/** Rest in 15 s steps, from a quarter minute to ten minutes. */
+/** Rest in 15 s steps, from a quarter minute to ten minutes: the stepper's limits are the schema's, so the form and an import refuse the same values. */
 export const REST_STEP = 15
-export const REST_MIN = 15
-export const REST_MAX = 600
+export const REST_MIN = REST_TIMER_MIN
+export const REST_MAX = REST_TIMER_MAX
 
 /** The Monday on or before a date and the Monday after it: the two a start date can snap to. */
 export function mondaysAround(date: IsoDate): [IsoDate, IsoDate] {
