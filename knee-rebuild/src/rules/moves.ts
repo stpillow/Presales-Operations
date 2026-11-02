@@ -1,5 +1,5 @@
 import type { Day, IsoDate, Run, SessionMove, Workout } from '../schema/index.ts'
-import { dateOf } from './calendar.ts'
+import { dateOf, daysBetween } from './calendar.ts'
 
 /**
  * The limits on moving a session (PROMPT rule 10 says only "to another day in the same week";
@@ -62,4 +62,25 @@ export function undoableMove(ctx: MoveContext, moves: readonly SessionMove[]): s
   const last = own.at(-1)
   if (!last) return null
   return moveAllowed(ctx, last.dayA, last.dayB).allowed ? last.id : null
+}
+
+export interface RebasedMoves {
+  /** The moves that still fall in the program, in their original order, with their weeks renumbered. */
+  moves: SessionMove[]
+  /** How many moves landed before week 1 under the new start date and were dropped. */
+  dropped: number
+}
+
+/**
+ * Moves are stored by program week, so a new start date would carry each one onto other calendar
+ * dates (onto days already logged, even). When the start date changes from one Monday to another,
+ * shift each move's week by the whole weeks between them so it stays on the dates it was made for,
+ * and drop any that would land before week 1. Throws when the two dates aren't whole weeks apart.
+ */
+export function rebaseMoves(moves: readonly SessionMove[], oldStart: IsoDate, newStart: IsoDate): RebasedMoves {
+  const days = daysBetween(newStart, oldStart)
+  if (days % 7 !== 0) throw new RangeError(`start dates ${oldStart} and ${newStart} are not whole weeks apart`)
+  const shift = days / 7
+  const kept = moves.map((m) => ({ ...m, week: m.week + shift })).filter((m) => m.week >= 1)
+  return { moves: kept, dropped: moves.length - kept.length }
 }

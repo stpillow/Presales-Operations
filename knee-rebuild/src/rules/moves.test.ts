@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { SessionMove } from '../schema/index.ts'
-import { dayMovable, loggedOn, moveAllowed, undoableMove, type MoveContext } from './moves.ts'
+import { dateOf } from './calendar.ts'
+import { dayMovable, loggedOn, moveAllowed, rebaseMoves, undoableMove, type MoveContext } from './moves.ts'
 
 // Start Monday Nov 2 2026: week 1 runs Nov 2 (Mon) to Nov 8 (Sun).
 const base: MoveContext = { startDate: '2026-11-02', week: 1, currentWeek: 1, runs: [], workouts: [] }
@@ -77,5 +78,38 @@ describe('undoableMove', () => {
   it('offers nothing in a finished week or a week without moves', () => {
     expect(undoableMove({ ...base, currentWeek: 2 }, moves)).toBeNull()
     expect(undoableMove({ ...base, week: 5 }, moves)).toBeNull()
+  })
+})
+
+describe('rebaseMoves', () => {
+  const moves: SessionMove[] = [
+    { id: 'move-000001', week: 1, dayA: 'mon', dayB: 'tue' },
+    { id: 'move-000002', week: 2, dayA: 'thu', dayB: 'fri' },
+    { id: 'move-000003', week: 3, dayA: 'wed', dayB: 'sat' },
+  ]
+  it('a later start keeps each move on its calendar dates and drops what lands before week 1', () => {
+    const rebased = rebaseMoves(moves, '2026-11-02', '2026-11-09')
+    expect(rebased).toEqual({
+      moves: [
+        { id: 'move-000002', week: 1, dayA: 'thu', dayB: 'fri' },
+        { id: 'move-000003', week: 2, dayA: 'wed', dayB: 'sat' },
+      ],
+      dropped: 1,
+    })
+    expect(dateOf('2026-11-09', 1, 'thu')).toBe(dateOf('2026-11-02', 2, 'thu'))
+  })
+  it('an earlier start moves every week number up and drops nothing', () => {
+    expect(rebaseMoves(moves, '2026-11-09', '2026-10-26')).toEqual({ moves: moves.map((m) => ({ ...m, week: m.week + 2 })), dropped: 0 })
+  })
+  it('the same start changes nothing', () => {
+    expect(rebaseMoves(moves, '2026-11-02', '2026-11-02')).toEqual({ moves, dropped: 0 })
+  })
+  it('keeps the order, so Undo still takes back the latest move', () => {
+    const rebased = rebaseMoves([...moves, { id: 'move-000004', week: 2, dayA: 'mon', dayB: 'sun' }], '2026-11-02', '2026-11-09')
+    expect(rebased.moves.map((m) => m.id)).toEqual(['move-000002', 'move-000003', 'move-000004'])
+    expect(undoableMove({ ...base, startDate: '2026-11-09', week: 1, currentWeek: 0 }, rebased.moves)).toBe('move-000004')
+  })
+  it('refuses start dates that are not whole weeks apart, since weekdays would not line up', () => {
+    expect(() => rebaseMoves(moves, '2026-11-02', '2026-11-10')).toThrow(RangeError)
   })
 })
