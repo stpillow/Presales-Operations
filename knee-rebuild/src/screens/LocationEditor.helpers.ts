@@ -67,10 +67,13 @@ export const START_CHOICES: readonly { value: Location['startedFrom']; label: st
 /** A new gym's start, preselected: Planet Fitness's list (design section 5). */
 export const DEFAULT_START: Location['startedFrom'] = 'planet-fitness'
 
-/** What a new gym starts with, said before it is made. */
+/**
+ * What a new gym starts with, said before it is made. Started from Planet Fitness's list, it gets
+ * program.md's list, not Shawn's club: the home gym's 45° leg press is its own (PROGRAM-QUESTIONS 71).
+ */
 export function startWords(startedFrom: Location['startedFrom']): string {
   return startedFrom === 'planet-fitness'
-    ? 'Everything Planet Fitness has is marked here to start; untick what this gym lacks.'
+    ? 'Everything on program.md’s Planet Fitness list is marked here to start; your own club’s extras, like its 45° leg press, aren’t copied. Untick what this gym lacks.'
     : 'Nothing is marked here to start; tick what this gym has.'
 }
 
