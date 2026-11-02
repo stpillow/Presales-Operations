@@ -1,4 +1,4 @@
-import type { Equipment, EquipmentId, Location, Program, SessionTemplate } from '../schema/index.ts'
+import { showsText, withoutInvisible, type Equipment, type EquipmentId, type Location, type Program, type SessionTemplate } from '../schema/index.ts'
 import {
   DUMBBELLS,
   availableEquipment,
@@ -139,17 +139,13 @@ export function typedOutcome(
   }
 }
 
-/** Characters that take no room on screen: zero-width spaces and joiners, fillers, variation selectors (Unicode's default-ignorable code points). */
-const INVISIBLE = /\p{Default_Ignorable_Code_Point}/gu
-
 /**
  * A name as Today's Change tells names apart: case, accents, punctuation, spacing and invisible
  * characters aside. Unlike typed equipment (`normalizeTyped`), emoji and other symbols stay, since
  * "Hotel 🏨" and "Hotel 🏋️" read as two names on screen.
  */
 function nameKey(name: string): string {
-  return name
-    .replace(INVISIBLE, '')
+  return withoutInvisible(name)
     .normalize('NFKD')
     .replace(/\p{M}/gu, '')
     .toLowerCase()
@@ -158,7 +154,16 @@ function nameKey(name: string): string {
 }
 
 /** A name as it shows: invisible characters out, trimmed, in one Unicode form. */
-const shown = (name: string) => name.replace(INVISIBLE, '').normalize('NFC').trim()
+const shown = (name: string) => withoutInvisible(name).normalize('NFC').trim()
+
+/**
+ * Whether a typed name shows on Today's Change and Where you train: a letter, digit, punctuation
+ * mark or symbol once zero-width spaces, fillers and the like are out (`showsText`, which the
+ * schema also holds a name to). "\u200B" alone would be a blank row.
+ */
+export function nameShows(name: string): boolean {
+  return showsText(name)
+}
 
 /**
  * Another gym the lists offer already goes by this name (`nameKey`: case, accents, punctuation and

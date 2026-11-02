@@ -12,6 +12,19 @@ export const DEFAULT_KIT: readonly EquipmentId[] = ['ankle-strap', 'mini-band']
 
 const uniqueIds = (ids: readonly string[]) => new Set(ids).size === ids.length
 
+/** Characters that take no room on screen: zero-width spaces and joiners, fillers and variation selectors (Unicode's default-ignorable code points), and the blank braille cell. */
+const INVISIBLE = /[\p{Default_Ignorable_Code_Point}\u2800]/gu
+
+/** Text with the characters that take no room on screen taken out. */
+export function withoutInvisible(text: string): string {
+  return text.replace(INVISIBLE, '')
+}
+
+/** Whether text shows anything on screen: a letter, digit, punctuation mark or symbol once the invisible characters are out ("\u200B" or "ㅤ" alone shows nothing). */
+export function showsText(text: string): boolean {
+  return /[\p{L}\p{N}\p{P}\p{S}]/u.test(withoutInvisible(text))
+}
+
 /** One row, held in Dexie. Also carries the export and import controls' state. */
 export const Settings = z.strictObject({
   injuredSide: Side,
@@ -52,7 +65,8 @@ export type Settings = z.infer<typeof Settings>
  */
 export const Location = z.strictObject({
   id,
-  name: z.string().trim().min(1).max(60),
+  /** 1 to 60 characters once trimmed, showing something: a name of zero-width spaces would be a blank row on Today. */
+  name: z.string().trim().min(1).max(60).refine(showsText, 'a gym’s name shows a letter, digit or symbol'),
   present: z.array(EquipmentId).refine(uniqueIds, 'present lists each item once'),
   /** Heaviest dumbbell on the rack, in pounds; 0 means no dumbbells. */
   dumbbellMaxLb: z.number().int().nonnegative(),

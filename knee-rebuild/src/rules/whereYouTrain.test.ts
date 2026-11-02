@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Equipment, EquipmentId, Exercise, Location, Requirement, SessionTemplate, Slot } from '../schema/index.ts'
 import { availableEquipment, type ChecklistGroup } from './equipment.ts'
-import { checklistNotHere, ifNotHere, itemOutcome, nameTaken, nameTakenBy, newOnList, notHereWrite, phaseCoverage, rowItems, typedOutcome } from './whereYouTrain.ts'
+import { checklistNotHere, ifNotHere, itemOutcome, nameShows, nameTaken, nameTakenBy, newOnList, notHereWrite, phaseCoverage, rowItems, typedOutcome } from './whereYouTrain.ts'
 
 // Inline fixtures shaped like the seed; the live seed's rows are checked in src/screens/LocationEditor.helpers.test.ts.
 
@@ -206,6 +206,11 @@ describe('nameTaken', () => {
     expect(nameTakenBy(hotels, 'hotel  🏨', null)?.id).toBe('loc-4')
     expect(nameTakenBy(hotels, ' 🏨 ', null)?.id).toBe('loc-3')
     expect(nameTakenBy(hotels, 'Ho\u200Btel 🏨', null)?.id).toBe('loc-4')
+  })
+
+  it('a name has to show something on Today: invisible characters alone don’t (nameShows)', () => {
+    for (const blank of ['', '   ', '\u200B', '\u200B\u200B', '\u3164', '\u2800']) expect(nameShows(blank), JSON.stringify(blank)).toBe(false)
+    for (const seen of ['Hotel gym', '🏨', '!!!', ' \u200BGym ']) expect(nameShows(seen), seen).toBe(true)
   })
 
   it('a name with nothing but punctuation matches only the same punctuation, not every other such name', () => {

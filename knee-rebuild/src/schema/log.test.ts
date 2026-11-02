@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { IsoDate } from './enums.ts'
-import { DEFAULT_KIT, Location, MorningCheck, PLANET_FITNESS_LOCATION_ID, Run, SetLog, Settings, Workout } from './log.ts'
+import { DEFAULT_KIT, Location, MorningCheck, PLANET_FITNESS_LOCATION_ID, Run, SetLog, Settings, Workout, showsText } from './log.ts'
 
 describe('IsoDate', () => {
   it('accepts real dates and rejects impossible ones', () => {
@@ -102,6 +102,12 @@ describe('Location (M4b)', () => {
     expect(Location.safeParse({ ...home, name: '   ' }).success).toBe(false)
     expect(Location.safeParse({ ...home, name: 'x'.repeat(60) }).success).toBe(true)
     expect(Location.safeParse({ ...home, name: 'x'.repeat(61) }).success).toBe(false)
+  })
+  it('a name has to show something: zero-width spaces, fillers and the blank braille cell alone are refused', () => {
+    for (const blank of ['\u200B', '\u200B\u200B', ' \u200D ', '\u3164', '\uFFA0', '\u2800', '\uFE0F']) expect(Location.safeParse({ ...home, name: blank }).success, JSON.stringify(blank)).toBe(false)
+    for (const seen of ['🏨', '!!!', 'Gym\u200B', '45°']) expect(Location.safeParse({ ...home, name: seen }).success, seen).toBe(true)
+    expect(showsText('\u200B')).toBe(false)
+    expect(showsText('🏋️')).toBe(true)
   })
   it('starts from Planet Fitness\'s list or from nothing, and nothing else', () => {
     expect(Location.safeParse({ ...home, startedFrom: 'empty' }).success).toBe(true)
