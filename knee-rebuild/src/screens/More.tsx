@@ -9,6 +9,7 @@ export function More() {
         <Button wide onClick={() => navigate({ name: 'morning' })}>Morning check</Button>
         <Button wide onClick={() => navigate({ name: 'run' })}>Log a run</Button>
         <Button wide onClick={() => navigate({ name: 'locations' })}>Where you train</Button>
+        <Button wide onClick={() => navigate({ name: 'next-update' })}>For the next program update</Button>
         <Button wide onClick={() => navigate({ name: 'program' })}>Program</Button>
         <Button wide onClick={() => navigate({ name: 'settings' })}>Settings</Button>
       </div>
