@@ -304,6 +304,17 @@ describe('where you train (M4b): moves go forward on the slot’s list, to what 
       expect(same.note).toBe('Clean once: same load, same target; clean again to progress. That is past the rack’s 25 lb dumbbells: swap to Single-leg RDL. First time: pick a load that lands at RPE 7 and start at 10 reps.')
     })
 
+    it('where a move lands meets the rack too: a lightest version past a rack typed as 3 lb moves on, or is rack-capped', () => {
+      const moved = rdl({ week: 4, lastSets: rdlSets('db-rdl', 60), gym: gym(3, 'smith-machine') })
+      expect(moved).toMatchObject({ exerciseId: 'smith-rdl', load: 10, sets: 2, basis: 'deload' })
+      expect(moved.rackCapped).toBeUndefined()
+      expect(moved.note).toBe(
+        'Deload week: 2 sets instead of 3, same loads and reps, no progression. That is past the rack’s 3 lb dumbbells: swap to Single-leg RDL. First time in a deload week: the lightest version, 2 sets, perfect reps. That is past the rack’s 3 lb dumbbells: swap to Smith machine RDL. First time in a deload week: the lightest version, 2 sets, perfect reps.',
+      )
+      const capped = rdl({ week: 4, lastSets: rdlSets('db-rdl', 60), gym: gym(3) })
+      expect(capped).toMatchObject({ exerciseId: 'single-leg-rdl', load: 3, rackCapped: true, basis: 'deload' })
+    })
+
     it('with no fallback here, the rack max is prescribed, rack-capped, and the note says so', () => {
       const p = rdl({ exercise: slRdl, readings: ['hold'], lastSets: [...rdlSets('single-leg-rdl', 30).slice(0, 2), setLog(3, { exerciseId: 'single-leg-rdl', load: 20, loadUnit: 'lb', reps: 10 })], gym: gym(25) })
       expect(p).toMatchObject({ exerciseId: 'single-leg-rdl', load: 25, rackCapped: true, basis: 'repeat' })

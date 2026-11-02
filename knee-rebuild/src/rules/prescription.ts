@@ -553,10 +553,13 @@ function cutLoad(lastLoad: number, increment: number, unit: LoadUnit, floor: num
 /**
  * Where a slot moved to another exercise on its list starts: that exercise's first session on this
  * side, with its own units, targets and ladder (its lightest version in a deload week). The caller
- * gives the reason it moved.
+ * gives the reason it moved. That start meets the rack too (`toRack`): a lightest version past it
+ * moves on down the list, or with nothing to move to is rack-capped. Each move goes forward on the
+ * list, so this ends within its length.
  */
 function firstOn(here: Here, to: Exercise, side: SetSide): Prescription {
-  return prescribeSide({ ...here.raw, slot: effectiveSlot(here.raw.slot, to), exercise: to, readings: [], lastSets: [] }, here, side)
+  const first = prescribeSide({ ...here.raw, slot: effectiveSlot(here.raw.slot, to), exercise: to, readings: [], lastSets: [] }, here, side)
+  return toRack(here, to, [first])[0] ?? first
 }
 
 /**
