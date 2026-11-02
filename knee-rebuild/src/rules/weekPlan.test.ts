@@ -75,6 +75,19 @@ describe('suggestRun', () => {
     expect(s).toMatchObject({ swapSuggested: true, tempo: false })
     expect(suggestRun({ ...base, session: 'run:easy', morning: 'back-off' })?.swapSuggested).toBe(true)
   })
+  it('the reasons come from the final call: no strides, tempo or faster line on a hold or back-off morning', () => {
+    const hard = /strides|comfortably-hard|faster/
+    for (const morning of ['hold', 'back-off'] as const) {
+      const faster = suggestRun({ ...base, session: 'run:long', currentPhase: 2, phaseWeek: 2, week: 5, morning })
+      expect(faster).toMatchObject({ swapSuggested: true, fasterAllowed: false })
+      expect(faster?.reasons).toHaveLength(1)
+      expect(faster?.reasons.join(' ')).not.toMatch(hard)
+      expect(suggestRun({ ...base, session: 'run:easy', currentPhase: 3, phaseWeek: 3, week: 10, morning })?.reasons.join(' ')).not.toMatch(hard)
+      expect(suggestRun({ ...base, session: 'run:long', currentPhase: 3, phaseWeek: 3, week: 10, morning })?.reasons.join(' ')).not.toMatch(hard)
+    }
+    const clean = suggestRun({ ...base, session: 'run:long', currentPhase: 3, phaseWeek: 3, week: 10 })
+    expect(clean?.reasons).toEqual(['carry a 2 × 5 min comfortably-hard segment with 3 min easy between'])
+  })
   it('says when no morning check was logged', () => {
     expect(suggestRun({ ...base, session: 'run:easy', morning: null })?.reasons[0]).toContain('no morning check')
   })

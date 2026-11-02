@@ -61,6 +61,11 @@ export function suggestRun(input: {
   const type = runTypeFor(input.session)
   if (!type) return null
   const reasons: string[] = []
+  // The morning decides first, so every reason below comes from the final call (M4 review).
+  const swapSuggested = input.morning === 'hold' || input.morning === 'back-off'
+  if (input.morning === 'back-off') reasons.push('this morning read back off: make it 30 to 40 minutes on the elliptical or rower')
+  else if (input.morning === 'hold') reasons.push('this morning read hold: an elliptical or rower swap at the same effort is the call')
+  else if (input.morning === null) reasons.push('no morning check yet today')
   let miles: number | null = null
   if (input.target !== null) {
     const split = runSplit(input.target)
@@ -70,25 +75,16 @@ export function suggestRun(input: {
     if (share > left) reasons.push(`capped at the ${left} miles left under this week's ${input.target}`)
   }
   const phase3 = input.currentPhase >= 3
-  const strides = type === 'easy' && phase3
-  const tempo = type === 'long' && phase3 && input.phaseWeek >= 3
+  const plannedTempo = type === 'long' && phase3 && input.phaseWeek >= 3
+  const strides = type === 'easy' && phase3 && !swapSuggested
+  const tempo = plannedTempo && !swapSuggested
   // Every Friday from Phase 2 on, never in a deload week, and not on top of Phase 3's tempo,
   // which is that Friday's hard effort (PROGRAM-QUESTIONS 29, Shawn's Nov 1 call).
-  const fasterAllowed = type === 'long' && input.currentPhase >= 2 && !isDeloadWeek(input.week) && !tempo
+  const fasterAllowed = type === 'long' && input.currentPhase >= 2 && !isDeloadWeek(input.week) && !plannedTempo && !swapSuggested
   if (strides) reasons.push('finish with 4 × 15 s strides building to about 85%, full walk-back between')
   if (tempo) reasons.push('carry a 2 × 5 min comfortably-hard segment with 3 min easy between')
   if (fasterAllowed) reasons.push('one faster effort is allowed today')
-  let swapSuggested = false
-  if (input.morning === 'back-off') {
-    swapSuggested = true
-    reasons.unshift('this morning read back off: make it 30 to 40 minutes on the elliptical or rower')
-  } else if (input.morning === 'hold') {
-    swapSuggested = true
-    reasons.unshift('this morning read hold: an elliptical or rower swap at the same effort is the call')
-  } else if (input.morning === null) {
-    reasons.unshift('no morning check yet today')
-  }
-  return { type, miles, strides: strides && !swapSuggested, tempo: tempo && !swapSuggested, fasterAllowed: fasterAllowed && !swapSuggested, swapSuggested, reasons }
+  return { type, miles, strides, tempo, fasterAllowed, swapSuggested, reasons }
 }
 
 export type DayStatus = 'done' | 'missed' | 'today' | 'upcoming' | 'off'
