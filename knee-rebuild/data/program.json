@@ -3089,7 +3089,7 @@
       "equipment": "Dumbbells, incline bench",
       "requires": [
         "dumbbells",
-        "flat-bench"
+        "adjustable-bench"
       ],
       "loadType": "dumbbell-each",
       "loadUnit": "lb",
@@ -3198,7 +3198,7 @@
       "equipment": "Dumbbells, incline bench",
       "requires": [
         "dumbbells",
-        "flat-bench"
+        "adjustable-bench"
       ],
       "loadType": "dumbbell-each",
       "loadUnit": "lb",
@@ -3572,8 +3572,7 @@
       "source": "a flat bench for Bulgarians",
       "aliases": [
         "bench",
-        "weight bench",
-        "adjustable bench"
+        "weight bench"
       ],
       "carried": false,
       "hedged": false,
@@ -3840,6 +3839,20 @@
       "addedIn": 1
     },
     {
+      "id": "adjustable-bench",
+      "name": "Adjustable bench",
+      "group": "Upper body",
+      "source": "Incline dumbbell press",
+      "aliases": [
+        "incline bench",
+        "adjustable incline bench",
+        "incline weight bench"
+      ],
+      "carried": false,
+      "hedged": false,
+      "addedIn": 1
+    },
+    {
       "id": "upright-bike",
       "name": "Upright bike",
       "group": "Cardio",
@@ -3954,6 +3967,7 @@
     "shoulder-press-machine",
     "assisted-pull-up",
     "rear-delt-machine",
+    "adjustable-bench",
     "upright-bike",
     "treadmill",
     "elliptical",

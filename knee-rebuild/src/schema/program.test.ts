@@ -180,7 +180,7 @@ describe('data/program.json equipment (M4b)', () => {
     expect(program.equipment.filter((e) => e.carried).map((e) => e.id)).toEqual([...DEFAULT_KIT])
   })
 
-  it('items no "Program slot" row lists sit under the row of what they are used for; the pinned seven', () => {
+  it('items no "Program slot" row lists sit under the row of what they are used for; the pinned eight', () => {
     // PROGRAM-QUESTIONS 63. program.md names these outside the slot table, so their sources are not in it.
     const unlisted: Record<string, string> = {
       'leg-extension-machine': 'Squat pattern',
@@ -188,6 +188,7 @@ describe('data/program.json equipment (M4b)', () => {
       stair: 'Single-leg',
       'stability-ball': 'Hamstrings',
       'rear-delt-machine': 'Upper body',
+      'adjustable-bench': 'Upper body',
       'medicine-ball': 'Balance and plyos',
       'tape-measure': 'Balance and plyos',
     }
@@ -261,12 +262,15 @@ describe('data/program.json equipment (M4b)', () => {
     }
   })
 
-  it('program.md\'s words over catalog strings: no rope, no incline bench, the 45° and seated presses apart', () => {
+  it('program.md\'s words over catalog strings: no rope, the incline press\'s own bench, the 45° and seated presses apart', () => {
     const requiresOf = (id: string) => program.exercises.find((e) => e.id === id)?.requires
     expect(requiresOf('face-pull')).toEqual(['cable-station'])
-    expect(requiresOf('incline-db-press')).toEqual(['dumbbells', 'flat-bench'])
-    expect(requiresOf('chest-supported-db-row')).toEqual(['dumbbells', 'flat-bench'])
-    expect(program.equipment.some((e) => /rope|incline/i.test(`${e.id} ${e.name} ${e.aliases.join(' ')}`))).toBe(false)
+    // Shawn, Nov 2 (PROGRAM-QUESTIONS 66): the two incline-bench exercises need an adjustable bench, sourced from "Incline dumbbell press".
+    expect(requiresOf('incline-db-press')).toEqual(['dumbbells', 'adjustable-bench'])
+    expect(requiresOf('chest-supported-db-row')).toEqual(['dumbbells', 'adjustable-bench'])
+    expect(vocabulary.get('adjustable-bench')).toMatchObject({ name: 'Adjustable bench', group: 'Upper body', source: 'Incline dumbbell press', carried: false, hedged: false })
+    expect(program.equipment.some((e) => /rope/i.test(`${e.id} ${e.name} ${e.aliases.join(' ')}`))).toBe(false)
+    expect(program.equipment.filter((e) => /incline/i.test(`${e.id} ${e.name} ${e.aliases.join(' ')}`)).map((e) => e.id)).toEqual(['adjustable-bench'])
     expect(requiresOf('leg-press')).toEqual(['seated-leg-press'])
     expect(requiresOf('single-leg-leg-press')).toEqual(['seated-leg-press'])
     expect(requiresOf('leg-press-45')).toEqual(['leg-press-45'])
@@ -274,23 +278,22 @@ describe('data/program.json equipment (M4b)', () => {
     expect(requiresOf('lateral-band-walk')).toEqual(['mini-band'])
   })
 
-  it('one flat bench covers every bench; the pinned thirteen', () => {
+  it('the flat bench covers every bench but the incline ones; the pinned eleven and two', () => {
     // PROGRAM-QUESTIONS 66 lists these for Shawn; a new bench exercise has to be added there too.
     expect(program.exercises.filter((e) => needs(e, 'flat-bench')).map((e) => e.id).sort()).toEqual([
       'bulgarian-split-squat',
-      'chest-supported-db-row',
       'copenhagen-plank-long',
       'copenhagen-plank-short',
       'db-bench-press',
       'db-hip-thrust',
       'goblet-squat-bench',
-      'incline-db-press',
       'seated-db-shoulder-press',
       'single-leg-hip-thrust',
       'smith-bench-press',
       'smith-box-squat',
       'smith-hip-thrust',
     ])
+    expect(program.exercises.filter((e) => needs(e, 'adjustable-bench')).map((e) => e.id).sort()).toEqual(['chest-supported-db-row', 'incline-db-press'])
   })
 
   it('items no exercise needs stay on the list for typed matching; the pinned set', () => {
@@ -301,7 +304,7 @@ describe('data/program.json equipment (M4b)', () => {
 
   it('planetFitness: program.md\'s club with Shawn\'s Nov 1 answers; nothing carried, no dumbbells, no lying leg curl', () => {
     const pf = new Set(program.planetFitness)
-    for (const id of ['bosu', 'stability-ball', 'stair', 'seated-leg-press', 'rower', 'smith-machine', 'step-platforms', 'cable-station']) expect(pf.has(id), id).toBe(true)
+    for (const id of ['bosu', 'stability-ball', 'stair', 'seated-leg-press', 'rower', 'smith-machine', 'step-platforms', 'cable-station', 'adjustable-bench']) expect(pf.has(id), id).toBe(true)
     expect(pf.has('lying-leg-curl')).toBe(false)
     expect(pf.has('dumbbells')).toBe(false)
     for (const e of program.equipment.filter((x) => x.carried)) expect(pf.has(e.id), e.id).toBe(false)

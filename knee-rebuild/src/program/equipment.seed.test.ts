@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { homeLocation } from '../db/migrations.ts'
-import { availableEquipment, forNextProgramUpdate, locationCoverage, routeSlot, stageCeiling, suggestedRunSwap } from '../rules/equipment.ts'
+import { availableEquipment, fallbacksAfter, forNextProgramUpdate, locationCoverage, matchTyped, routeSlot, stageCeiling, suggestedRunSwap } from '../rules/equipment.ts'
 import { exerciseById, program } from './program.ts'
 
 // The live seed through the equipment rules (design section 3): Shawn's club runs the program as written.
@@ -31,6 +31,26 @@ describe('a gym with the lowest stair and no step platforms (PROGRAM-QUESTIONS 6
       exerciseId: 'step-up-stair',
       passedOver: [{ exerciseId: 'lateral-step-down', missing: ['step-platforms'] }],
     })
+  })
+})
+
+describe('the adjustable bench (PROGRAM-QUESTIONS 66)', () => {
+  it('a typed "incline bench" matches it, and Planet Fitness has it', () => {
+    expect(matchTyped('incline bench', program.equipment, [])).toEqual({ kind: 'known', id: 'adjustable-bench' })
+    expect(matchTyped('Incline bench', program.equipment, home.present)).toEqual({ kind: 'already', id: 'adjustable-bench' })
+    expect(matchTyped('adjustable bench', program.equipment, [])).toEqual({ kind: 'known', id: 'adjustable-bench' })
+  })
+  it('a gym with only a flat bench moves the incline press and the chest-supported row on', () => {
+    const flatOnly = availableEquipment({ ...home, present: home.present.filter((id) => id !== 'adjustable-bench') }, program.equipment, program.planetFitness, kit)
+    const slotOf = (templateId: string, slotId: string) => program.templates.find((t) => t.id === templateId)?.slots.find((s) => s.id === slotId)
+    const press = slotOf('p1-c', 'p1c-4')
+    const row = slotOf('p1-b', 'p1b-3')
+    if (!press || !row) throw new Error('missing slot')
+    expect(routeSlot(press, byId, available).kind).toBe('own')
+    expect(routeSlot(press, byId, flatOnly)).toEqual({ kind: 'moved', exerciseId: 'chest-press-machine', passedOver: [{ exerciseId: 'incline-db-press', missing: ['adjustable-bench'] }] })
+    // The row's own exercise is the seated cable row; past it, the chest-supported row is passed over for the single-arm cable row.
+    expect(fallbacksAfter(row, 'seated-cable-row', byId, available).map((e) => e.id)).toEqual(['chest-supported-db-row', 'single-arm-cable-row'])
+    expect(fallbacksAfter(row, 'seated-cable-row', byId, flatOnly).map((e) => e.id)).toEqual(['single-arm-cable-row'])
   })
 })
 
