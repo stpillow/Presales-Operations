@@ -45,16 +45,24 @@ function latestTest(tests: readonly GateTest[], gate: number, item: string, manu
     .at(-1)
 }
 
+/**
+ * Two clean weeks. A rack-capped workout that read clean is left out: it neither counts as clean nor
+ * breaks the streak, and it is not a session for "both weeks"; a capped hold or back-off still
+ * breaks it (Shawn's Nov 2 answer, PROGRAM-QUESTIONS 73).
+ */
 function cleanWeeks(item: GateItem, ctx: GateContext): GateItemResult {
   const window = item.windowDays ?? DEFAULT_WINDOW_DAYS
-  const recent = ctx.readings.filter((r) => inWindow(r.date, ctx.today, window))
+  const inRange = ctx.readings.filter((r) => inWindow(r.date, ctx.today, window))
+  const leftOut = inRange.filter((r) => r.rackCapped === true && r.result === 'clean').length
+  const recent = inRange.filter((r) => !(r.rackCapped === true && r.result === 'clean'))
   const half = addDays(ctx.today, -Math.floor(window / 2))
   const firstHalf = recent.filter((r) => r.date <= half)
   const secondHalf = recent.filter((r) => r.date > half)
   const bad = recent.filter((r) => r.result !== 'clean')
-  if (bad.length > 0) return { item, pass: false, detail: `${bad.length} of ${recent.length} readings in the last ${window} days read ${bad.map((b) => b.result).join(', ')}` }
-  if (firstHalf.length === 0 || secondHalf.length === 0) return { item, pass: false, detail: `needs sessions in both of the last two weeks (${recent.length} readings so far)` }
-  return { item, pass: true, detail: `${recent.length} readings in the last ${window} days, all clean` }
+  const left = leftOut === 0 ? '' : `${leftOut} rack-capped session${leftOut === 1 ? '' : 's'} left out`
+  if (bad.length > 0) return { item, pass: false, detail: `${bad.length} of ${recent.length} readings in the last ${window} days read ${bad.map((b) => b.result).join(', ')}${left && ` (${left})`}` }
+  if (firstHalf.length === 0 || secondHalf.length === 0) return { item, pass: false, detail: `needs sessions in both of the last two weeks (${recent.length} readings so far${left && `, ${left}`})` }
+  return { item, pass: true, detail: `${recent.length} readings in the last ${window} days, all clean${left && ` (${left})`}` }
 }
 
 function symmetry(item: GateItem, gate: Gate, ctx: GateContext): GateItemResult {
