@@ -226,6 +226,11 @@ describe('clearedSettings', () => {
       settings: { ...flagged, redFlag: { active: false, items: [], clearedOn: '2026-11-07', clearNote: 'PT saw it Nov 6: cleared to train' } },
     })
   })
+  it('keeps the last export, the gym and the bag (M6: clearing is not a reset)', () => {
+    const later = settings({ redFlag: { active: true, since: '2026-11-04', items: ['locking'] }, activeLocationId: 'loc-1', kit: ['ankle-strap'], lastExportedAt: '2026-11-05T23:00:00.000Z' })
+    const result = clearedSettings(later, 'PT saw it Nov 6', '2026-11-07')
+    expect(result).toMatchObject({ ok: true, settings: { activeLocationId: 'loc-1', kit: ['ankle-strap'], lastExportedAt: '2026-11-05T23:00:00.000Z', redFlag: { active: false } } })
+  })
 })
 
 describe('errorWords', () => {
