@@ -116,14 +116,17 @@ export function combinedReading(session: Reading, morning: MorningReading | unde
 }
 
 /**
- * Whether a morning check belongs to a session: linked explicitly, or dated the morning after it
- * (the 36-hour window at the day granularity checks are logged in). A check dated the same day
- * describes the day before, so it never applies to a session later that day.
+ * Whether a morning check belongs to a session: dated the morning after it (the 36-hour window at
+ * the day granularity checks are logged in), which covers every session of the day before, or
+ * linked to it explicitly. A link adds its session; it never takes the check away from the day's
+ * other sessions, so a run logged for that day after the check was saved still reads it (changed
+ * Nov 2 after the M4 review; PROGRAM-QUESTIONS 52). A check dated the same day describes the day
+ * before, so it never applies to a session later that day.
  */
 export function morningCheckApplies(
   check: MorningCheck,
   subject: { kind: 'workout' | 'run'; id: string; date: IsoDate },
 ): boolean {
-  if (check.appliesTo) return check.appliesTo.kind === subject.kind && check.appliesTo.id === subject.id
+  if (check.appliesTo?.kind === subject.kind && check.appliesTo.id === subject.id) return true
   return check.date === addDays(subject.date, 1)
 }

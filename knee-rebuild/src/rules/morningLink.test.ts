@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { Run, Workout } from '../schema/index.ts'
-import { attachChecks, exerciseReadings } from './history.ts'
+import type { MorningCheck, Run, Workout } from '../schema/index.ts'
+import { attachChecks, exerciseReadings, runReading, subjectReadings } from './history.ts'
 import { checkLink } from './morningLink.ts'
 
 const workout = (id: string, over: Partial<Workout> = {}): Workout => ({ id, date: '2026-11-03', templateId: 'p1-a', phase: 1, week: 1, isDeload: false, status: 'finished', ...over })
@@ -26,5 +26,22 @@ describe('checkLink', () => {
     const check = { id: 'm', date: '2026-11-04', appliesTo: checkLink([a, b], [], '2026-11-03'), stiffnessUnder30Min: true, worseThanYesterday: false, visibleSwelling: false, warmth: false, painChangePoints: 0, redFlags: [] }
     const readings = exerciseReadings(attachChecks([a, b], [set('w1'), set('w2')], [check]), 'leg-press')
     expect(readings.map((r) => r.reading.result)).toEqual(['clean', 'clean'])
+  })
+  it('a run logged for the day after the check linked the lift still reads that check (M4 review)', () => {
+    // Tue Nov 3: Session A, and an evening jog not logged yet. Wed Nov 4: the check links the lift.
+    const lift = workout('w1')
+    const morning = (over: Partial<MorningCheck>): MorningCheck => ({ id: 'm', date: '2026-11-04', appliesTo: checkLink([lift], [], '2026-11-03'), stiffnessUnder30Min: true, worseThanYesterday: false, visibleSwelling: false, warmth: false, painChangePoints: 0, redFlags: [], ...over })
+    const clean = morning({})
+    expect(clean.appliesTo).toEqual({ kind: 'workout', id: 'w1' })
+    // Thu Nov 5: the jog is logged for Tuesday. Both of Tuesday's sessions read Wednesday's check.
+    const jog = run('r1')
+    const set = { id: 'w1-1', workoutId: 'w1', slotId: 'x', exerciseId: 'leg-press', setNumber: 1, side: 'both' as const, load: 8, loadUnit: 'plate' as const, reps: 10, painDuring: 1, stopped: false }
+    const records = attachChecks([lift], [set], [clean])
+    expect(records[0]?.morningCheck).toBe(clean)
+    expect(runReading(jog, [clean])).toEqual({ result: 'clean', reasons: ['pain stayed at 1 on the run', 'back to baseline, stiffness gone within 30 minutes'] })
+    expect(subjectReadings(records, [jog], [clean]).map((r) => `${r.kind}:${r.result}`)).toEqual(['workout:clean', 'run:clean'])
+    const worse = morning({ worseThanYesterday: true })
+    expect(subjectReadings(attachChecks([lift], [set], [worse]), [jog], [worse]).map((r) => r.result)).toEqual(['hold', 'hold'])
+    expect(runReading(jog, [worse]).reasons).toContain('worse than yesterday')
   })
 })

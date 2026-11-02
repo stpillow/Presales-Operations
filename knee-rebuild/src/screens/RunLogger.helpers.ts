@@ -328,12 +328,8 @@ export function loggedWords(run: Run, today: IsoDate, checks: readonly MorningCh
   const covering = checks.find((c) => morningCheckApplies(c, subject))
   const when = shortDateWords(run.date)
   if (covering) return `Logged for ${when}. The morning check from ${shortDateWords(covering.date)} reads it.`
-  const dayAfter = addDays(run.date, 1)
-  if (dayAfter === today) {
-    return checks.some((c) => c.date === today)
-      ? `Logged for yesterday, ${when}. This morning’s check was saved before it; save the check again so it reads this run too.`
-      : `Logged for yesterday, ${when}. This morning’s check reads it.`
-  }
+  // A check dated the day after always covers the run (rule 3's date), so here none exists yet.
+  if (addDays(run.date, 1) === today) return `Logged for yesterday, ${when}. This morning’s check reads it.`
   return `Logged for ${when}. No morning check from the day after covers it, so it reads ${READING_WORDS[runReading(run, checks).result]}.`
 }
 

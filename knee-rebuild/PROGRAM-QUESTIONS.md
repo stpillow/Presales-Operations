@@ -72,7 +72,7 @@ Status key: **confirmed** Nov 1 = reading taken, Shawn to confirm or overrule ·
 49. **Back-off on bodyweight work** goes to the slot's first substitution, the easier version in the program's own order (Nordics to leg curls, single-leg hip thrust to the Smith version, step-ups to the lowest stair). Where nothing is written (snap-downs, plyos), the back-off is one set fewer. **confirmed** Nov 1
 50. **"Clean once: same load, same target."** Targets aren't stored, so the target is read as the reps achieved last time, clamped to the slot's range. **FYI**
 51. **"Two consecutive clean weeks"** requires at least one reading in each of the two weeks; an empty fortnight is not clean. **FYI**
-52. **Rule 3's 36-hour window** works at the day granularity checks are logged in: a check dated the same day or the next day applies to a session; an explicit link wins. **FYI**
+52. **Rule 3's 36-hour window** works at the day granularity checks are logged in: a check dated the next day applies to every session of the day before (a check dated the same day describes the day before, M2 review finding 20). A stored link adds its session to that and never takes the check away from the day's other sessions. Changed Nov 2 after the M4 review: an explicit link used to win outright, so a run logged for a lift day after the next morning's check was saved (and linked to the lift) had no check at all and read hold for good. **FYI**
 53. **Runs get readings too.** A run's max pain uses rule 1's thresholds (3 and 5) and combines with its morning check like a workout does, so runs can trip the hold cap and the gate's clean-weeks item. **FYI**
 
 ## Found while building the daily loop (M3)

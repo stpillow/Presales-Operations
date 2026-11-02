@@ -313,10 +313,14 @@ describe('loggedWords', () => {
   it('an earlier run already covered by a check names that check', () => {
     expect(loggedWords(run('2026-11-02', 3), '2026-11-05', [check('2026-11-03')])).toBe('Logged for Monday Nov 2. The morning check from Tuesday Nov 3 reads it.')
   })
-  it('yesterday’s run: this morning’s check reads it, or must be saved again when it was linked elsewhere', () => {
+  it('yesterday’s run: this morning’s check reads it, even one saved before the run and linked to the lift', () => {
     expect(loggedWords(run('2026-11-04', 3), '2026-11-05', [])).toBe('Logged for yesterday, Wednesday Nov 4. This morning’s check reads it.')
     const linked = check('2026-11-05', { appliesTo: { kind: 'workout', id: 'w' } })
-    expect(loggedWords(run('2026-11-04', 3), '2026-11-05', [linked])).toContain('save the check again')
+    expect(loggedWords(run('2026-11-04', 3), '2026-11-05', [linked])).toBe('Logged for Wednesday Nov 4. The morning check from Thursday Nov 5 reads it.')
+  })
+  it('an older run on a day whose next-morning check linked the lift is read by that check', () => {
+    const linked = check('2026-11-04', { appliesTo: { kind: 'workout', id: 'w' } })
+    expect(loggedWords(run('2026-11-03', 2), '2026-11-05', [linked])).toBe('Logged for Tuesday Nov 3. The morning check from Wednesday Nov 4 reads it.')
   })
   it('an older run no check covers reads as the engine reads it without one', () => {
     expect(loggedWords(run('2026-11-02', 3), '2026-11-05', [])).toBe('Logged for Monday Nov 2. No morning check from the day after covers it, so it reads hold.')
