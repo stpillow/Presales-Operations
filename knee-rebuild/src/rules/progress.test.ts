@@ -98,6 +98,19 @@ describe('symmetrySeries (PROGRAM-QUESTIONS 111)', () => {
       { date: '2026-12-22', percent: 100, basis: 'count', injured: 10, other: 10 },
     ])
   })
+  it('leaves out a rack-capped session: the hotel’s 25 against 25 is the rack’s symmetry, not the knee’s (PROGRAM-QUESTIONS 116)', () => {
+    const capped = (s: SetLog): SetLog => ({ ...s, rackCapped: true })
+    const records = attachChecks(
+      [workout('w1', '2026-11-24'), workout('w2', '2026-12-01'), workout('w3', '2026-12-08')],
+      [set('w1', 'right', 1, 30, 8), set('w1', 'left', 1, 40, 8), capped(set('w2', 'right', 1, 25, 8)), capped(set('w2', 'left', 1, 25, 8)), set('w3', 'right', 1, 30, 8), capped(set('w3', 'left', 1, 25, 8))],
+      [],
+    )
+    expect(symmetrySeries(records, 'bulgarian-split-squat', 'right')).toEqual([{ date: '2026-11-24', percent: 75, basis: 'load', injured: 30, other: 40 }])
+    expect(symmetryLeftOut(records, 'bulgarian-split-squat', 'right')).toEqual([
+      { date: '2026-12-01', reason: 'the gym’s rack capped the loads (25 lb on the injured side, 25 lb on the other), so they say nothing of the knee' },
+      { date: '2026-12-08', reason: 'the gym’s rack capped the loads (30 lb on the injured side, 25 lb on the other), so they say nothing of the knee' },
+    ])
+  })
   it('leaves out a session where only the other side carried no load: there is no percent of 0 lb', () => {
     const records = attachChecks([workout('w1', '2026-12-15')], [set('w1', 'right', 1, 10, 8), set('w1', 'left', 1, 0, 8)], [])
     expect(symmetrySeries(records, 'bulgarian-split-squat', 'right')).toEqual([])

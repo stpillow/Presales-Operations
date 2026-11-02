@@ -128,6 +128,8 @@ function sessionSymmetry(record: WorkoutRecord, exerciseId: string, injuredSide:
   const b = bestSet(own.filter((s) => s.side === otherSide))
   if (!a || !b) return null
   const date = record.workout.date
+  // A capped set ran at the gym's heaviest dumbbell, not the load the knee was on (question 73).
+  if (own.some(isRackCapped)) return { leftOut: { date, reason: `the gym’s rack capped the loads ${sides(`${a.load} ${a.loadUnit}`, `${b.load} ${b.loadUnit}`)}, so they say nothing of the knee` } }
   const why = unlike(a, b)
   if (why) return { leftOut: { date, reason: why } }
   const byLoad = a.load !== b.load
@@ -150,8 +152,9 @@ function sessionSymmetry(record: WorkoutRecord, exerciseId: string, injuredSide:
  * reads it, never 100% by counts. Only when the loads are equal (both 0 included) are the reps or
  * seconds compared, since rule 5 sets the healthy side's count from the injured side's. A session
  * where only the other side carried no load has no percent and is left out (PROGRAM-QUESTIONS 111),
- * and so is one whose sides were on different steps, stages or ranges (PROGRAM-QUESTIONS 112);
- * symmetryLeftOut says which and why.
+ * and so is one whose sides were on different steps, stages or ranges (PROGRAM-QUESTIONS 112), and
+ * one where any set of the exercise was rack-capped, since its loads were the rack's (PROGRAM-QUESTIONS
+ * 116); symmetryLeftOut says which and why.
  */
 export function symmetrySeries(records: readonly WorkoutRecord[], exerciseId: string, injuredSide: Side): SymmetryPoint[] {
   const points: SymmetryPoint[] = []
