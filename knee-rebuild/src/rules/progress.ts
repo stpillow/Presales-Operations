@@ -1,5 +1,5 @@
-import type { IsoDate, MileageWeek, MorningCheck, Run, SetLog, Settings, Side } from '../schema/index.ts'
-import { addDays, daysBetween, weekOf } from './calendar.ts'
+import type { IsoDate, MileageWeek, MorningCheck, Run, SessionMove, SetLog, Settings, Side, WeeklyTemplate, Workout } from '../schema/index.ts'
+import { DAYS, addDays, dateOf, daysBetween, weekOf, weekSchedule } from './calendar.ts'
 import type { SubjectReading, WorkoutRecord } from './history.ts'
 import { weekMiles } from './mileage.ts'
 import { morningCheckApplies } from './reading.ts'
@@ -170,8 +170,34 @@ export function consecutiveCleanDays(readings: readonly SubjectReading[], today:
 }
 
 /**
+ * The program week a phase confirmed today is entered in. The phase's week bands (snap-downs from
+ * its third week, the plyo ladder) assume its first week holds every lift of that week, so the
+ * confirming week counts only when all its lifts are still ahead: none started, finished or left
+ * early, and none scheduled (after the week's moves) before today. Otherwise the phase is entered
+ * the week after, and the rest of the confirming week runs the new templates at the bands' first
+ * week. Confirming on Sunday Nov 22, after week 3's Lift C, enters Phase 2 in week 4, so the
+ * snap-downs start in week 6 as program.md says (PROGRAM-QUESTIONS 113, refining 46).
+ */
+export function phaseEntryWeek(input: {
+  today: IsoDate
+  startDate: IsoDate
+  template: WeeklyTemplate
+  moves: readonly SessionMove[]
+  workouts: readonly Pick<Workout, 'date' | 'status'>[]
+}): number {
+  const { today, startDate, template, moves, workouts } = input
+  const week = weekOf(today, startDate)
+  if (week < 1) return 1
+  const schedule = weekSchedule(template, week, moves)
+  const liftPassed = DAYS.some((day) => schedule[day].startsWith('lift:') && dateOf(startDate, week, day) < today)
+  const liftLogged = workouts.some((w) => w.status !== 'planned' && w.date <= today && weekOf(w.date, startDate) === week)
+  return liftPassed || liftLogged ? week + 1 : week
+}
+
+/**
  * Rule 8's last step: a passing gate advances the phase only when Shawn confirms, and the new phase
- * is entered in the week it is confirmed. Refuses anything else.
+ * is entered in the week given, phaseEntryWeek's answer for the day it is confirmed. Refuses
+ * anything else.
  */
 export function advancePhase(settings: Settings, gate: { number: number; toPhase: number }, passes: boolean, week: number): Settings {
   if (!passes) throw new Error(`gate ${gate.number} has items that don't pass yet`)

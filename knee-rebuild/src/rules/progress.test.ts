@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import type { MileageWeek, MorningCheck, Run, SetLog, Settings, Workout } from '../schema/index.ts'
+import type { MileageWeek, MorningCheck, Run, SessionMove, SetLog, Settings, WeeklyTemplate, Workout } from '../schema/index.ts'
 import { attachChecks, type SubjectReading } from './history.ts'
-import { advancePhase, awaitingMorningCheck, consecutiveCleanDays, loadSeries, milesSeries, symmetryLeftOut, symmetrySeries } from './progress.ts'
+import { advancePhase, awaitingMorningCheck, consecutiveCleanDays, loadSeries, milesSeries, phaseEntryWeek, symmetryLeftOut, symmetrySeries } from './progress.ts'
 
 const workout = (id: string, date: string, status: Workout['status'] = 'finished'): Workout => ({ id, date, templateId: 'p2-b', phase: 2, week: 5, isDeload: false, status })
 const set = (workoutId: string, side: SetLog['side'], n: number, load: number, reps: number, exerciseId = 'bulgarian-split-squat'): SetLog => ({ id: `${workoutId}-${side}-${n}`, workoutId, slotId: 'p2b-1', exerciseId, setNumber: n, side, load, loadUnit: 'lb', reps, painDuring: 1, stopped: false })
@@ -182,11 +182,52 @@ describe('consecutiveCleanDays', () => {
 
 describe('advancePhase (rule 8)', () => {
   const settings: Settings = { injuredSide: 'right', startDate: '2026-11-02', dumbbellMax: 80, restTimerSeconds: 60, painPerSet: false, currentPhase: 1, phaseEnteredWeek: 1, redFlag: { active: false, items: [] }, activeLocationId: 'planet-fitness', kit: ['ankle-strap', 'mini-band'] }
-  it('moves to the next phase, entered in the confirming week', () => {
+  it('moves to the next phase, entered in the week given (phaseEntryWeek’s answer)', () => {
     expect(advancePhase(settings, { number: 1, toPhase: 2 }, true, 4)).toMatchObject({ currentPhase: 2, phaseEnteredWeek: 4 })
   })
   it('refuses a gate that does not pass, or one for another phase', () => {
     expect(() => advancePhase(settings, { number: 1, toPhase: 2 }, false, 4)).toThrow()
     expect(() => advancePhase(settings, { number: 2, toPhase: 3 }, true, 8)).toThrow()
+  })
+})
+
+describe('phaseEntryWeek: the week a confirmed phase is entered (PROGRAM-QUESTIONS 113)', () => {
+  // program.md's week: lifts Tuesday, Thursday, Saturday; Sunday off. Week 3 is Nov 16 to 22, week 4 Nov 23 to 29.
+  const template: WeeklyTemplate = { mon: 'run:mbr', tue: 'lift:A', wed: 'run:easy', thu: 'lift:B', fri: 'run:long', sat: 'lift:C', sun: 'off' }
+  const START = '2026-11-02'
+  const lift = (date: string, status: Workout['status'] = 'finished'): Workout => ({ ...workout(`w-${date}`, date, status), templateId: 'p1-a', phase: 1, week: 3 })
+  const week3Lifts = [lift('2026-11-17'), lift('2026-11-19'), lift('2026-11-21')]
+  const entry = (today: string, workouts: readonly Workout[] = [], moves: readonly SessionMove[] = []) => phaseEntryWeek({ today, startDate: START, template, moves, workouts })
+
+  it('Sunday of week 3, after the week’s last lift: the phase is entered in week 4, not week 3', () => {
+    expect(entry('2026-11-22', week3Lifts)).toBe(4)
+  })
+  it('Saturday of week 3, before Lift C: A and B already ran in the old phase, so week 4', () => {
+    expect(entry('2026-11-21', week3Lifts.slice(0, 2))).toBe(4)
+  })
+  it('Monday, or Tuesday before Lift A: every lift of the week is still ahead, so this week', () => {
+    expect(entry('2026-11-23', week3Lifts)).toBe(4)
+    expect(entry('2026-11-24', week3Lifts)).toBe(4)
+  })
+  it('Tuesday with Lift A started or logged: next week', () => {
+    expect(entry('2026-11-24', [lift('2026-11-24', 'in-progress')])).toBe(5)
+    expect(entry('2026-11-24', [lift('2026-11-24', 'abandoned')])).toBe(5)
+    // A planned workout hasn't happened.
+    expect(entry('2026-11-24', [lift('2026-11-24', 'planned')])).toBe(4)
+  })
+  it('a lift day already past with nothing logged still counts: next week', () => {
+    expect(entry('2026-11-25')).toBe(5)
+  })
+  it('reads the week after its moves: Lift A moved to Wednesday leaves every lift ahead on Wednesday', () => {
+    const move: SessionMove = { id: 'm1', week: 4, dayA: 'tue', dayB: 'wed' }
+    expect(entry('2026-11-25', [], [move])).toBe(4)
+  })
+  it('gate 2 on the nominal schedule: Sunday Dec 20 (week 7) and Monday Dec 21 both enter Phase 3 in week 8', () => {
+    const week7 = [lift('2026-12-15'), lift('2026-12-17'), lift('2026-12-19')]
+    expect(entry('2026-12-20', week7)).toBe(8)
+    expect(entry('2026-12-21', week7)).toBe(8)
+  })
+  it('before the program starts, week 1', () => {
+    expect(entry('2026-10-30')).toBe(1)
   })
 })
