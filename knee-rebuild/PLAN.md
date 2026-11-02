@@ -2,7 +2,7 @@
 
 The status page. Ticked when done, not when started. Questions about the program live in [PROGRAM-QUESTIONS.md](PROGRAM-QUESTIONS.md); the questions for Shawn before M1 are at the bottom.
 
-**Now:** M5 (gates and progress) in review: the review's surviving findings are fixed, each with a test (PROGRAM-QUESTIONS 110 to 117), and wait on a re-check before the merge; then M6.
+**Now:** M5 (gates and progress) in review: the review's surviving findings are fixed, each with a test (PROGRAM-QUESTIONS 110 to 118), and re-checked in the built app at 390 and 375 px; merging next, then M6.
 **Last updated:** Nov 2, 2026
 
 ## Milestones
@@ -89,7 +89,7 @@ Done when gate 1 evaluates from logged data alone and the hop-test symmetry matc
 - [x] Hop-test entry: three trials per side, best kept, symmetry shown (one trial a side saves, 0 is a trial: PROGRAM-QUESTIONS 108)
 - [x] Progress: load over time per exercise (one chart at a time), symmetry over time, weekly miles against plan, consecutive clean days
 - [x] Gate 1 evaluates from logged data alone; the hop-test symmetry matches the worked example (56 against 62 reads 90.3% and passes gate 3; named tests in `Gates.helpers.test.ts`)
-- [ ] Adversarial review: surviving findings fixed with tests (PROGRAM-QUESTIONS 110 to 117); the re-check is next
+- [x] Adversarial review: surviving findings fixed with tests (PROGRAM-QUESTIONS 110 to 118) and re-checked in the built app at 390 and 375 px
 
 ### M6 · Hardening
 Done when export, wipe, import restores everything, and a full Session B gets logged on cellular with the screen locked between sets.
