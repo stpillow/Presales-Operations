@@ -44,12 +44,25 @@ export function dayChoiceWords(date: IsoDate, today: IsoDate): string {
   return date === today ? 'Today' : SHORT_DAY[dayOf(date)]
 }
 
-/** The dates a run can be logged for: this program week's Monday up to today. Empty before the program starts. */
+/**
+ * The dates a run can be logged for: this program week's Monday up to today and, on a Monday,
+ * yesterday too, the last day of the week before, so a Sunday run logged the next morning keeps its
+ * date and counts in the week it happened (PROGRAM-QUESTIONS 62). Empty before the program starts.
+ */
 export function dateChoices(today: IsoDate, startDate: IsoDate): IsoDate[] {
   const week = weekOf(today, startDate)
   if (week < 1) return []
   const monday = dateOf(startDate, week, 'mon')
-  return Array.from({ length: daysBetween(monday, today) + 1 }, (_, i) => addDays(monday, i))
+  const thisWeek = Array.from({ length: daysBetween(monday, today) + 1 }, (_, i) => addDays(monday, i))
+  return week > 1 && today === monday ? [addDays(today, -1), ...thisWeek] : thisWeek
+}
+
+/** The note under the day choices: which days can be logged. */
+export function dayChoicesNote(today: IsoDate, startDate: IsoDate): string {
+  const week = weekOf(today, startDate)
+  return week > 1 && today === dateOf(startDate, week, 'mon')
+    ? 'Yesterday, the last day of last week, can still be logged; later days cannot.'
+    : 'Earlier days of this program week can be logged; later ones cannot.'
 }
 
 /** That date's morning reading, from the check logged that morning, or null when none was. */

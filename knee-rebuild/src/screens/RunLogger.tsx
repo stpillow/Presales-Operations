@@ -20,6 +20,7 @@ import {
   RUN_TYPES,
   SWAP_TYPES,
   dayChoiceWords,
+  dayChoicesNote,
   effortWords,
   emptyForm,
   errorWords,
@@ -159,7 +160,7 @@ function Logger({ today, settings, history }: { today: IsoDate; settings: Settin
               <Choice key={date} compact label={dayChoiceWords(date, today)} selected={view.date === date} onSelect={() => set({ date })} />
             ))}
           </div>
-          <Note>Earlier days of this program week can be logged; later ones cannot.</Note>
+          <Note>{dayChoicesNote(today, settings.startDate)}</Note>
         </Section>
       ) : null}
 

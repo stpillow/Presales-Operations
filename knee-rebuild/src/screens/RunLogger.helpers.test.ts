@@ -5,6 +5,7 @@ import {
   RUN_TYPES,
   dateChoices,
   dayChoiceWords,
+  dayChoicesNote,
   emptyForm,
   errorWords,
   isSwapType,
@@ -101,6 +102,18 @@ describe('dateChoices', () => {
     expect(dateChoices('2026-11-05', START)).toEqual(['2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05'])
     expect(dateChoices('2026-11-11', START)).toEqual(['2026-11-09', '2026-11-10', '2026-11-11'])
   })
+  it('on a Monday also offers yesterday, the last day of the week before, so a Sunday run keeps its date and week', () => {
+    expect(dateChoices('2026-11-09', START)).toEqual(['2026-11-08', '2026-11-09'])
+    expect(dateChoices('2026-11-16', START)).toEqual(['2026-11-15', '2026-11-16'])
+    expect(dateChoices('2026-11-10', START)).toEqual(['2026-11-09', '2026-11-10'])
+    // Week 1's Monday: yesterday is before the program.
+    expect(dateChoices('2026-11-02', START)).toEqual(['2026-11-02'])
+    expect(dayChoiceWords('2026-11-08', '2026-11-09')).toBe('Sun')
+  })
+  it('says which days can be logged', () => {
+    expect(dayChoicesNote('2026-11-09', START)).toBe('Yesterday, the last day of last week, can still be logged; later days cannot.')
+    expect(dayChoicesNote('2026-11-05', START)).toBe('Earlier days of this program week can be logged; later ones cannot.')
+  })
   it('names each choice by its weekday, and today as Today', () => {
     expect(dayChoiceWords('2026-11-05', '2026-11-05')).toBe('Today')
     expect(dayChoiceWords('2026-11-02', '2026-11-05')).toBe('Mon')
@@ -154,6 +167,19 @@ describe('loggerView', () => {
     const earlier = formView({ ...base, today: '2026-11-05', picked: { date: '2026-11-04', type: null } })
     expect(earlier).toMatchObject({ date: '2026-11-04', preselected: 'easy' })
     expect(formView({ ...base, today: '2026-11-10', picked: { date: '2026-11-04', type: null } }).date).toBe('2026-11-10')
+  })
+  it('on Monday, a run picked for Sunday logs into the week it happened', () => {
+    // Fri long and Sun off swapped in week 1; the long run happened Sunday, at a pain that reads hold.
+    const moves = [{ id: 'm', week: 1, dayA: 'fri' as const, dayB: 'sun' as const }]
+    const view = formView({ ...base, today: '2026-11-09', history: history({ sessionMoves: moves }), picked: { date: '2026-11-08', type: null } })
+    expect(view).toMatchObject({ date: '2026-11-08', week: 1, scheduled: 'run:long', preselected: 'long' })
+    const draft = toRun(resolveForm({ ...emptyForm(), miles: 4, maxPain: 5 }, view), 'run-2026-11-08')
+    expect(draft.ok && draft.run).toMatchObject({ date: '2026-11-08', type: 'long', miles: 4 })
+    // Saved, it reads hold in week 1, so week 2 is capped at week 1's miles.
+    const runs = [run('2026-11-02', 3, 'mbr'), run('2026-11-04', 3), ...(draft.ok ? [draft.run] : [])]
+    const checks = [check('2026-11-03'), check('2026-11-05')]
+    const monday = formView({ ...base, today: '2026-11-09', history: history({ runs, morningChecks: checks, sessionMoves: moves }) })
+    expect(monday.summary.target).toMatchObject({ target: 10, capped: true })
   })
   it('a hold morning suggests the swap without switching the type', () => {
     const view = formView({ ...base, today: '2026-11-04', history: history({ morningChecks: [check('2026-11-04', { worseThanYesterday: true })] }) })
