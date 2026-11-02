@@ -88,6 +88,7 @@ test('the manifest is installable: name, standalone, theme color, icons 192, 512
   const response = await page.request.get(`${server.url}${href}`)
   expect(response.ok()).toBe(true)
   const manifest = (await response.json()) as {
+    id?: string
     name: string
     short_name: string
     start_url: string
@@ -102,8 +103,14 @@ test('the manifest is installable: name, standalone, theme color, icons 192, 512
 
   // Chromium's own verdict on the manifest and the page: nothing stands between it and an install.
   const cdp = await page.context().newCDPSession(page)
-  expect((await cdp.send('Page.getAppManifest')).errors).toEqual([])
+  const parsed = await cdp.send('Page.getAppManifest')
+  expect(parsed.errors).toEqual([])
   expect((await cdp.send('Page.getInstallabilityErrors')).installabilityErrors).toEqual([])
+  // The app's identity is stated, not left to start_url: '/', which resolves to the id Chromium took
+  // from start_url before the manifest named one, so the installed app keeps its identity, and keeps
+  // it again if start_url ever moves.
+  expect(manifest.id).toBe('/')
+  expect(parsed.manifest.id).toBe(`${server.url}/`)
 
   const purposes = (sizes: string) => manifest.icons.filter((i) => i.sizes === sizes).map((i) => i.purpose ?? 'any')
   expect(purposes('192x192')).toContain('any')

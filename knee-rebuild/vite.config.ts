@@ -15,6 +15,9 @@ export default defineConfig({
       // listing them again here put each in the precache twice (PWA audit, docs/pwa-audit.md).
       includeManifestIcons: false,
       manifest: {
+        // The installed app's identity, stated: '/' is the id Chromium already took from start_url, so
+        // nothing installed changes, and a later start_url can't fork the home-screen app (PWA audit, finding 8).
+        id: '/',
         name: 'Knee Rebuild',
         short_name: 'Knee',
         description: 'What to do today, what happened, what the knee said, what comes next.',
