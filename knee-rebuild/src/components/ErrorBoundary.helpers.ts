@@ -19,6 +19,7 @@ export const SCREEN_NAMES: Readonly<Record<Route['name'], string>> = {
   location: 'Location editor',
   'new-location': 'New location',
   'next-update': 'For the next program update',
+  preview: 'Session preview',
 }
 
 export interface CrashWords {

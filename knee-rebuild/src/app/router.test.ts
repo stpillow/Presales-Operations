@@ -41,3 +41,18 @@ describe('Where you train routes (M4b)', () => {
     for (const route of routes) expect(parseHash(routeHash(route))).toEqual(route)
   })
 })
+
+describe('session preview route', () => {
+  it('reads a real date and round-trips it', () => {
+    expect(parseHash('#/preview/2026-11-05')).toEqual({ name: 'preview', date: '2026-11-05' })
+    expect(routeHash({ name: 'preview', date: '2026-11-05' })).toBe('#/preview/2026-11-05')
+    expect(parseHash(routeHash({ name: 'preview', date: '2027-02-28' }))).toEqual({ name: 'preview', date: '2027-02-28' })
+  })
+  it('lands on Week for a missing, malformed or impossible date', () => {
+    expect(parseHash('#/preview')).toEqual({ name: 'week' })
+    expect(parseHash('#/preview/tomorrow')).toEqual({ name: 'week' })
+    expect(parseHash('#/preview/2026-02-30')).toEqual({ name: 'week' })
+    expect(parseHash('#/preview/2026-11-5')).toEqual({ name: 'week' })
+  })
+})
+

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { WeeklyTemplate } from '../schema/index.ts'
 import {
+  nextLiftDate,
   addDays,
   dateOf,
   dayOf,
@@ -101,3 +102,18 @@ describe('schedule', () => {
     expect(scheduledSession('2026-11-12', START, TEMPLATE, moves).session).toBe('run:long')
   })
 })
+
+describe('nextLiftDate', () => {
+  const template: WeeklyTemplate = { mon: 'run:mbr', tue: 'lift:A', wed: 'run:easy', thu: 'lift:B', fri: 'run:long', sat: 'lift:C', sun: 'off' }
+  it('finds the next lift on or after a date, after moves', () => {
+    expect(nextLiftDate('2026-11-02', '2026-11-02', template, [])).toBe('2026-11-03')
+    expect(nextLiftDate('2026-11-03', '2026-11-02', template, [])).toBe('2026-11-03')
+    expect(nextLiftDate('2026-11-08', '2026-11-02', template, [])).toBe('2026-11-10')
+    expect(nextLiftDate('2026-11-02', '2026-11-02', template, [{ id: 'move-000001', week: 1, dayA: 'tue', dayB: 'wed' }])).toBe('2026-11-04')
+  })
+  it('skips the days before the program starts, and gives up past the window', () => {
+    expect(nextLiftDate('2026-10-30', '2026-11-02', template, [])).toBe('2026-11-03')
+    expect(nextLiftDate('2026-10-01', '2026-11-02', template, [], 14)).toBeNull()
+  })
+})
+

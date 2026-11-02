@@ -102,3 +102,23 @@ export function scheduledSession(
   if (week < 1) return { date, week, day, session: null }
   return { date, week, day, session: weekSchedule(template, week, moves)[day] }
 }
+
+/**
+ * The first date on or after `from` whose scheduled session (after moves) is a lift, within
+ * `horizonDays`; null before the program starts within that window or when none falls in it.
+ */
+export function nextLiftDate(
+  from: IsoDate,
+  startDate: IsoDate,
+  template: WeeklyTemplate,
+  moves: readonly SessionMove[],
+  horizonDays = 14,
+): IsoDate | null {
+  for (let i = 0; i < horizonDays; i++) {
+    const date = addDays(from, i)
+    const { session } = scheduledSession(date, startDate, template, moves)
+    if (session !== null && session.startsWith('lift:')) return date
+  }
+  return null
+}
+
