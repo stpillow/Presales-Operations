@@ -292,6 +292,13 @@ describe('where you train (M4b): moves go forward on the slot’s list, to what 
       expect(rdl({ readings: ['hold'], lastSets: rdlSets('db-rdl', 60) })).toMatchObject({ exerciseId: 'db-rdl', load: 60, basis: 'repeat' })
     })
 
+    it('a move past the rack says so on the prescription, so Today and Swap can name it; a back-off’s move does not', () => {
+      expect(rdl({ readings: ['hold'], lastSets: rdlSets('db-rdl', 60), gym: gym(25, 'smith-machine') }).rackMoved).toBe(true)
+      expect(rdl({ week: 4, lastSets: rdlSets('db-rdl', 60), gym: gym(3, 'smith-machine') }).rackMoved).toBe(true)
+      expect(rdl({ readings: ['hold'], lastSets: rdlSets('db-rdl', 60), gym: gym(80, 'smith-machine') }).rackMoved).toBeUndefined()
+      expect(rdl({ exercise: slRdl, readings: ['hold'], lastSets: rdlSets('single-leg-rdl', 30), gym: gym(25) }).rackMoved).toBeUndefined()
+    })
+
     it('the cap reads every basis: a deload week at a lighter rack moves too, at the lightest version', () => {
       const deload = rdl({ week: 4, lastSets: rdlSets('db-rdl', 60), gym: gym(25, 'smith-machine') })
       expect(deload).toMatchObject({ exerciseId: 'single-leg-rdl', load: 5, sets: 2, basis: 'deload' })

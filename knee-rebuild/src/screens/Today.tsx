@@ -1,19 +1,19 @@
 import { useState } from 'react'
 import { navigate } from '../app/router.ts'
-import { PROGRAM, availableAt } from '../app/session.ts'
+import { PROGRAM, availableAt, planSession } from '../app/session.ts'
 import { useToday } from '../app/today.ts'
 import { Button } from '../components/Button.tsx'
 import { ReadingWord, readingSentence } from '../components/ReadingWord.tsx'
 import { Screen } from '../components/Screen.tsx'
 import { useActiveLocation, useHistory, useLocations, useSettings } from '../db/hooks.ts'
-import { clearMarkOff, putWorkout, reopenWorkout, setActiveLocation } from '../db/repo.ts'
+import { clearMarkOff, putWorkout, reopenWorkout, setActiveLocation, type History } from '../db/repo.ts'
 import { liftGym } from '../rules/gymDay.ts'
 import type { EquipmentId, IsoDate, Location, Settings } from '../schema/index.ts'
 import {
   NEW_LOCATION_HASH,
   atGymWords,
   gymRows,
-  liftMoves,
+  liftChanges,
   markOffLines,
   movesHeading,
   newWorkout,
@@ -88,7 +88,7 @@ export function Today() {
       {view.body.kind === 'before-start' ? (
         <BeforeStartBlock line={view.body.line} />
       ) : view.body.kind === 'lift' ? (
-        <LiftBlock body={view.body} settings={settings} active={activeLocation} locations={locations} today={today} takenIds={history.workouts.map((w) => w.id)} />
+        <LiftBlock body={view.body} settings={settings} history={history} active={activeLocation} locations={locations} today={today} />
       ) : view.body.kind === 'run' ? (
         <RunBlock body={view.body} gym={activeLocation} kit={settings.kit} />
       ) : (
@@ -255,17 +255,17 @@ function BeforeStartBlock({ line }: { line: string }) {
 function LiftBlock({
   body,
   settings,
+  history,
   active,
   locations,
   today,
-  takenIds,
 }: {
   body: Lift
   settings: Settings
+  history: History
   active: Location
   locations: Location[]
   today: IsoDate
-  takenIds: string[]
 }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -295,7 +295,7 @@ function LiftBlock({
     }
     setBusy(true)
     setError(null)
-    const id = newWorkoutId(today, template.id, takenIds)
+    const id = newWorkoutId(today, template.id, history.workouts.map((w) => w.id))
     try {
       await putWorkout(
         newWorkout({
@@ -340,7 +340,7 @@ function LiftBlock({
           ) : workout?.status === 'abandoned' ? (
             <p className="text-body text-on-dark-dim">{label} was left early today; what was logged is kept. Resume to carry on in the same session.</p>
           ) : null}
-          <MovesBlock template={template} phaseWeek={body.phaseWeek} label={label} gym={gym} kit={settings.kit} />
+          <MovesBlock template={template} week={workout?.week ?? body.week} before={workout?.date ?? today} label={label} gym={gym} settings={settings} history={history} />
           <Button variant="primary" wide className="wrap-anywhere" disabled={busy} onClick={() => void start()}>
             {busy ? 'Saving…' : startWords(label, workout, gym, active)}
           </Button>
@@ -355,9 +355,29 @@ function LiftBlock({
   )
 }
 
-/** What moves at the session's gym, from `locationCoverage`: each slot that doesn't run its own exercise there, in words. */
-function MovesBlock({ template, phaseWeek, label, gym, kit }: { template: NonNullable<Lift['template']>; phaseWeek: number; label: string; gym: Location; kit: readonly EquipmentId[] }) {
-  const moves = liftMoves({ template, phaseWeek, byId: BY_ID, available: availableAt({ location: gym, kit }), items: PROGRAM.equipment })
+/**
+ * What changes at the session's gym, in words: read off the plan the runner runs there (the same
+ * history, gym and date), so a slot its history moved, or the rack moves or caps, says so here too.
+ */
+function MovesBlock({
+  template,
+  week,
+  before,
+  label,
+  gym,
+  settings,
+  history,
+}: {
+  template: NonNullable<Lift['template']>
+  week: number
+  before: IsoDate
+  label: string
+  gym: Location
+  settings: Settings
+  history: History
+}) {
+  const plans = planSession({ template, week, settings, history, gym: { location: gym, kit: settings.kit }, before })
+  const moves = liftChanges({ plans, byId: BY_ID, items: PROGRAM.equipment, rackLb: gym.dumbbellMaxLb })
   return (
     <div className="flex flex-col gap-2">
       <p className={`wrap-anywhere ${moves.length === 0 ? 'text-small text-on-dark-muted' : 'text-body text-on-dark'}`}>{movesHeading(gym.name, label, moves.length)}</p>

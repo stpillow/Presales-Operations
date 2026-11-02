@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { parseHash, routeHash } from '../app/router.ts'
 import { program } from '../program/program.ts'
-import { availableEquipment } from '../rules/equipment.ts'
+import { planSession } from '../app/session.ts'
+import type { History } from '../db/repo.ts'
 import { suggestRun, type RunSuggestion } from '../rules/weekPlan.ts'
 import type { Location, MorningCheck, Run, SessionTemplate, SetLog, Settings, Workout } from '../schema/index.ts'
 import {
@@ -11,7 +12,7 @@ import {
   gymRows,
   itemWords,
   lackWords,
-  liftMoves,
+  liftChanges,
   markOffLines,
   monthDayWords,
   movesHeading,
@@ -509,40 +510,76 @@ describe('equipment in words', () => {
   })
 })
 
-describe('what moves at a gym (live seed)', () => {
+describe('what changes at a gym (live seed, from the plan the runner runs)', () => {
   const byId = new Map(program.exercises.map((e) => [e.id, e]))
-  const at = (location: Location, kit: readonly string[] = ['ankle-strap', 'mini-band']) => availableEquipment(location, program.equipment, program.planetFitness, kit)
   const template = (id: string) => {
     const t = program.templates.find((x) => x.id === id)
     if (!t) throw new Error(`no template ${id}`)
     return t
   }
+  const none: History = { workouts: [], setLogs: [], morningChecks: [], runs: [], gateTests: [], sessionMoves: [] }
+  /** Today's list for a session at a gym: planSession there, as the runner plans it, then its changes in words. */
+  const changes = (t: SessionTemplate, location: Location, opts: { kit?: readonly string[]; history?: History; week?: number; settings?: Settings; before?: string } = {}) => {
+    const plans = planSession({ template: t, week: opts.week ?? 2, settings: opts.settings ?? settings(), history: opts.history ?? none, gym: { location, kit: opts.kit ?? ['ankle-strap', 'mini-band'] }, before: opts.before ?? '2026-11-10' })
+    return liftChanges({ plans, byId, items: program.equipment, rackLb: location.dumbbellMaxLb })
+  }
   const home = { ...HOME, present: [...program.planetFitness, 'leg-press-45', 'rower'] }
-  it('nothing moves at the home gym', () => {
-    for (const t of program.templates) {
-      expect(liftMoves({ template: t, phaseWeek: 1, byId, available: at(home), items: program.equipment }), t.id).toEqual([])
-    }
+  const done = (id: string, date: string, templateId: string, phase: number, week: number): Workout => ({ id, date, templateId, phase, week, isDeload: false, status: 'finished' })
+  const threeSets = (workoutId: string, slotId: string, exerciseId: string, over: Partial<SetLog>): SetLog[] =>
+    [1, 2, 3].map((n) => ({ id: `${workoutId}-${exerciseId}-${n}`, workoutId, slotId, exerciseId, setNumber: n, side: 'both', load: 0, loadUnit: 'lb', reps: 10, rpe: 7, painDuring: 2, stopped: false, ...over }))
+
+  it('nothing changes at the home gym', () => {
+    for (const t of program.templates) expect(changes(t, home), t.id).toEqual([])
   })
   it('a slot moves for want of a carried item, said as not in the bag', () => {
-    const moves = liftMoves({ template: template('p1-c'), phaseWeek: 1, byId, available: at(home, ['mini-band']), items: program.equipment })
-    expect(moves).toEqual(['Cable hip abduction, ankle strap → Lateral band walk (no cable ankle strap in your bag)'])
+    expect(changes(template('p1-c'), home, { kit: ['mini-band'] })).toEqual(['Cable hip abduction, ankle strap → Lateral band walk (no cable ankle strap in your bag)'])
   })
   it('a gym with a few things moves each slot to the first one there, saying what the own exercise lacks', () => {
-    const hotel = { ...MARRIOTT, present: ['flat-bench', 'cable-station', 'mats'] }
-    const moves = liftMoves({ template: template('p1-a'), phaseWeek: 1, byId, available: at(hotel), items: program.equipment })
+    const moves = changes(template('p1-a'), { ...MARRIOTT, present: ['flat-bench', 'cable-station', 'mats'] })
     expect(moves).toContain('Leg press, both legs → Goblet squat to a bench (no seated leg press)')
     expect(moves).toContain('Hip abductor machine → Cable hip abduction, ankle strap (no hip abductor machine)')
     expect(moves).toContain('Lat pulldown → Single-arm cable pulldown (no lat pulldown)')
   })
   it('a slot with nothing on its list here says so', () => {
-    const bare = { ...MARRIOTT, present: [] }
-    const moves = liftMoves({ template: template('p3-a'), phaseWeek: 1, byId, available: at(bare), items: program.equipment })
+    const moves = changes(template('p3-a'), { ...MARRIOTT, present: [] }, { settings: settings({ currentPhase: 3, phaseEnteredWeek: 8 }), week: 8, before: '2026-12-22' })
     expect(moves).toContain('Nothing here for Step-off landing from a 6–8 in. step, stuck for 2 s (no step platforms)')
   })
   it('a mark-off moves the slot like a missing item', () => {
-    const marked = { ...home, markedOff: [{ id: 'seated-leg-press', on: '2026-11-10' }] }
-    const moves = liftMoves({ template: template('p1-a'), phaseWeek: 1, byId, available: at(marked), items: program.equipment })
-    expect(moves).toEqual(['Leg press, both legs → 45° leg press (no seated leg press)'])
+    expect(changes(template('p1-a'), { ...home, markedOff: [{ id: 'seated-leg-press', on: '2026-11-10' }] })).toEqual(['Leg press, both legs → 45° leg press (no seated leg press)'])
+  })
+
+  it('what the rack moves or caps is listed too, as the runner runs it (M4b review)', () => {
+    // Home Session C ran the RDL at 50 lb, the farmer’s carry at 50 lb each and the incline press at 35 lb, all clean.
+    const marriott = { ...MARRIOTT, present: ['flat-bench', 'adjustable-bench', 'step-platforms', 'back-extension-bench', 'cable-station', 'leg-extension-machine'] }
+    const last = done('w1', '2026-11-07', 'p1-c', 1, 1)
+    const history: History = {
+      ...none,
+      workouts: [last],
+      setLogs: [...threeSets('w1', 'p1c-2', 'db-rdl', { load: 50 }), ...threeSets('w1', 'p1c-7', 'farmers-carry', { load: 50 }), ...threeSets('w1', 'p1c-4', 'incline-db-press', { load: 35 })],
+      morningChecks: [check('2026-11-08')],
+    }
+    expect(changes(template('p1-c'), marriott, { history, before: '2026-11-14' })).toEqual([
+      'Dumbbell Romanian deadlift → Single-leg RDL (past the 25 lb rack)',
+      'Assisted pull-up → Single-arm cable pulldown (no assisted pull-up/dip machine)',
+      'Incline dumbbell press: rack-capped at 25 lb, so it won’t count as clean',
+      "Farmer's carry → Suitcase carry (past the 25 lb rack)",
+    ])
+  })
+
+  it('a slot its history moved is listed from where the history put it, as the runner routes it (PROGRAM-QUESTIONS 86)', () => {
+    // Phase 3 A: the Nordics backed off onto the single-leg seated leg curl, which then ran clean once.
+    const phase3 = settings({ currentPhase: 3, phaseEnteredWeek: 8 })
+    const history: History = {
+      ...none,
+      workouts: [done('w1', '2026-12-29', 'p3-a', 3, 9), done('w2', '2027-01-05', 'p3-a', 3, 10)],
+      setLogs: [...threeSets('w1', 'p3a-2', 'nordic-negatives', { loadUnit: 'none', reps: 3, painDuring: 6 }), ...threeSets('w2', 'p3a-2', 'single-leg-seated-leg-curl', { load: 40 })],
+      morningChecks: [check('2026-12-30'), check('2027-01-06')],
+    }
+    // A hotel with mats and a lat pulldown, so the Nordics are here, and no leg curl.
+    const hotel = { ...MARRIOTT, present: ['mats', 'lat-pulldown', 'flat-bench', 'cable-station'] }
+    const moves = changes(template('p3-a'), hotel, { history, settings: phase3, week: 11, before: '2027-01-12' })
+    expect(moves).toContain('Nothing here for Single-leg seated leg curl (no seated leg curl)')
+    expect(moves.some((m) => m.startsWith('Nordic'))).toBe(false)
   })
   it('says how many slots change, or that none does: a slot with nothing here changes but doesn’t move', () => {
     expect(movesHeading('Marriott Downtown', 'Session A', 3)).toBe('3 slots of Session A change at Marriott Downtown:')

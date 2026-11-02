@@ -1,6 +1,7 @@
 import type { History } from '../db/repo.ts'
 import { addDays, dayOf, isDeloadWeek, scheduledSession } from '../rules/calendar.ts'
-import { locationCoverage, type Available, type CoverageMove, type ExerciseLookup, type RunSwapType } from '../rules/equipment.ts'
+import { type Available, type ExerciseLookup, type RunSwapType, type SlotRoute } from '../rules/equipment.ts'
+import { gymChanges, type GymChange, type PlannedSlot } from '../rules/gymChanges.ts'
 import { liftGym, swapCallAt } from '../rules/gymDay.ts'
 import { attachChecks, subjectReadings, workoutReading } from '../rules/history.ts'
 import { listedLocations } from '../rules/locations.ts'
@@ -15,6 +16,7 @@ import type {
   DaySession,
   Equipment,
   EquipmentId,
+  Exercise,
   IsoDate,
   Location,
   Phase,
@@ -26,6 +28,7 @@ import type {
   SessionTemplate,
   Settings,
   Side,
+  Slot,
   Workout,
 } from '../schema/index.ts'
 
@@ -427,21 +430,44 @@ export function lackWords(missing: readonly Requirement[], items: readonly ItemL
     .join(', ')
 }
 
-/**
- * One of `locationCoverage`'s moves: "Cable hip abduction, ankle strap → Lateral band walk (no cable
- * ankle strap in your bag)", or for a slot with nothing on its list here, "Nothing here for
- * Step-off landing … (no step platforms)". The words in brackets are what the own exercise lacks.
- */
-export function moveWords(move: CoverageMove, byId: ExerciseLookup, items: readonly ItemLike[]): string {
-  const name = (id: string) => byId.get(id)?.name ?? id
-  const lack = move.missing.length > 0 ? ` (${lackWords(move.missing, items)})` : ''
-  return move.kind === 'none' ? `Nothing here for ${name(move.from)}${lack}` : `${name(move.from)} → ${name(move.to)}${lack}`
+function rackWords(rackLb: number): string {
+  return rackLb > 0 ? `past the ${rackLb} lb rack` : 'no dumbbells here'
 }
 
-/** What moves at this gym for today's lift, in session order, from `locationCoverage`; empty when every slot runs its own exercise. */
-export function liftMoves(input: { template: SessionTemplate; phaseWeek: number; byId: ExerciseLookup; available: Available; items: readonly ItemLike[] }): string[] {
-  const [coverage] = locationCoverage([input.template], input.phaseWeek, input.byId, input.available)
-  return (coverage?.moves ?? []).map((move) => moveWords(move, input.byId, input.items))
+function cappedWords(rackLb: number): string {
+  return rackLb > 0 ? `rack-capped at ${rackLb} lb, so it won’t count as clean` : 'bodyweight and rack-capped with no dumbbells here, so it won’t count as clean'
+}
+
+/**
+ * One of `gymChanges`' changes: "Leg press, both legs → Goblet squat to a bench (no seated leg
+ * press)", "Dumbbell Romanian deadlift → Single-leg RDL (past the 25 lb rack)", "Incline dumbbell
+ * press: rack-capped at 25 lb, so it won’t count as clean", or for a slot with nothing here,
+ * "Nothing here for Step-off landing … (no step platforms)". The words in brackets are what the
+ * exercise the gym took the slot off lacks, then the rack.
+ */
+export function changeWords(change: GymChange, byId: ExerciseLookup, items: readonly ItemLike[], rackLb: number): string {
+  const name = (id: string) => byId.get(id)?.name ?? id
+  if (change.kind === 'capped') return `${name(change.from)}: ${cappedWords(rackLb)}`
+  const why = [...(change.missing.length > 0 ? [lackWords(change.missing, items)] : []), ...(change.pastRack ? [rackWords(rackLb)] : []), ...(change.rackCapped ? [cappedWords(rackLb)] : [])]
+  const lack = why.length > 0 ? ` (${why.join('; ')})` : ''
+  return change.kind === 'none' ? `Nothing here for ${name(change.from)}${lack}` : `${name(change.from)} → ${name(change.to)}${lack}`
+}
+
+/**
+ * What changes at the session's gym for today's lift, in session order, read off the plan the runner
+ * runs there (`gymChanges`): the gym's moves from where each slot's history put it, the slots with
+ * nothing here, and what the rack moves or caps. Empty when every slot runs as planned.
+ */
+export function liftChanges(input: {
+  /** `planSession`'s plans at the session's gym, as the runner plans it (no swap chosen yet). */
+  plans: readonly { slot: Pick<Slot, 'id'>; exercise: Pick<Exercise, 'id'>; route: SlotRoute; prescriptions: PlannedSlot['prescriptions'] }[]
+  byId: ExerciseLookup
+  items: readonly ItemLike[]
+  /** The gym's heaviest dumbbell. */
+  rackLb: number
+}): string[] {
+  const planned = input.plans.map((p) => ({ slotId: p.slot.id, exerciseId: p.exercise.id, route: p.route, prescriptions: p.prescriptions }))
+  return gymChanges(planned).map((change) => changeWords(change, input.byId, input.items, input.rackLb))
 }
 
 /**

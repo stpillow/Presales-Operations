@@ -43,6 +43,12 @@ export interface Prescription {
    * `rackCapped`, so the session never becomes the baseline and a clean on it never counts (gymLoads.ts).
    */
   rackCapped?: boolean
+  /**
+   * The rack moved the slot (Shawn's Nov 1 answer 5): the load was past this gym's heaviest
+   * dumbbell, so `exerciseId` is the next exercise on the slot's list that is here, not the one
+   * planned. Today names it among what changes at the gym, and Swap says why the planned one won't run.
+   */
+  rackMoved?: boolean
   basis: Basis
   note: string
 }
@@ -583,7 +589,7 @@ function toRack(here: Here, exercise: Exercise, out: Prescription[]): Prescripti
             ? `That is past the rack’s ${rack} lb dumbbells: swap to ${sub.name}.`
             : `The other side is past the rack’s ${rack} lb dumbbells, so the slot swaps to ${sub.name}.`
       // The moved prescription keeps its own note, as offTheLadder's does: how the exercise moved to starts.
-      return { ...moved, basis: p.basis, note: `${p.note} ${why} ${moved.note}` }
+      return { ...moved, basis: p.basis, rackMoved: true, note: `${p.note} ${why} ${moved.note}` }
     })
   }
   const nothing = writtenAfter(here, exercise) ? 'nothing written to swap to is here' : 'nothing is written to swap to'
