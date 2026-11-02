@@ -183,3 +183,28 @@ Method: the same five-angle workflow (gate and phase writes; rule fidelity in ga
 
 Not fixed, logged: a session from an earlier phase still counts its phase weeks from the current phase's entered week (closed off by refusing an advance while a session is open; the full fix stores the phase week on the workout); Today's phase line above a session done in the old phase on the day of an advance (cosmetic).
 
+## Findings, M6 (Nov 2, 2026)
+
+Method: a loose-ends pass over the builders' leftovers first, then the same five-angle workflow (backup data integrity and Dexie versions; override and backup rule fidelity; the Program and Settings screens against the M6 brief; the import file and the Markdown renderer as untrusted input; edge cases across imports, phases and updates), three skeptics per finding, two confirmations to survive. 19 reported, 17 survived (three were one defect seen from three angles). A rules fixer, a screens fixer, then an independent verifier who confirmed all 17, fixed two regressions, and re-ran the round trip: 107 of 107 checks at 390 and 375 px, `npm run e2e` 16 of 16.
+
+| # | Finding | Fix |
+|---|---|---|
+| 94 | An import over a phone with an active red flag cleared it without a note, and the confirm never said so | The flag stays on through an import unless the file's own clear carries a note; the confirm names it |
+| 95 | Writing `lastExportedAt` into the strict Settings row broke every older build's settings read after the first export | The stamp lives in its own row; older builds keep reading settings (PROGRAM-QUESTIONS 132) |
+| 96 | The whole-knee back-off skipped lower-body work an edited upper-body, core or carry slot ran | Lower body is read from the exercise run, not the slot |
+| 97 | Catalog adds of another kind gave a step-up no step height, or an RDL in yards | `effectiveSlot` covers every kind; Add offers only exercises the slot can count or step |
+| 98 | The editor said a back-off steps to "the first one"; the engine takes the next one here | Wording matches the engine |
+| 99 | Remove's "Put it back" sat a screen above the tap and died with the editor; Done editing threw the slot off the top; a typed new cue was dropped by the view toggle or leaving | Put it back stands where the row was and outlives the editor; the slot stays in view; drafts wait in words and are let go only by Reset or an import |
+| 100 | Import accepted a start date that isn't a Monday | Refused in words |
+| 101 | An import refusal quoted Zod's message whole, widening Settings to 162,280 px | Refusals say what is wrong in words and wrap |
+| 102 | An `exportedAt` in the future turned off the storage-eviction reminder until that date | A future stamp reads as never exported; the export line says the year when it differs |
+| 103 | Tapping a Settings control during "Replacing…" wrote the old settings over the imported ones | Settings are locked while the import writes |
+| 104 | Removing the exercise a slot was swapped to mid-session let a Nothing-here slot skip its hold | The swap falls back to the plan |
+| 105 | `npm audit`'s 10 build-time advisories weren't explained | Explained in `docs/pwa-audit.md`; none ships in the bundle |
+| 106 | (verifier) Gates promised a prefill no session could produce when an edit put a single-leg test exercise on a both-legs slot | Says so and asks for the test's loads (PROGRAM-QUESTIONS 134) |
+| 107 | (verifier) Reset all data and an import kept the Program editor's unsaved drafts | Both let them go |
+
+Rollback: after the first export M6 can be rolled back to M5 (the export stamp has its own row); builds before M4b can't be returned to once Dexie version 3 has run, because Dexie refuses to open a newer database with an older schema. Builds are forward-only from M4b; the export file is the way back to any state.
+
+Not fixed, logged: the import confirm doesn't name changes to the active gym, rest timer, pain logging or kit; a single-leg exercise swapped onto a both-legs slot logs once as both (PROGRAM-QUESTIONS 134, for Shawn); the per-screen error boundary is proven by a render test, since no forced bad row reaches it.
+
