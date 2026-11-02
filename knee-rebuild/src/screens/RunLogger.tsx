@@ -19,10 +19,10 @@ import {
   MINUTES_STEP,
   RUN_TYPES,
   SWAP_TYPES,
+  dateLostWords,
   dayChoiceWords,
   dayChoicesNote,
   effortWords,
-  emptyForm,
   errorWords,
   isSwapType,
   leadWords,
@@ -30,10 +30,12 @@ import {
   loggerView,
   newRunId,
   noSuggestionWords,
+  openForm,
   reasonSentence,
   resolveForm,
   runPlanWords,
   runRow,
+  saveWords,
   stravaProblem,
   suggestionHead,
   takeSwapWords,
@@ -78,7 +80,8 @@ export function RunLogger() {
 }
 
 function Logger({ today, settings, history }: { today: IsoDate; settings: Settings; history: History }) {
-  const [form, setForm] = useState<RunForm>(emptyForm)
+  // The date is pinned when the logger opens: useToday() moves at midnight, and the form must not move with it.
+  const [form, setForm] = useState<RunForm>(() => openForm(today))
   const [saved, setSaved] = useState<Run | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -117,7 +120,7 @@ function Logger({ today, settings, history }: { today: IsoDate; settings: Settin
             variant="quiet"
             wide
             onClick={() => {
-              setForm(emptyForm())
+              setForm(openForm(today))
               setError(null)
               setSaved(null)
             }}
@@ -153,11 +156,16 @@ function Logger({ today, settings, history }: { today: IsoDate; settings: Settin
     <Screen title={TITLE} lead={leadWords(view)}>
       {view.stop ? <StopBlock headline={view.stop.headline} items={view.stop.items} /> : null}
 
-      {view.dates.length > 1 ? (
+      {view.dates.length > 1 || view.dateLost ? (
         <Section label="Day">
+          {view.dateLost ? (
+            <p role="alert" className="text-body text-on-dark">
+              {dateLostWords(view.dateLost)}
+            </p>
+          ) : null}
           <div role="radiogroup" aria-label="Day" className="grid grid-cols-4 gap-2">
             {view.dates.map((date) => (
-              <Choice key={date} compact label={dayChoiceWords(date, today)} selected={view.date === date} onSelect={() => set({ date })} />
+              <Choice key={date} compact label={dayChoiceWords(date, today)} selected={!view.dateLost && view.date === date} onSelect={() => set({ date })} />
             ))}
           </div>
           <Note>{dayChoicesNote(today, settings.startDate)}</Note>
@@ -217,7 +225,7 @@ function Logger({ today, settings, history }: { today: IsoDate; settings: Settin
         </p>
       ) : null}
       <Button variant="primary" wide disabled={!draft.ok || saving} onClick={() => void save()}>
-        {saving ? 'Saving…' : draft.ok ? 'Save run' : draft.blocker}
+        {saving ? 'Saving…' : draft.ok ? saveWords(resolved.date, today) : draft.blocker}
       </Button>
 
       <WeekRuns runs={view.weekRuns} onRemoved={onRemoved} />

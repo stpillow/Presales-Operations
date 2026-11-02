@@ -6,6 +6,7 @@ import {
   dateChoices,
   dayChoiceWords,
   dayChoicesNote,
+  dateLostWords,
   emptyForm,
   errorWords,
   isSwapType,
@@ -16,10 +17,12 @@ import {
   morningFor,
   newRunId,
   noSuggestionWords,
+  openForm,
   reasonSentence,
   resolveForm,
   runPlanWords,
   runRow,
+  saveWords,
   stravaProblem,
   suggestionHead,
   takeSwapWords,
@@ -163,10 +166,31 @@ describe('loggerView', () => {
     expect(view.suggestion).toMatchObject({ type: 'mbr', miles: 3 })
     expect(formView({ ...base, today: '2026-11-04', picked: { date: null, type: 'elliptical-swap' } }).suggestion?.type).toBe('easy')
   })
-  it('logs for an earlier day this week, and falls back to today when the pick is outside it', () => {
+  it('logs for an earlier day this week', () => {
     const earlier = formView({ ...base, today: '2026-11-05', picked: { date: '2026-11-04', type: null } })
-    expect(earlier).toMatchObject({ date: '2026-11-04', preselected: 'easy' })
-    expect(formView({ ...base, today: '2026-11-10', picked: { date: '2026-11-04', type: null } }).date).toBe('2026-11-10')
+    expect(earlier).toMatchObject({ date: '2026-11-04', preselected: 'easy', dateLost: null })
+  })
+  it('keeps the date the logger opened on when midnight passes', () => {
+    // Opened Friday 11:55 pm for the long run; saved at 12:02 am Saturday.
+    const form = { ...openForm('2026-11-06'), type: 'long' as const, miles: 4, maxPain: 2 }
+    const view = formView({ ...base, today: '2026-11-07', picked: { date: form.date, type: form.type } })
+    expect(view).toMatchObject({ date: '2026-11-06', scheduled: 'run:long', dateLost: null })
+    const draft = toRun(resolveForm(form, view), 'r')
+    expect(draft.ok && draft.run).toMatchObject({ date: '2026-11-06', type: 'long', miles: 4 })
+  })
+  it('a date pinned on Sunday is still Sunday on Monday', () => {
+    expect(formView({ ...base, today: '2026-11-09', picked: { date: '2026-11-08', type: 'easy' } })).toMatchObject({ date: '2026-11-08', week: 1, dateLost: null })
+  })
+  it('a pinned date that is no longer a choice is said in words and blocks Save until a day is picked again', () => {
+    // Opened Saturday, still open on Monday: Saturday is in last week and not yesterday.
+    const form = { ...openForm('2026-11-07'), type: 'easy' as const, miles: 3, maxPain: 1 }
+    const view = formView({ ...base, today: '2026-11-09', picked: { date: form.date, type: form.type } })
+    expect(view).toMatchObject({ dateLost: '2026-11-07', dates: ['2026-11-08', '2026-11-09'] })
+    expect(toRun(resolveForm(form, view), 'r')).toEqual({ ok: false, blocker: 'Pick the day first' })
+    expect(leadWords(view)).toBe('Pick the day this run happened')
+    const repicked = formView({ ...base, today: '2026-11-09', picked: { date: '2026-11-09', type: form.type } })
+    expect(repicked.dateLost).toBeNull()
+    expect(toRun(resolveForm({ ...form, date: '2026-11-09' }, repicked), 'r').ok).toBe(true)
   })
   it('on Monday, a run picked for Sunday logs into the week it happened', () => {
     // Fri long and Sun off swapped in week 1; the long run happened Sunday, at a pain that reads hold.
@@ -202,6 +226,24 @@ describe('loggerView', () => {
   it('lists this week’s runs by date', () => {
     const runs = [run('2026-11-04', 3), run('2026-11-02', 3, 'mbr'), run('2026-10-30', 2)]
     expect(formView({ ...base, today: '2026-11-05', history: history({ runs }) }).weekRuns.map((r) => r.date)).toEqual(['2026-11-02', '2026-11-04'])
+  })
+})
+
+describe('openForm', () => {
+  it('pins the date the logger opens on, so the live clock never moves it', () => {
+    expect(openForm('2026-11-06')).toEqual({ ...emptyForm(), date: '2026-11-06' })
+  })
+})
+
+describe('words for the date', () => {
+  it('says which pinned day can no longer be logged, and what to do', () => {
+    expect(dateLostWords('2026-11-07')).toBe(
+      'Saturday Nov 7, the day this run was started for, can no longer be logged: runs log for this program week up to today, and on a Monday for yesterday too. Pick a day to save it.',
+    )
+  })
+  it('Save names the day when it is not today', () => {
+    expect(saveWords('2026-11-06', '2026-11-06')).toBe('Save run')
+    expect(saveWords('2026-11-06', '2026-11-07')).toBe('Save run for Friday Nov 6')
   })
 })
 
@@ -312,11 +354,14 @@ describe('stravaProblem', () => {
 })
 
 describe('toRun', () => {
-  const ready: ResolvedForm = { date: '2026-11-04', type: 'easy', swap: false, miles: 3.25, minutes: 32, effort: 'easy', maxPain: 2, strides: true, tempo: false, stravaUrl: '', notes: '' }
+  const ready: ResolvedForm = { date: '2026-11-04', dateLost: null, type: 'easy', swap: false, miles: 3.25, minutes: 32, effort: 'easy', maxPain: 2, strides: true, tempo: false, stravaUrl: '', notes: '' }
   it('keeps Save disabled with words until max pain is rated and a type is picked', () => {
     expect(toRun({ ...ready, maxPain: null }, 'r')).toEqual({ ok: false, blocker: 'Rate max pain first' })
     expect(toRun({ ...ready, type: null }, 'r')).toEqual({ ok: false, blocker: 'Pick the type first' })
     expect(toRun({ ...ready, type: null, maxPain: null }, 'r')).toEqual({ ok: false, blocker: 'Pick the type and rate max pain first' })
+  })
+  it('a lost date blocks Save before anything else', () => {
+    expect(toRun({ ...ready, dateLost: '2026-11-01', maxPain: null }, 'r')).toEqual({ ok: false, blocker: 'Pick the day first' })
   })
   it('a rated 0 is a rating, not a missing one', () => {
     expect(toRun({ ...ready, maxPain: 0 }, 'r').ok).toBe(true)

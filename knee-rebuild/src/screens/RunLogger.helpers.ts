@@ -76,8 +76,13 @@ export type LoggerView =
   | {
       kind: 'form'
       week: number
-      /** The date being logged: the one picked when it is still a choice, else today. */
+      /** The date being logged: the one picked (pinned when the logger opened) when it is still a choice, else today. */
       date: IsoDate
+      /**
+       * The pinned date when it is no longer a choice (the week turned while the form was open): said
+       * in words, and Save waits until a day is picked again. Never swapped for today silently.
+       */
+      dateLost: IsoDate | null
       dates: IsoDate[]
       scheduled: DaySession
       /** "Session A", "Run: MBR", "Off: Kona walk and mobility only". */
@@ -110,7 +115,8 @@ export function loggerView(input: {
   const dates = dateChoices(today, settings.startDate)
   if (dates.length === 0) return { kind: 'before-start', line: `Week 1 starts ${shortDateWords(settings.startDate)}` }
 
-  const date = picked.date !== null && dates.includes(picked.date) ? picked.date : today
+  const dateLost = picked.date !== null && !dates.includes(picked.date) ? picked.date : null
+  const date = picked.date !== null && dateLost === null ? picked.date : today
   const { week, session } = scheduledSession(date, settings.startDate, program.weeklyTemplate, history.sessionMoves)
   const scheduled: DaySession = session ?? 'off'
   const preselected = runTypeFor(scheduled)
@@ -138,6 +144,7 @@ export function loggerView(input: {
     kind: 'form',
     week,
     date,
+    dateLost,
     dates,
     scheduled,
     scheduledLabel: sessionLabel(scheduled, program.weeklyTemplateRows),
@@ -150,9 +157,20 @@ export function loggerView(input: {
   }
 }
 
-/** The screen's lead: the date being logged and what it holds. */
-export function leadWords(view: { date: IsoDate; scheduledLabel: string }): string {
+/** The screen's lead: the date being logged and what it holds, or, when the pinned date was lost, the ask. */
+export function leadWords(view: { date: IsoDate; dateLost?: IsoDate | null; scheduledLabel: string }): string {
+  if (view.dateLost) return 'Pick the day this run happened'
   return `${dateWords(view.date)} · ${view.scheduledLabel}`
+}
+
+/** What happened when the pinned date dropped out of the choices, and what to do. */
+export function dateLostWords(lost: IsoDate): string {
+  return `${shortDateWords(lost)}, the day this run was started for, can no longer be logged: runs log for this program week up to today, and on a Monday for yesterday too. Pick a day to save it.`
+}
+
+/** The Save button: it names the day when that is not today, since the date stays as the logger opened. */
+export function saveWords(date: IsoDate, today: IsoDate): string {
+  return date === today ? 'Save run' : `Save run for ${shortDateWords(date)}`
 }
 
 /** What the suggestion block says when there is no suggestion. */
@@ -221,7 +239,10 @@ export function weekLine(summary: Pick<WeekMiles, 'miles' | 'target'>, pending: 
   return parts.join(' · ')
 }
 
-/** The form as typed. Null means "follow what the screen preselects or the engine suggests". */
+/**
+ * The form as typed. Null means "follow what the screen preselects or the engine suggests"; for the
+ * date it means today, though the screen pins the date when the logger opens (openForm).
+ */
 export interface RunForm {
   date: IsoDate | null
   type: RunType | null
@@ -240,9 +261,19 @@ export function emptyForm(): RunForm {
   return { date: null, type: null, miles: null, minutes: 0, effort: 'easy', maxPain: null, strides: null, tempo: null, stravaUrl: '', notes: '' }
 }
 
+/**
+ * The form as the logger opens it: dated today and pinned there, so a form left open past midnight
+ * or into a new week keeps the day it was started for (M4 review). Another day is a tap away.
+ */
+export function openForm(today: IsoDate): RunForm {
+  return { ...emptyForm(), date: today }
+}
+
 /** The form with every "follow" filled in: what the screen shows and what Save would log. */
 export interface ResolvedForm {
   date: IsoDate
+  /** The pinned date when it is no longer a choice: Save waits until a day is picked again. */
+  dateLost: IsoDate | null
   type: RunType | null
   swap: boolean
   miles: number
@@ -256,10 +287,11 @@ export interface ResolvedForm {
 }
 
 /** Miles, strides and tempo follow the suggestion until touched; a swap logs 0 miles and neither strides nor tempo. */
-export function resolveForm(form: RunForm, view: { date: IsoDate; type: RunType | null; suggestion: RunSuggestion | null }): ResolvedForm {
+export function resolveForm(form: RunForm, view: { date: IsoDate; dateLost?: IsoDate | null; type: RunType | null; suggestion: RunSuggestion | null }): ResolvedForm {
   const swap = isSwapType(view.type)
   return {
     date: view.date,
+    dateLost: view.dateLost ?? null,
     type: view.type,
     swap,
     miles: swap ? 0 : (form.miles ?? view.suggestion?.miles ?? 0),
@@ -286,6 +318,7 @@ export type RunDraft = { ok: true; run: Run } | { ok: false; blocker: string }
 /** The Run that Save logs, or the words on the disabled Save button saying what is missing. */
 export function toRun(form: ResolvedForm, id: string): RunDraft {
   const { type, maxPain } = form
+  if (form.dateLost !== null) return { ok: false, blocker: 'Pick the day first' }
   if (type === null && maxPain === null) return { ok: false, blocker: 'Pick the type and rate max pain first' }
   if (maxPain === null) return { ok: false, blocker: 'Rate max pain first' }
   if (type === null) return { ok: false, blocker: 'Pick the type first' }
