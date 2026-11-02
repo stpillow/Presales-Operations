@@ -11,6 +11,11 @@ export interface StepperProps {
   unit?: string
   /** Allows decimals in the typed value (miles). */
   decimal?: boolean
+  /**
+   * Read to a screen reader before the label, never shown: the group the field belongs to ("Right ·
+   * injured" for a hop trial labelled "Trial 1"), so the field and its buttons carry it too.
+   */
+  context?: string
 }
 
 /**
@@ -20,7 +25,7 @@ export interface StepperProps {
  * value (4.5 over a prefilled 3 is 4.5, not 34.5); leaving it empty keeps the value. While the
  * field has focus it keeps the typed text, so "2." can become "2.5" instead of 25.
  */
-export function Stepper({ label, value, onChange, step = 1, min = 0, max = 9999, unit, decimal = false }: StepperProps) {
+export function Stepper({ label, value, onChange, step = 1, min = 0, max = 9999, unit, decimal = false, context }: StepperProps) {
   const id = useId()
   const [edit, setEdit] = useState<StepperEdit | null>(null)
   const clamp = (n: number) => Math.min(max, Math.max(min, n))
@@ -33,11 +38,12 @@ export function Stepper({ label, value, onChange, step = 1, min = 0, max = 9999,
   return (
     <div className="flex items-center justify-between gap-3">
       <label htmlFor={id} className="text-body text-on-dark-dim">
+        {context ? <span className="sr-only">{`${context}, `}</span> : null}
         {label}
         {unit ? <span className="text-on-dark-muted"> ({unit})</span> : null}
       </label>
       <div className="flex items-center gap-1">
-        <button type="button" aria-label={`${label} down`} className="tap rounded-sm bg-navy-lift text-h3 text-on-dark" onClick={() => bump(-step)}>
+        <button type="button" aria-label={`${context ? `${context}, ` : ''}${label} down`} className="tap rounded-sm bg-navy-lift text-h3 text-on-dark" onClick={() => bump(-step)}>
           −
         </button>
         <input
@@ -57,7 +63,7 @@ export function Stepper({ label, value, onChange, step = 1, min = 0, max = 9999,
           }}
           onBlur={() => setEdit(null)}
         />
-        <button type="button" aria-label={`${label} up`} className="tap rounded-sm bg-navy-lift text-h3 text-on-dark" onClick={() => bump(step)}>
+        <button type="button" aria-label={`${context ? `${context}, ` : ''}${label} up`} className="tap rounded-sm bg-navy-lift text-h3 text-on-dark" onClick={() => bump(step)}>
           +
         </button>
       </div>

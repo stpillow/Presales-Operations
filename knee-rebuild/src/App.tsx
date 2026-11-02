@@ -7,12 +7,14 @@ import { TabBar } from './components/TabBar.tsx'
 import { useActiveLocation, useSettings } from './db/hooks.ts'
 import { defaultSettings, ensureLocations, ensureSettings, requestPersistentStorage } from './db/repo.ts'
 import { program } from './program/program.ts'
+import { Gates } from './screens/Gates.tsx'
 import { LocationEditor } from './screens/LocationEditor.tsx'
 import { Locations } from './screens/Locations.tsx'
 import { MorningCheck } from './screens/MorningCheck.tsx'
 import { More } from './screens/More.tsx'
 import { NextUpdate } from './screens/NextUpdate.tsx'
 import { Placeholder } from './screens/Placeholder.tsx'
+import { Progress } from './screens/Progress.tsx'
 import { RunLogger } from './screens/RunLogger.tsx'
 import { SessionRunner } from './screens/SessionRunner.tsx'
 import { Settings } from './screens/Settings.tsx'
@@ -92,9 +94,9 @@ export function App() {
           case 'week':
             return <Week />
           case 'progress':
-            return <Placeholder title="Progress" milestone="M5" what="Load over time per exercise, symmetry per unilateral exercise, weekly miles against plan, consecutive clean days." />
+            return <Progress />
           case 'gates':
-            return <Placeholder title="Gates" milestone="M5" what="The current gate's checklist evaluated live, hop-test entry, and the Advance phase button." />
+            return <Gates />
           case 'program':
             return <Placeholder title="Program" milestone="M6" what="The current phase's sessions, an editor for cues and substitutions, and program.md as reference." />
         }

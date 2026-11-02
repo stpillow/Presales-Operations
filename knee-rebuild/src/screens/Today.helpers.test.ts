@@ -9,6 +9,7 @@ import {
   NEW_LOCATION_HASH,
   atGymWords,
   dateWords,
+  earlierPhaseWords,
   gymRows,
   itemWords,
   lackWords,
@@ -340,6 +341,32 @@ describe('todayView', () => {
     expect(v.body).toMatchObject({ kind: 'lift', workout: { id: 'w1', status: 'finished' }, reading: { result: 'back-off' }, checkDone: false })
     const withCheck = view('2026-11-03', {}, { workouts: [done], setLogs: [set('w1', 1, 2)], morningChecks: [check('2026-11-04')] })
     expect(withCheck.body).toMatchObject({ kind: 'lift', reading: { result: 'clean' }, checkDone: true })
+  })
+  describe('a phase advanced on a day whose lift is logged keeps that day’s session (PROGRAM-QUESTIONS 117)', () => {
+    const phase2 = { currentPhase: 2, phaseEnteredWeek: 4 }
+    it('a finished lift stays today’s, under its own template: no new phase’s Start the same day', () => {
+      const done = workout('2026-11-17-p1-a', '2026-11-17', 'finished', 'p1-a')
+      const before = view('2026-11-17', {}, { workouts: [done], setLogs: [set(done.id, 1, 2)] })
+      const after = view('2026-11-17', phase2, { workouts: [done], setLogs: [set(done.id, 1, 2)] })
+      expect(before.body).toMatchObject({ kind: 'lift', letter: 'A', workout: { id: done.id, status: 'finished' }, earlierPhase: null })
+      expect(after.body).toMatchObject({ kind: 'lift', letter: 'A', workout: { id: done.id, status: 'finished' }, reading: { result: 'hold' }, earlierPhase: 1 })
+      expect(after.body.kind === 'lift' && after.body.template?.id).toBe('p1-a')
+      expect(after.open).toEqual([])
+    })
+    it('an attempt ended early in the earlier phase is the day’s lift too, and says the new phase starts next lift day', () => {
+      const left = workout('2026-11-17-p1-a', '2026-11-17', 'abandoned', 'p1-a')
+      const v = view('2026-11-17', phase2, { workouts: [left] })
+      expect(v.body).toMatchObject({ kind: 'lift', workout: { id: left.id, status: 'abandoned' }, earlierPhase: 1 })
+      expect(earlierPhaseWords('Session A', 1, PROGRAM.phases, 2)).toBe(
+        'Session A was left early today, in Phase 1: Foundation; what was logged is kept. Phase 2: Single-leg strength and balance starts with the next lift day.',
+      )
+    })
+    it('the next lift day starts the new phase’s template', () => {
+      const done = workout('2026-11-17-p1-a', '2026-11-17', 'finished', 'p1-a')
+      const v = view('2026-11-24', phase2, { workouts: [done] })
+      expect(v.body).toMatchObject({ kind: 'lift', letter: 'A', workout: null, earlierPhase: null })
+      expect(v.body.kind === 'lift' && v.body.template?.id).toBe('p2-a')
+    })
   })
   it('yesterday’s reading and an unfinished session ride along with the day', () => {
     const lifted = workout('w1', '2026-11-03', 'finished')

@@ -23,6 +23,8 @@ export interface GateItemResult {
   item: GateItem
   pass: boolean
   detail: string
+  /** Clean weeks only: the readings in the window that aren't clean, oldest first, so a screen can name each one. */
+  misses?: SubjectReading[]
 }
 
 export interface GateResult {
@@ -38,11 +40,20 @@ function inWindow(date: IsoDate, today: IsoDate, windowDays: number): boolean {
   return date > addDays(today, -windowDays) && date <= today
 }
 
+const byId = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0)
+
+/**
+ * Gate tests in the order they were written: by date, then by id. Ids lead with the write's ISO
+ * stamp (the Gates screen's newGateTestId), so a tick and an untick on the same day keep their
+ * order whatever order the tests are handed over in, and "the latest test wins" (the M5 brief)
+ * means the last one written.
+ */
+export function inWriteOrder(tests: readonly GateTest[]): GateTest[] {
+  return [...tests].sort((a, b) => a.date.localeCompare(b.date) || byId(a.id, b.id))
+}
+
 function latestTest(tests: readonly GateTest[], gate: number, item: string, manual: boolean): GateTest | undefined {
-  return [...tests]
-    .filter((t) => t.gate === gate && t.item === item && t.manual === manual)
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .at(-1)
+  return inWriteOrder(tests.filter((t) => t.gate === gate && t.item === item && t.manual === manual)).at(-1)
 }
 
 /**
@@ -60,7 +71,10 @@ function cleanWeeks(item: GateItem, ctx: GateContext): GateItemResult {
   const secondHalf = recent.filter((r) => r.date > half)
   const bad = recent.filter((r) => r.result !== 'clean')
   const left = leftOut === 0 ? '' : `${leftOut} rack-capped session${leftOut === 1 ? '' : 's'} left out`
-  if (bad.length > 0) return { item, pass: false, detail: `${bad.length} of ${recent.length} readings in the last ${window} days read ${bad.map((b) => b.result).join(', ')}${left && ` (${left})`}` }
+  if (bad.length > 0) {
+    const misses = [...bad].sort((a, b) => a.date.localeCompare(b.date))
+    return { item, pass: false, detail: `${bad.length} of ${recent.length} readings in the last ${window} days read ${bad.map((b) => b.result).join(', ')}${left && ` (${left})`}`, misses }
+  }
   if (firstHalf.length === 0 || secondHalf.length === 0) return { item, pass: false, detail: `needs sessions in both of the last two weeks (${recent.length} readings so far${left && `, ${left}`})` }
   return { item, pass: true, detail: `${recent.length} readings in the last ${window} days, all clean${left && ` (${left})`}` }
 }

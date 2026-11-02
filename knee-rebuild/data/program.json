@@ -2303,7 +2303,8 @@
           "text": "10 single-leg leg presses on the injured side within 20% of the other side's load",
           "evaluator": "symmetry",
           "threshold": 0.8,
-          "testItem": "sl-leg-press-10rm"
+          "testItem": "sl-leg-press-10rm",
+          "prefillExerciseId": "single-leg-leg-press"
         },
         {
           "id": "g1-stance",
@@ -2334,14 +2335,16 @@
           "text": "single-leg leg press and Bulgarian loads within 10% side to side (single-leg leg press)",
           "evaluator": "symmetry",
           "threshold": 0.9,
-          "testItem": "sl-leg-press-load"
+          "testItem": "sl-leg-press-load",
+          "prefillExerciseId": "single-leg-leg-press"
         },
         {
           "id": "g2-bulgarian",
           "text": "single-leg leg press and Bulgarian loads within 10% side to side (Bulgarian split squat)",
           "evaluator": "symmetry",
           "threshold": 0.9,
-          "testItem": "bulgarian-load"
+          "testItem": "bulgarian-load",
+          "prefillExerciseId": "bulgarian-split-squat"
         },
         {
           "id": "g2-calf-raises",
@@ -2393,7 +2396,8 @@
           "text": "single-leg leg press 8RM within 10%",
           "evaluator": "symmetry",
           "threshold": 0.9,
-          "testItem": "sl-leg-press-8rm"
+          "testItem": "sl-leg-press-8rm",
+          "prefillExerciseId": "single-leg-leg-press"
         },
         {
           "id": "g3-no-swelling-plyo",

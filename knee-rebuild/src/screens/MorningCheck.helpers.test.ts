@@ -12,6 +12,7 @@ import {
   errorWords,
   exerciseSentences,
   formFromCheck,
+  nextTemplateFor,
   nextWeekFor,
   runWords,
   sessionName,
@@ -206,5 +207,21 @@ describe('errorWords', () => {
     expect(errorWords(new Error('QuotaExceededError: storage is full'))).toBe('QuotaExceededError: storage is full')
     expect(errorWords('nope')).toBe('nope')
     expect(errorWords(new Error('  '))).toBe('no reason was given')
+  })
+})
+
+describe('nextTemplateFor', () => {
+  const templates = [
+    { id: 'p2-c', phase: 2, letter: 'C' as const },
+    { id: 'p3-c', phase: 3, letter: 'C' as const },
+    { id: 'p3-a', phase: 3, letter: 'A' as const },
+  ]
+  it("plans the current phase's version of the letter once a gate has advanced the phase", () => {
+    expect(nextTemplateFor('p2-c', templates, 3)).toBe('p3-c')
+    expect(nextTemplateFor('p2-c', templates, 2)).toBe('p2-c')
+  })
+  it("keeps the session's own template when the current phase has no such letter, and knows no unknown one", () => {
+    expect(nextTemplateFor('p2-c', templates, 4)).toBe('p2-c')
+    expect(nextTemplateFor('p9-z', templates, 3)).toBeNull()
   })
 })

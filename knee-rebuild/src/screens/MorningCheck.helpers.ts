@@ -163,6 +163,16 @@ export function withCheck(history: History, check: MorningCheck): History {
 }
 
 /** The program week a session comes round again: a week after its date, from the current start date (it may have been edited since). */
+/**
+ * The template the next session of this letter will use: the current phase's, once a gate has
+ * advanced the phase since yesterday's session; the session's own when that phase has none.
+ */
+export function nextTemplateFor(templateId: string, templates: readonly Pick<SessionTemplate, 'id' | 'phase' | 'letter'>[], currentPhase: number): string | null {
+  const own = templates.find((t) => t.id === templateId)
+  if (!own) return null
+  return (templates.find((t) => t.phase === currentPhase && t.letter === own.letter) ?? own).id
+}
+
 export function nextWeekFor(workout: Pick<Workout, 'date'>, startDate: IsoDate): number {
   return Math.max(1, weekOf(addDays(workout.date, 7), startDate))
 }

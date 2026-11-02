@@ -155,6 +155,29 @@ export function todaysWorkout(workouts: readonly Workout[], date: IsoDate, templ
   return candidates[0] ?? null
 }
 
+/**
+ * Today's lift workout for the day's session letter, in whichever phase it was started: an open one
+ * first, then a finished one, then an attempt ended early (todaysWorkout's order). A phase advanced
+ * after the day's lift leaves that lift the day's, so Today never offers the new phase's version of
+ * it the same day (PROGRAM-QUESTIONS 117).
+ */
+export function todaysLift(workouts: readonly Workout[], date: IsoDate, letter: SessionLetter, templates: readonly SessionTemplate[]): Workout | null {
+  const ids = new Set(templates.filter((t) => t.letter === letter).map((t) => t.id))
+  return todaysWorkout(
+    workouts.filter((w) => ids.has(w.templateId)),
+    date,
+    null,
+  )
+}
+
+/**
+ * The day's lift, ended early in the phase before the one now current: what was logged is kept, and
+ * the new phase starts with the next lift day, not with a second lift today.
+ */
+export function earlierPhaseWords(label: string, phase: number, phases: readonly Phase[], currentPhase: number): string {
+  return `${label} was left early today, in Phase ${phase}: ${phaseName(phases, phase)}; what was logged is kept. Phase ${currentPhase}: ${phaseName(phases, currentPhase)} starts with the next lift day.`
+}
+
 /** A readable workout id that cannot collide with an earlier attempt on the same day. */
 export function newWorkoutId(date: IsoDate, templateId: string, taken: readonly string[]): string {
   const base = `${date}-${templateId}`
@@ -242,8 +265,13 @@ export type TodayBody =
       isDeload: boolean
       /** Null when the phase has no session written (Phase 4). */
       template: SessionTemplate | null
-      /** Today's stored workout for this template, if one exists. */
+      /** Today's stored workout for this session letter, in any phase (todaysLift), if one exists. */
       workout: Workout | null
+      /**
+       * The workout's phase when it was started before the phase advanced; `template` is then its
+       * own. Null when there is no workout or it is the current phase's (PROGRAM-QUESTIONS 117).
+       */
+      earlierPhase: number | null
       /** The finished workout's reading, in the engine's words. */
       reading: Reading | null
       checkDone: boolean
@@ -311,8 +339,11 @@ export function todayView(input: { today: IsoDate; settings: Settings; history: 
   const scheduled = scheduledSession(today, settings.startDate, program.weeklyTemplate, history.sessionMoves)
   const week = scheduled.session === null ? null : scheduled.week
   const letter = scheduled.session === null ? null : sessionLetter(scheduled.session)
-  const template = letter ? (program.templates.find((t) => t.phase === settings.currentPhase && t.letter === letter) ?? null) : null
-  const workout = template ? todaysWorkout(history.workouts, today, template.id) : null
+  const workout = letter ? todaysLift(history.workouts, today, letter, program.templates) : null
+  const own = workout ? (program.templates.find((t) => t.id === workout.templateId) ?? null) : null
+  const earlierPhase = own && own.phase !== settings.currentPhase ? own.phase : null
+  // A day's lift keeps its own template; with none yet, the current phase's is the one Start writes.
+  const template = own ?? (letter ? (program.templates.find((t) => t.phase === settings.currentPhase && t.letter === letter) ?? null) : null)
   const base = {
     dateWords: dateWords(today),
     phaseNumber: settings.currentPhase,
@@ -338,7 +369,7 @@ export function todayView(input: { today: IsoDate; settings: Settings; history: 
     const checkDone = record?.morningCheck !== undefined
     return {
       ...base,
-      body: { kind: 'lift', letter, label: sessionLabel(session), week, phaseWeek, isDeload: isDeloadWeek(week), template, workout, reading, checkDone },
+      body: { kind: 'lift', letter, label: sessionLabel(session), week, phaseWeek, isDeload: isDeloadWeek(week), template, workout, earlierPhase, reading, checkDone },
     }
   }
   if (session === 'off') return { ...base, body: { kind: 'off', label: sessionLabel(session, program.weeklyTemplateRows) } }
