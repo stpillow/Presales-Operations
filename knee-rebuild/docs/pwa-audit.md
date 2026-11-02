@@ -10,6 +10,7 @@ npx lighthouse@11 http://127.0.0.1:4181/ \
   --chrome-path=/opt/pw-browsers/chromium --chrome-flags="--headless=new --no-sandbox" \
   --only-categories=pwa,performance,accessibility --form-factor=mobile --view
 npm run e2e        # the manual checklist (e2e/pwa.spec.ts) and the smoke test (e2e/session.spec.ts)
+npm audit          # finding 10; npm audit --omit=dev for what ships
 ```
 
 Lighthouse 11.7.1, Chromium 1243 headless, mobile form factor with Lighthouse's simulated throttling (slow 4G, 4x CPU), storage cleared before each run, so every number is a first visit. Each screen was audited by its hash route (`#/week`, `#/settings`, ...). The Session runner needs a session in storage, so it was audited from a Chromium profile with Session A started and two sets logged, with `--disable-storage-reset`.
@@ -57,6 +58,7 @@ Each row is a test in `e2e/pwa.spec.ts`, run on a pinned clock (Tuesday of week 
 | 7 | `uses-long-cache-ttl` finds no cached resources | Not an app issue | `vite preview` sends no cache headers. Repeat visits are served by the service worker, not the HTTP cache |
 | 8 | The manifest has no `id` | Real, low | Fixed in `vite.config.ts`: `id: '/'`, which resolves to the id Chromium already took from `start_url`, so nothing installed changes and a later `start_url` can't fork the home-screen app. Test first: the manifest check asserts the id and Chromium's parsed id |
 | 9 | When a deploy shows | Behavior, as designed | The browser looks for a new `sw.js` when the app is opened (a navigation), not when it returns from the background, so on the phone a deploy's prompt appears at the next launch from the home screen, never mid-set. Part of Shawn's phone check |
+| 10 | `npm audit` reports 10 advisories, 8 moderate and 2 low, all under `vite-plugin-pwa` 2.0.0's `workbox-build` 7.4.1: deepmerge prototype poisoning ([GHSA-gcqx-w48m-w2h4](https://github.com/advisories/GHSA-gcqx-w48m-w2h4)), glob's AbortSignal bypass ([GHSA-3g3m-2fjr-6pw4](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4)) and minimatch ReDoS ([GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249)), and the packages that pull them in (`@rollup/plugin-node-resolve`, `filelist`, `jake`, `ejs`, `@trickfilm400/rollup-plugin-off-main-thread`, `workbox-build`, `vite-plugin-pwa`). M1's security pass recorded 0 with `vite-plugin-pwa` already in, so the advisories most likely came out since. `main`'s lockfile has the same 10, and M6's one dependency change (`@playwright/test` 1.63.0, with `playwright` and `playwright-core`) adds none | Real, build time only | Explained, as `docs/review-plan.md`'s security pass asks. Every one runs only inside `vite build`, which `workbox-build` uses to write `sw.js` from the repo's own glob patterns, templates and config; none is in the bundle the phone loads, and `npm audit --omit=dev` reports 0. Not `npm audit fix --force`: it would install `vite-plugin-pwa` 1.1.0, a breaking change. Upgrade `vite-plugin-pwa` once a release on a fixed `workbox-build` lands |
 
 ## Size
 
