@@ -3,7 +3,7 @@ import { program } from '../program/program.ts'
 import { addDays, weekOf } from '../rules/calendar.ts'
 import { evaluateGate } from '../rules/gates.ts'
 import { attachChecks } from '../rules/history.ts'
-import { advancePhase } from '../rules/progress.ts'
+import { advancePhase, phaseEntryWeek } from '../rules/progress.ts'
 import { Settings, type Gate, type GateTest, type IsoDate, type MorningCheck, type Run, type SetLog, type Workout } from '../schema/index.ts'
 import {
   CALF_RAISE_EXERCISE_IDS,
@@ -40,7 +40,7 @@ import {
 } from './Gates.helpers.ts'
 
 /** The live seed's gates and phases: the done criterion is about the program's own gate 1 and gate 3. */
-const PROGRAM = { gates: program.gates, phases: program.phases, exercises: program.exercises, redFlags: program.redFlags }
+const PROGRAM = { gates: program.gates, phases: program.phases, exercises: program.exercises, redFlags: program.redFlags, templates: program.templates, weeklyTemplate: program.weeklyTemplate }
 const START = '2026-11-02'
 const TODAY = '2026-11-22' // Sunday of week 3, the last day of Phase 1 on the nominal schedule
 
@@ -84,7 +84,7 @@ function loggedPhase1(): HistoryLike {
   const setLogs = workouts.flatMap((w) => [1, 2, 3].map((n) => set(w.id, 'leg-press', 'both', n, 140)))
   const runs = [run('2026-11-09', 'mbr', 3), run('2026-11-11', 'easy', 3), run('2026-11-13', 'long', 3.5), run('2026-11-16', 'mbr', 3), run('2026-11-18', 'easy', 3), run('2026-11-20', 'long', 4)]
   const morningChecks = daysFrom('2026-11-10', TODAY).map((d) => check(d))
-  return { workouts, setLogs, morningChecks, runs, gateTests: [] }
+  return { workouts, setLogs, morningChecks, runs, gateTests: [], sessionMoves: [] }
 }
 
 const byId = (view: ReturnType<typeof gatesView>, id: string): ItemView => {
@@ -150,12 +150,15 @@ describe('done criterion: gate 1 evaluates from logged data alone', () => {
     expect(passing.countLine).toBe('4 of 4 items pass')
     expect(passing.result.passes).toBe(true)
     expect(passing.advance).toEqual({ enabled: true })
-    expect(passing.question).toBe('Advance to Phase 2: Single-leg strength and balance? From the next session the templates change and week bands count from this week.')
+    // Sunday of week 3, after its Lift C: the phase is entered next week (PROGRAM-QUESTIONS 113).
+    expect(passing.entryWeek).toBe(phaseEntryWeek({ today: TODAY, startDate: START, template: program.weeklyTemplate, moves: [], workouts: history.workouts }))
+    expect(passing.entryWeek).toBe(4)
+    expect(passing.question).toBe('Advance to Phase 2: Single-leg strength and balance? From the next session the templates change; week bands count from next week, week 4, since this week’s lifts have begun.')
 
     // Nothing has moved yet: the phase changes only when the confirmed advance is saved.
-    const next = advancePhase(settings(), passing.gate, passing.result.passes, weekOf(TODAY, START))
-    expect(next).toMatchObject({ currentPhase: 2, phaseEnteredWeek: 3 })
-    expect(advancedWords(next, program.phases)).toBe('Phase 2: Single-leg strength and balance, entered in week 3.')
+    const next = advancePhase(settings(), passing.gate, passing.result.passes, passing.entryWeek)
+    expect(next).toMatchObject({ currentPhase: 2, phaseEnteredWeek: 4 })
+    expect(advancedWords(next, program.phases)).toBe('Phase 2: Single-leg strength and balance, entered in week 4.')
   })
 
   it('says so when no session has logged both sides of the test exercise', () => {
@@ -384,7 +387,39 @@ describe('advancing the phase', () => {
   })
 
   it('asks a Phase 4 question that doesn’t promise templates', () => {
-    expect(advanceQuestion(gate3, program.phases)).toBe('Advance to Phase 4: Lacrosse? Its sessions arrive with the next program update; until then Today says they are not written yet.')
+    expect(advanceQuestion(gate3, program.phases, 12, 12)).toBe('Advance to Phase 4: Lacrosse? Its sessions arrive with the next program update; until then Today says they are not written yet.')
+  })
+
+  it('says which week the bands count from: this week while its lifts are all ahead, else next week (PROGRAM-QUESTIONS 113)', () => {
+    expect(advanceQuestion(gate1, program.phases, 3, 3)).toBe('Advance to Phase 2: Single-leg strength and balance? From the next session the templates change and week bands count from this week.')
+    expect(advanceQuestion(gate1, program.phases, 4, 3)).toBe('Advance to Phase 2: Single-leg strength and balance? From the next session the templates change; week bands count from next week, week 4, since this week’s lifts have begun.')
+    // Before the program starts, the phase is entered in week 1.
+    expect(advanceQuestion(gate1, program.phases, 1, 0)).toBe('Advance to Phase 2: Single-leg strength and balance? From the next session the templates change and week bands count from week 1.')
+  })
+
+  it('the view enters the phase this week on Monday before Lift A, and next week once a lift is logged or passed', () => {
+    const passingTests = (date: IsoDate): GateTest[] => [
+      { id: `gate-test-${date}T15:00:00.000Z-sl-leg-press-10rm`, date, gate: 1, item: 'sl-leg-press-10rm', valueInjured: 80, valueOther: 100, pass: true, manual: false },
+      manualTest({ gate: gate1, item: { id: 'g1-stance' }, pass: true, today: date, id: `gate-test-${date}T15:01:00.000Z-g1-stance` }),
+    ]
+    const monday = '2026-11-23'
+    const logged = loggedPhase1()
+    const history = { ...logged, morningChecks: [...logged.morningChecks, check(monday)], gateTests: passingTests(monday) }
+    const view = gatesView({ today: monday, settings: settings(), history, program: PROGRAM })
+    if (view.kind !== 'gate') throw new Error('expected gate 1')
+    expect(view.advance).toEqual({ enabled: true })
+    expect(view.entryWeek).toBe(4)
+    expect(view.question).toBe('Advance to Phase 2: Single-leg strength and balance? From the next session the templates change and week bands count from this week.')
+    // A move counts: Tuesday's Lift A moved onto Monday and already passed by Tuesday.
+    const tuesday = '2026-11-24'
+    const moved = gatesView({
+      today: tuesday,
+      settings: settings(),
+      history: { ...history, morningChecks: [...history.morningChecks, check(tuesday)], sessionMoves: [{ id: 'm1', week: 4, dayA: 'mon', dayB: 'tue' }] },
+      program: PROGRAM,
+    })
+    if (moved.kind !== 'gate') throw new Error('expected gate 1')
+    expect(moved.entryWeek).toBe(5)
   })
 
   it('Phase 4 has no gate to check', () => {
@@ -444,7 +479,7 @@ describe('the seed’s gates fit the screen', () => {
     const gate: Gate = { number: 2, fromPhase: 2, toPhase: 3, title: 'Gate 2, to leave Phase 2', items: [item] }
     const bss = workout('2026-12-08', { id: 'w-bss', templateId: 'p2-b', phase: 2 })
     const sets = [set('w-bss', 'bulgarian-split-squat', 'right', 1, 30), set('w-bss', 'bulgarian-split-squat', 'left', 1, 35), set('w-bss', 'single-leg-leg-press', 'right', 2, 90), set('w-bss', 'single-leg-leg-press', 'left', 2, 100)]
-    const history: HistoryLike = { workouts: [bss], setLogs: sets, morningChecks: [], runs: [], gateTests: [] }
+    const history: HistoryLike = { workouts: [bss], setLogs: sets, morningChecks: [], runs: [], gateTests: [], sessionMoves: [] }
     const phase2 = settings({ currentPhase: 2, phaseEnteredWeek: 4 })
     const read = (g: Gate) => {
       const row = byId(gatesView({ today: '2026-12-09', settings: phase2, history, program: { ...PROGRAM, gates: [g] } }), 'g2-x')

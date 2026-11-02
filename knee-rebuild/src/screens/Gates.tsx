@@ -8,7 +8,6 @@ import { Stepper } from '../components/Stepper.tsx'
 import { Tap } from '../components/Tap.tsx'
 import { useHistory, useSettings } from '../db/hooks.ts'
 import { addGateTest, saveSettings, type History } from '../db/repo.ts'
-import { weekOf } from '../rules/calendar.ts'
 import { advancePhase } from '../rules/progress.ts'
 import type { GateItem, IsoDate, Settings } from '../schema/index.ts'
 import {
@@ -165,7 +164,8 @@ function GateScreen({ today, settings, history }: { today: IsoDate; settings: Se
     setError('advance', null)
     try {
       // advancePhase refuses a gate that doesn't pass or doesn't lead to the next phase; the refusal is shown in words.
-      const next = advancePhase(settings, body.gate, body.result.passes, weekOf(today, settings.startDate))
+      // The week is phaseEntryWeek's, through the view: next week once this week's lifts have begun (PROGRAM-QUESTIONS 113).
+      const next = advancePhase(settings, body.gate, body.result.passes, body.entryWeek)
       await saveSettings(next)
       setConfirming(false)
       setDrafts({})

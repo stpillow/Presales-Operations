@@ -1,7 +1,8 @@
 import type { History } from '../db/repo.ts'
 import { evaluateGate, type GateContext, type GateItemResult, type GateResult } from '../rules/gates.ts'
 import { attachChecks, subjectReadings, type WorkoutRecord } from '../rules/history.ts'
-import { loadSeries } from '../rules/progress.ts'
+import { weekOf } from '../rules/calendar.ts'
+import { loadSeries, phaseEntryWeek } from '../rules/progress.ts'
 import { progressionSuspended, stopMessage, type RedFlagState } from '../rules/redFlags.ts'
 import { bestOfTrials, meetsSymmetry, symmetryPercent } from '../rules/unilateral.ts'
 import type { Exercise, Gate, GateItem, GateTest, IsoDate, Phase, Program, Settings, Side } from '../schema/index.ts'
@@ -16,8 +17,8 @@ import { shortDateWords } from './Today.helpers.ts'
  * composes the answers and names them. The program pieces are passed in, so tests use fixtures.
  */
 
-export type HistoryLike = Pick<History, 'workouts' | 'setLogs' | 'morningChecks' | 'runs' | 'gateTests'>
-export type ProgramLike = Pick<Program, 'gates' | 'phases' | 'exercises' | 'redFlags'>
+export type HistoryLike = Pick<History, 'workouts' | 'setLogs' | 'morningChecks' | 'runs' | 'gateTests' | 'sessionMoves'>
+export type ProgramLike = Pick<Program, 'gates' | 'phases' | 'exercises' | 'redFlags' | 'templates' | 'weeklyTemplate'>
 
 /** Which catalog exercises count as the single-leg calf raise for gate 2 (the M5 brief). */
 export const CALF_RAISE_EXERCISE_IDS: readonly string[] = ['single-leg-calf-raise-step']
@@ -321,11 +322,18 @@ function phaseTitle(phases: readonly Phase[], number: number): string {
   return phase ? `Phase ${number}: ${phase.name}` : `Phase ${number}`
 }
 
-/** The inline confirm's question. Phase 4 has no sessions yet, so its question says so instead. */
-export function advanceQuestion(gate: Pick<Gate, 'toPhase'>, phases: readonly Phase[]): string {
+/**
+ * The inline confirm's question, with the week the bands count from: the week the phase is entered
+ * (phaseEntryWeek) against this program week. Once this week's lifts have begun, that is next week
+ * (PROGRAM-QUESTIONS 113). Phase 4 has no sessions yet, so its question says so instead.
+ */
+export function advanceQuestion(gate: Pick<Gate, 'toPhase'>, phases: readonly Phase[], entryWeek: number, currentWeek: number): string {
   const title = phaseTitle(phases, gate.toPhase)
   if (gate.toPhase === 4) return `Advance to ${title}? Its sessions arrive with the next program update; until then Today says they are not written yet.`
-  return `Advance to ${title}? From the next session the templates change and week bands count from this week.`
+  const lead = `Advance to ${title}? From the next session the templates change`
+  if (currentWeek < 1) return `${lead} and week bands count from week ${entryWeek}.`
+  if (entryWeek > currentWeek) return `${lead}; week bands count from next week, week ${entryWeek}, since this week’s lifts have begun.`
+  return `${lead} and week bands count from this week.`
 }
 
 /** What the screen says once the phase has advanced. */
@@ -403,6 +411,8 @@ export type GatesView =
       countLine: string
       items: ItemView[]
       advance: AdvanceState
+      /** The program week Yes, advance enters the next phase in (phaseEntryWeek). */
+      entryWeek: number
       question: string
       /** The stop message while the red-flag state is on (rule 9), else null. */
       stop: { headline: string; items: string[] } | null
@@ -449,6 +459,7 @@ export function gatesView(input: { today: IsoDate; settings: Settings; history: 
   if (!gate) return { kind: 'no-gate', line: noGateWords(program.gates, settings.currentPhase) }
   const records = attachChecks(history.workouts, history.setLogs, history.morningChecks)
   const result = evaluateGate(gate, gateContext({ today, settings, history, records }))
+  const entryWeek = phaseEntryWeek({ today, startDate: settings.startDate, template: program.weeklyTemplate, moves: history.sessionMoves, workouts: history.workouts })
   return {
     kind: 'gate',
     gate,
@@ -456,7 +467,8 @@ export function gatesView(input: { today: IsoDate; settings: Settings; history: 
     countLine: passCountWords(result),
     items: result.items.map((r) => itemView(r, gate, history, records, settings.injuredSide, program.exercises)),
     advance: advanceState(result, settings.redFlag),
-    question: advanceQuestion(gate, program.phases),
+    entryWeek,
+    question: advanceQuestion(gate, program.phases, entryWeek, weekOf(today, settings.startDate)),
     stop: stopMessage(settings.redFlag, program.redFlags),
   }
 }
