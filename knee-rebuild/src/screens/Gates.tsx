@@ -24,7 +24,6 @@ import {
   gatesView,
   manualTest,
   newGateTestId,
-  openForm,
   setValue,
   symmetryLine,
   testErrorSentence,
@@ -155,17 +154,20 @@ function GateScreen({ today, settings, history, locations }: { today: IsoDate; s
     }
   }
 
-  const formFor = (itemId: string, entry: SymmetryEntry): SymmetryForm => drafts[itemId] ?? openForm(entry.trials, entry.prefill)
+  // With nothing typed a form shows its opening: the last saved test when that is newer than the
+  // prefill's session, and then Save waits like right after a save (PROGRAM-QUESTIONS 118).
+  const formFor = (itemId: string, entry: SymmetryEntry): SymmetryForm => drafts[itemId] ?? entry.opening
+  const savedFor = (itemId: string, entry: SymmetryEntry): SymmetryForm | null => lastSaved[itemId] ?? (entry.openingSaved ? entry.opening : null)
 
   function edit(itemId: string, entry: SymmetryEntry, side: Side, index: number, value: Trial) {
-    setDrafts((all) => ({ ...all, [itemId]: setValue(all[itemId] ?? openForm(entry.trials, entry.prefill), side, index, value) }))
+    setDrafts((all) => ({ ...all, [itemId]: setValue(all[itemId] ?? entry.opening, side, index, value) }))
     setSaved((all) => withoutKey(all, itemId))
   }
 
   async function saveTest(item: GateItem, entry: SymmetryEntry) {
     if (pending) return
     const form = formFor(item.id, entry)
-    const draft = buildTest({ gate, item, form, today, id: newGateTestId(new Date().toISOString(), entry.key ?? item.id, takenIds), lastSaved: lastSaved[item.id] ?? null })
+    const draft = buildTest({ gate, item, form, today, id: newGateTestId(new Date().toISOString(), entry.key ?? item.id, takenIds), lastSaved: savedFor(item.id, entry) })
     if (!draft.ok) return
     setPending({ kind: 'test', itemId: item.id })
     setError(item.id, null)
@@ -237,7 +239,7 @@ function GateScreen({ today, settings, history, locations }: { today: IsoDate; s
               error={errors[row.item.id] ?? null}
               saved={saved[row.item.id] ?? null}
               form={row.kind === 'symmetry' ? formFor(row.item.id, row.entry) : null}
-              lastSaved={lastSaved[row.item.id] ?? null}
+              lastSaved={row.kind === 'symmetry' ? savedFor(row.item.id, row.entry) : null}
               onTick={(value) => void tick(row.item, value)}
               onEdit={(side, index, value) => {
                 if (row.kind === 'symmetry') edit(row.item.id, row.entry, side, index, value)

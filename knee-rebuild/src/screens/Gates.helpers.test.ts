@@ -468,6 +468,63 @@ describe('the load prefill (loadTestPrefill)', () => {
   })
 })
 
+describe('the form a load test opens on, coming back to Gates (PROGRAM-QUESTIONS 118)', () => {
+  const bulgarianSession = (date: IsoDate, injured: number, other: number) => {
+    const w = workout(date, { id: `w-${date}`, templateId: 'p2-b', phase: 2 })
+    return { w, sets: [set(w.id, 'bulgarian-split-squat', 'right', 1, injured, { reps: 8 }), set(w.id, 'bulgarian-split-squat', 'left', 1, other, { reps: 8 })] }
+  }
+  const test = (date: IsoDate, injured: number, other: number, over: Partial<GateTest> = {}): GateTest => ({
+    id: `gate-test-${date}T15:00:00.000Z-bulgarian-load`, date, gate: 2, item: 'bulgarian-load', valueInjured: injured, valueOther: other, pass: injured / other >= 0.9, manual: false, ...over,
+  })
+  const phase2 = settings({ currentPhase: 2, phaseEnteredWeek: 4 })
+  const entryOf = (history: HistoryLike, today: IsoDate, id = 'g2-bulgarian') => {
+    const row = byId(gatesView({ today, settings: phase2, history, program: PROGRAM }), id)
+    if (row.kind !== 'symmetry') throw new Error('expected a symmetry item')
+    return row.entry
+  }
+  const history = (sessions: ReturnType<typeof bulgarianSession>[], gateTests: GateTest[]): HistoryLike => ({
+    workouts: sessions.map((s) => s.w), setLogs: sessions.flatMap((s) => s.sets), morningChecks: [], runs: [], gateTests, sessionMoves: [],
+  })
+
+  it('a saved test newer than the session the prefill reads opens on the test, and Save waits: one tap can’t write the older session as a newer test', () => {
+    // Thursday's session read 40 against 50; Saturday's test lifted 47.5 against 50 and passed.
+    const entry = entryOf(history([bulgarianSession('2026-12-10', 40, 50)], [test('2026-12-12', 47.5, 50)]), '2026-12-12')
+    expect(entry.prefill).toMatchObject({ date: '2026-12-10', injured: 40, other: 50 })
+    expect(entry.opening).toEqual({ injured: [47.5], other: [50] })
+    expect(entry.openingSaved).toBe(true)
+    expect(formBlocker(entry.opening, entry.trials, entry.openingSaved ? entry.opening : null)).toBe('Saved; change a value to save another')
+    expect(symmetryLine(formBest(entry.opening), entry.threshold, true)).toBe('95% · the line is 90%: passes')
+    expect(entry.prefillLine).toBe('Opened on the last test, Saturday Dec 12: Bulgarian split squat, 47.5 lb right and 50 lb left, newer than any session that could prefill it. Change either to save a new test.')
+    // A test the same day as the session is the newer of the two.
+    expect(entryOf(history([bulgarianSession('2026-12-12', 40, 50)], [test('2026-12-12', 47.5, 50)]), '2026-12-12').opening).toEqual({ injured: [47.5], other: [50] })
+    // A failing test is kept the same way: a passing session prefill can't overwrite it with one tap.
+    const failing = entryOf(history([bulgarianSession('2026-12-10', 45, 50)], [test('2026-12-12', 40, 50)]), '2026-12-12')
+    expect(failing).toMatchObject({ opening: { injured: [40], other: [50] }, openingSaved: true })
+  })
+
+  it('a session newer than the last test opens on the session, as before, with Save live', () => {
+    const entry = entryOf(history([bulgarianSession('2026-12-17', 45, 50)], [test('2026-12-12', 47.5, 50)]), '2026-12-17')
+    expect(entry.opening).toEqual({ injured: [45], other: [50] })
+    expect(entry.openingSaved).toBe(false)
+    expect(entry.prefillLine).toMatch(/^Prefilled from Thursday Dec 17’s session/)
+    // With no test yet, the prefill as before; with no test and no session, not entered.
+    expect(entryOf(history([bulgarianSession('2026-12-10', 40, 50)], []), '2026-12-12')).toMatchObject({ opening: { injured: [40], other: [50] }, openingSaved: false })
+    expect(entryOf(history([], []), '2026-12-12')).toMatchObject({ opening: { injured: [null], other: [null] }, openingSaved: false })
+  })
+
+  it('gate 1, which no session can prefill, opens on its last test once there is one; hop tests always open not entered', () => {
+    const legPress: GateTest = { id: 'gate-test-2026-11-22T15:00:00.000Z-sl-leg-press-10rm', date: TODAY, gate: 1, item: 'sl-leg-press-10rm', valueInjured: 80, valueOther: 100, pass: true, manual: false }
+    const g1 = byId(gatesView({ today: TODAY, settings: settings(), history: { ...loggedPhase1(), gateTests: [legPress] }, program: PROGRAM }), 'g1-sl-leg-press')
+    if (g1.kind !== 'symmetry') throw new Error('expected a symmetry item')
+    expect(g1.entry).toMatchObject({ opening: { injured: [80], other: [100] }, openingSaved: true })
+    expect(g1.entry.prefillLine).toBe('Opened on the last test, Sunday Nov 22: Single-leg leg press, 80 lb right and 100 lb left. Phase 1 doesn’t run this exercise, so no session can prefill this test. Change either to save a new test.')
+    const hopTest: GateTest = { id: 'gate-test-x-single-hop', date: TODAY, gate: 3, item: 'single-hop', valueInjured: 56, valueOther: 62, trialsInjured: [56], trialsOther: [62], pass: true, manual: false }
+    const hop = byId(gatesView({ today: TODAY, settings: settings({ currentPhase: 3 }), history: { ...loggedPhase1(), gateTests: [hopTest] }, program: PROGRAM }), 'g3-single-hop')
+    if (hop.kind !== 'symmetry') throw new Error('expected a symmetry item')
+    expect(hop.entry).toMatchObject({ opening: { injured: [null, null, null], other: [null, null, null] }, openingSaved: false })
+  })
+})
+
 describe('manual items and test order', () => {
   it('a toggle writes a manual test with the item’s own id and zero values', () => {
     expect(manualTest({ gate: gate1, item: { id: 'g1-stance' }, pass: false, today: TODAY, id: 'gate-test-x' })).toEqual({ id: 'gate-test-x', date: TODAY, gate: 1, item: 'g1-stance', valueInjured: 0, valueOther: 0, pass: false, manual: true })

@@ -172,6 +172,23 @@ export function openForm(trials: number | null, prefill: Pick<LoadPrefill, 'inju
   return { injured: [prefill?.injured ?? null], other: [prefill?.other ?? null] }
 }
 
+/** A load form's opening: the values it shows with nothing typed, and whether they are a saved test's (Save then waits). */
+export interface LoadOpening {
+  form: SymmetryForm
+  saved: boolean
+}
+
+/**
+ * What a load test's form opens on when nothing is typed: its last saved test, when that is at
+ * least as new as the session the prefill reads, else the prefill, else not entered. Opened on the
+ * test, the form counts as saved, so Save waits until a value changes: coming back to Gates, one
+ * tap can't write an older session's loads as a newer test that wins (PROGRAM-QUESTIONS 118).
+ */
+export function openLoadForm(prefill: Pick<LoadPrefill, 'date' | 'injured' | 'other'> | null, latest: Pick<GateTest, 'date' | 'valueInjured' | 'valueOther'> | null): LoadOpening {
+  if (latest && (!prefill || latest.date >= prefill.date)) return { form: { injured: [latest.valueInjured], other: [latest.valueOther] }, saved: true }
+  return { form: openForm(null, prefill), saved: false }
+}
+
 /** The form with one value changed; null takes it back to not entered. */
 export function setValue(form: SymmetryForm, side: 'injured' | 'other', index: number, value: Trial): SymmetryForm {
   const values = form[side].map((v, i) => (i === index ? value : v))
@@ -367,11 +384,22 @@ export function prefillWords(input: {
   notRunIn?: number | null
   gymName?: string | null
   passedOver?: PassedOver
+  /** The last saved test the form opened on instead (openLoadForm), when it is newer than any prefill. */
+  openedOn?: Pick<GateTest, 'date' | 'valueInjured' | 'valueOther'> | null
 }): string {
   const { exercise, prefill, injuredSide } = input
   const passedOver = input.passedOver ?? { rackCapped: 0, noLoad: 0 }
+  const notRun = input.notRunIn !== undefined && input.notRunIn !== null
+  if (input.openedOn) {
+    const t = input.openedOn
+    const unit = exercise && exercise.loadUnit !== 'none' ? ` ${exercise.loadUnit}` : ''
+    const name = exercise ? `${exercise.name}, ` : ''
+    const values = `${name}${t.valueInjured}${unit} ${SIDE_WORD[injuredSide].toLowerCase()} and ${t.valueOther}${unit} ${SIDE_WORD[otherSide(injuredSide)].toLowerCase()}`
+    const why = notRun ? `. Phase ${input.notRunIn} doesn’t run this exercise, so no session can prefill this test.` : ', newer than any session that could prefill it.'
+    return `Opened on the last test, ${dateInWords(t.date)}: ${values}${why} Change either to save a new test.`
+  }
   if (!exercise) return 'Nothing to prefill from: enter the values from the test.'
-  if (input.notRunIn !== undefined && input.notRunIn !== null) return `Phase ${input.notRunIn} doesn’t run this exercise (${exercise.name}), so no session can prefill this test. Enter the loads from the test.`
+  if (notRun) return `Phase ${input.notRunIn} doesn’t run this exercise (${exercise.name}), so no session can prefill this test. Enter the loads from the test.`
   if (!prefill) {
     const { rackCapped, noLoad } = passedOver
     if (rackCapped + noLoad === 0) return `Nothing to prefill: no session has logged both sides of this exercise (${exercise.name}) yet. Enter the loads from the test.`
@@ -499,6 +527,10 @@ export interface SymmetryEntry {
   unit: string
   step: number
   prefill: LoadPrefill | null
+  /** What the form shows with nothing typed: not entered for a hop test; for a load test, openLoadForm's pick. */
+  opening: SymmetryForm
+  /** The opening is the item's last saved test, so Save waits until a value changes (PROGRAM-QUESTIONS 118). */
+  openingSaved: boolean
   /** Where a load form's numbers came from; null for hop tests. */
   prefillLine: string | null
   earlier: EarlierTest[]
@@ -550,7 +582,7 @@ function symmetryEntry(item: GateItem, gate: Gate, history: HistoryLike, records
   const trials = item.trials ?? null
   const sides = sideNames(injuredSide)
   if (trials !== null) {
-    return { key, threshold, trials, unit: 'in', step: 1, prefill: null, prefillLine: null, earlier: key ? earlierTests(history.gateTests, gate.number, key, threshold, 'in') : [], sides }
+    return { key, threshold, trials, unit: 'in', step: 1, prefill: null, opening: openForm(trials, null), openingSaved: false, prefillLine: null, earlier: key ? earlierTests(history.gateTests, gate.number, key, threshold, 'in') : [], sides }
   }
   // The program data names the exercise whose sets prefill a load test (PROGRAM-QUESTIONS 25: "prefilled
   // from the latest SetLogs per side"); hop tests have no logged exercise to start from.
@@ -561,6 +593,8 @@ function symmetryEntry(item: GateItem, gate: Gate, history: HistoryLike, records
   const found = exercise && runs ? loadTestPrefill(records, exercise.id, injuredSide) : null
   const prefill = found?.prefill ?? null
   const unit = exercise && exercise.loadUnit !== 'none' ? exercise.loadUnit : 'lb'
+  const latest = key ? (orderedTests(history.gateTests.filter((t) => t.gate === gate.number && t.item === key && !t.manual)).at(-1) ?? null) : null
+  const opening = openLoadForm(prefill, latest)
   return {
     key,
     threshold,
@@ -568,7 +602,10 @@ function symmetryEntry(item: GateItem, gate: Gate, history: HistoryLike, records
     unit,
     step: exercise && exercise.increment > 0 ? exercise.increment : 5,
     prefill,
+    opening: opening.form,
+    openingSaved: opening.saved,
     prefillLine: prefillWords({
+      openedOn: opening.saved ? latest : null,
       exercise,
       prefill,
       injuredSide,
