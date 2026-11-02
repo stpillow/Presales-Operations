@@ -123,7 +123,8 @@ export function withoutExtra(location: Location, extraId: string): Location {
  * so instead of keeping it, so a mistaken paste never lands on the next-update list.
  */
 export function extraTooLong(text: string): boolean {
-  return text.trim().length > EXTRA_TEXT_MAX
+  // Code points, as the schema's max length counts them: an emoji is one character, not two.
+  return [...text.trim()].length > EXTRA_TEXT_MAX
 }
 
 /** A rack goes by 5 lb (design section 5's stepper), from none up to 200 lb. */

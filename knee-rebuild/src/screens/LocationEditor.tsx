@@ -9,6 +9,7 @@ import { Tap } from '../components/Tap.tsx'
 import { useActiveLocation, useLocations, useSettings } from '../db/hooks.ts'
 import { addExtra, addLocation, markOff, renameLocation, setActiveLocation, setDumbbellMax, setKit, setPresent } from '../db/repo.ts'
 import { equipmentChecklist, usedEquipment, type Available } from '../rules/equipment.ts'
+import { extraTooLong } from '../rules/locations.ts'
 import { itemOutcome, notHereWrite, typedOutcome, type TypedOutcome } from '../rules/whereYouTrain.ts'
 import type { EquipmentId, IsoDate, Location, Settings } from '../schema/index.ts'
 import {
@@ -23,6 +24,7 @@ import {
   checklistSections,
   coverageWeek,
   currentTemplates,
+  extraTooLongWords,
   keptLines,
   kitAfter,
   kitRows,
@@ -501,6 +503,7 @@ function TypedSection({
   const [text, setText] = useState('')
   const [result, setResult] = useState<Typed | null>(null)
   const [done, setDone] = useState<string | null>(null)
+  const [refusal, setRefusal] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   /** Writes, then says what it came to; the field empties only if it still holds what was submitted, so text typed meanwhile stays. */
@@ -517,6 +520,13 @@ function TypedSection({
 
   const add = () => {
     setDone(null)
+    // Past 80 characters (a mistaken paste): said in words, and nothing is written.
+    if (extraTooLong(text)) {
+      setResult(null)
+      setRefusal(extraTooLongWords(text))
+      return
+    }
+    setRefusal(null)
     const outcome = typedOutcome(text, PROGRAM.equipment, USED, available)
     const words = outcomeWords(outcome, text, PROGRAM.equipment)
     if (outcome.kind === 'keep') return void settle(() => addExtra(location.id, text, today), words, text)
@@ -556,6 +566,7 @@ function TypedSection({
             setText(e.target.value)
             setResult(null)
             setDone(null)
+            setRefusal(null)
           }}
           className="tap w-full rounded-sm bg-ink px-3 text-body text-on-dark"
         />
@@ -563,6 +574,11 @@ function TypedSection({
           Add
         </Button>
       </form>
+      {refusal ? (
+        <p role="alert" className="text-body text-on-dark wrap-anywhere">
+          {refusal}
+        </p>
+      ) : null}
       {done ? (
         <p role="status" className="text-body text-on-dark wrap-anywhere">
           {done}

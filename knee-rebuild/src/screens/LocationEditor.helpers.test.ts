@@ -26,6 +26,7 @@ import {
   markedWords,
   nameCheck,
   nameCountWords,
+  extraTooLongWords,
   outcomeWords,
   rackChoiceWords,
   rackNote,
@@ -336,5 +337,12 @@ describe('keptLines', () => {
     const gym: Location = { ...marriott, present: [...marriott.present, 'treadmill'], extras: [{ id: 'extra-1', text: 'Kettlebells', addedOn: '2026-11-10' }] }
     expect(keptLines(gym, program.equipment, program.exercises)).toEqual(['Kettlebells, typed Nov 10', 'Treadmill, on program.md’s list'])
     expect(keptLines(marriott, program.equipment, program.exercises)).toEqual([])
+  })
+})
+
+describe('typed equipment past 80 characters (M4b review)', () => {
+  it('is refused in words before anything is written, counted as the schema counts', () => {
+    expect(extraTooLongWords('x'.repeat(112))).toBe('That is 112 characters; typed equipment fits in 80. Shorten it to the name of the equipment.')
+    expect(extraTooLongWords(`  ${'🏨'.repeat(81)}  `)).toBe('That is 81 characters; typed equipment fits in 80. Shorten it to the name of the equipment.')
   })
 })

@@ -138,6 +138,10 @@ describe('something else here', () => {
     expect(extraTooLong('Kettlebells')).toBe(false)
     expect(extraTooLong(` ${'x'.repeat(80)} `)).toBe(false)
     expect(extraTooLong('x'.repeat(81))).toBe(true)
+    // The schema counts code points: 41 emoji are 82 UTF-16 units and fit, 81 don't (M4b review).
+    expect(extraTooLong('🏋️'.repeat(20))).toBe(false)
+    expect(extraTooLong('🏨'.repeat(80))).toBe(false)
+    expect(extraTooLong('🏨'.repeat(81))).toBe(true)
   })
 })
 

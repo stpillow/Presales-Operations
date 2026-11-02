@@ -4,7 +4,7 @@ import { forNextProgramUpdate, type Available, type ChecklistGroup, type Checkli
 import { phaseWeekOf } from '../rules/session.ts'
 import { RACK_MAX_LB, RACK_STEP_LB, rackValue } from '../rules/locations.ts'
 import { ifNotHere, nameShows, nameTakenBy, newOnList, phaseCoverage, type SubstitutionRow, type TypedOutcome } from '../rules/whereYouTrain.ts'
-import { Location, type Equipment, type EquipmentId, type Exercise, type IsoDate, type Requirement, type SessionTemplate, type Settings } from '../schema/index.ts'
+import { EXTRA_TEXT_MAX, Location, type Equipment, type EquipmentId, type Exercise, type IsoDate, type Requirement, type SessionTemplate, type Settings } from '../schema/index.ts'
 
 /*
  * The location editor (`#/location/:id`, `#/location/new`, M4b design section 5): its choices and
@@ -216,6 +216,11 @@ export function outcomeWords(outcome: TypedOutcome, typed: string, items: readon
     case 'keep':
       return `No exercise in the program uses ${typedWords(typed)}. Kept for the next program.md update.`
   }
+}
+
+/** Typed text past `EXTRA_TEXT_MAX` (`extraTooLong`), refused before anything is written: a mistaken paste never lands on the next-update list. */
+export function extraTooLongWords(text: string): string {
+  return `That is ${characterCount(text)} characters; typed equipment fits in ${EXTRA_TEXT_MAX}. Shorten it to the name of the equipment.`
 }
 
 /** After "Mark it here" or a near miss picked: the item is marked here. */
