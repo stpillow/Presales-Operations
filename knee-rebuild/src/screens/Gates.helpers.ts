@@ -1,5 +1,5 @@
 import type { History } from '../db/repo.ts'
-import { evaluateGate, type GateContext, type GateItemResult, type GateResult } from '../rules/gates.ts'
+import { evaluateGate, inWriteOrder, type GateContext, type GateItemResult, type GateResult } from '../rules/gates.ts'
 import { attachChecks, subjectReadings, type SubjectReading, type WorkoutRecord } from '../rules/history.ts'
 import { weekOf } from '../rules/calendar.ts'
 import { locationOrHome } from '../rules/locations.ts'
@@ -43,16 +43,11 @@ export function sideNames(injuredSide: Side): { injured: string; other: string }
   return { injured: `${SIDE_WORD[injuredSide]} · injured`, other: SIDE_WORD[otherSide(injuredSide)] }
 }
 
-const byId = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0)
-
 /**
- * Gate tests in the order they were written: by date, then by id. Ids lead with the write's ISO
- * stamp, so a tick and an untick on the same day keep their order and the rule's "latest test"
- * is the last one written, whatever order storage hands them back in.
+ * Gate tests in the order they were written: by date, then by id, the gate rule's own order
+ * (inWriteOrder), so the screen's lists and the rule's "latest test" never disagree.
  */
-export function orderedTests(tests: readonly GateTest[]): GateTest[] {
-  return [...tests].sort((a, b) => a.date.localeCompare(b.date) || byId(a.id, b.id))
-}
+export const orderedTests: (tests: readonly GateTest[]) => GateTest[] = inWriteOrder
 
 /** A new test's id: the write's ISO stamp and the item key, with a suffix if that is somehow taken. */
 export function newGateTestId(stamp: string, key: string, taken: readonly string[]): string {
