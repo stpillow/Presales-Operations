@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { program } from '../program/program.ts'
 import { availableEquipment } from '../rules/equipment.ts'
-import type { RunSuggestion } from '../rules/weekPlan.ts'
+import { suggestRun, type RunSuggestion } from '../rules/weekPlan.ts'
 import type { Location, MorningCheck, Run, SessionTemplate, SetLog, Settings, Workout } from '../schema/index.ts'
 import {
   NEW_LOCATION_HASH,
@@ -25,6 +25,7 @@ import {
   runLabel,
   runWeekWords,
   suggestionWords,
+  swapHeadlineAt,
   sessionLabel,
   sessionLetter,
   sessionNote,
@@ -529,8 +530,25 @@ describe('a Hold run day at a gym', () => {
     reasons: ['this morning read hold: an elliptical or rower swap at the same effort is the call'],
     swapSuggested: true,
   }
-  it('with a swap machine here, prints the engine’s suggestion', () => {
-    expect(runSuggestionAtGym(swapDay, { available: new Set(['rower']), gymName: 'Marriott Downtown', morning: 'hold' })).toEqual(suggestionWords(swapDay))
+  it('with a swap machine here, names only the first one here, elliptical then rower, as the logger does', () => {
+    expect(runSuggestionAtGym(swapDay, { available: new Set(['rower']), gymName: 'Marriott Downtown', morning: 'hold' })).toEqual({
+      headline: 'Suggested: a 30 to 40 minute rower swap',
+      reasons: suggestionWords(swapDay).reasons,
+    })
+    expect(runSuggestionAtGym(swapDay, { available: new Set(['elliptical', 'rower']), gymName: 'Planet Fitness', morning: 'hold' }).headline).toBe(
+      'Suggested: a 30 to 40 minute elliptical swap',
+    )
+  })
+  it('names the machine in the engine’s own words on a hold and a back-off morning (live rule)', () => {
+    const day = { session: 'run:easy' as const, week: 1, target: 10, milesSoFar: 0, currentPhase: 1, phaseWeek: 1 }
+    for (const morning of ['hold', 'back-off'] as const) {
+      const s = suggestRun({ ...day, morning })
+      if (!s) throw new Error('no suggestion')
+      expect(swapHeadlineAt(s.headline, 'rower-swap'), morning).toBe('a 30 to 40 minute rower swap')
+    }
+  })
+  it('if the engine’s words ever stop naming both machines, says the swap by its name', () => {
+    expect(swapHeadlineAt('a swap', 'elliptical-swap')).toBe('Elliptical swap')
   })
   it('with neither machine here, suggests nothing and says neither is here (Shawn’s Nov 1 answer 7)', () => {
     expect(noSwapMachineWords('Marriott Downtown')).toBe('No elliptical or rower at Marriott Downtown')

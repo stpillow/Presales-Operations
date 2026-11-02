@@ -386,7 +386,7 @@ function FinishedBlock({ body }: { body: Lift }) {
 }
 
 function RunBlock({ body, gym, kit }: { body: Extract<TodayBody, { kind: 'run' }>; gym: Location; kit: readonly EquipmentId[] }) {
-  // A swap is done at the active gym: with neither machine there, nothing is suggested (Shawn's Nov 1 answer 7).
+  // A swap is done at the active gym: a hold morning names the first machine there, and with neither, nothing is suggested (Shawn's Nov 1 answer 7).
   const s = body.suggestion ? runSuggestionAtGym(body.suggestion, { available: availableAt({ location: gym, kit }), gymName: gym.name, morning: body.morning }) : null
   return (
     <section aria-label="Scheduled session" className={SECTION}>

@@ -1,6 +1,6 @@
 import type { History } from '../db/repo.ts'
 import { addDays, dayOf, isDeloadWeek, scheduledSession } from '../rules/calendar.ts'
-import { locationCoverage, type Available, type CoverageMove, type ExerciseLookup } from '../rules/equipment.ts'
+import { locationCoverage, type Available, type CoverageMove, type ExerciseLookup, type RunSwapType } from '../rules/equipment.ts'
 import { swapCallAt } from '../rules/gymDay.ts'
 import { attachChecks, subjectReadings, workoutReading } from '../rules/history.ts'
 import { listedLocations } from '../rules/locations.ts'
@@ -461,17 +461,32 @@ export function noSwapSuggestedWords(morning: ReadingResult | null): string {
   return `${read}, and program.md names no swap but those two, so nothing is suggested: pick what you did.`
 }
 
+const BOTH_MACHINES = 'elliptical or rower'
+const MACHINE_WORDS: Record<RunSwapType, string> = { 'elliptical-swap': 'elliptical', 'rower-swap': 'rower' }
+
 /**
- * Today's run suggestion at the active gym: the engine's words (`suggestionWords`), unless it calls
- * for a swap and neither machine is here (`swapCallAt`), when nothing is suggested and the line
- * says neither is here.
+ * The engine's swap headline with only the machine the call takes: "a 30 to 40 minute rower swap"
+ * for "a 30 to 40 minute elliptical or rower swap". Should the engine's words ever stop naming both,
+ * the swap's own name ("Rower swap"), so Today never offers a machine the gym doesn't have.
+ */
+export function swapHeadlineAt(headline: string, type: RunSwapType): string {
+  return headline.includes(BOTH_MACHINES) ? headline.replace(BOTH_MACHINES, MACHINE_WORDS[type]) : runLabel(type)
+}
+
+/**
+ * Today's run suggestion at the active gym: the engine's words (`suggestionWords`), except when it
+ * calls for a swap (`swapCallAt`). Then the headline names only the first swap here, elliptical then
+ * rower, as the run logger does (design section 7: Hold-day swaps offer only machines that are
+ * there); with neither here, nothing is suggested and the line says neither is here.
  */
 export function runSuggestionAtGym(
   suggestion: Pick<RunSuggestion, 'headline' | 'reasons' | 'swapSuggested'>,
   at: { available: Available; gymName: string; morning: ReadingResult | null },
 ): { headline: string; reasons: string[] } {
-  if (swapCallAt(suggestion, at.available)?.kind === 'neither') {
+  const call = swapCallAt(suggestion, at.available)
+  if (call?.kind === 'neither') {
     return { headline: noSwapMachineWords(at.gymName), reasons: [noSwapSuggestedWords(at.morning)] }
   }
-  return suggestionWords(suggestion)
+  const words = suggestionWords(suggestion)
+  return call?.kind === 'take' ? { ...words, headline: `Suggested: ${swapHeadlineAt(suggestion.headline, call.type)}` } : words
 }
