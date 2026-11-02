@@ -40,7 +40,7 @@ export interface Prescription {
   /**
    * The rack stopped the load short of the prescription and nothing here is written to swap to
    * (Shawn's Nov 1 answer 5): the load is the gym's heaviest dumbbell, and the sets are logged
-   * `rackCapped`, so the session never becomes the baseline and never reads clean (gymLoads.ts).
+   * `rackCapped`, so the session never becomes the baseline and a clean on it never counts (gymLoads.ts).
    */
   rackCapped?: boolean
   basis: Basis
@@ -63,7 +63,7 @@ export interface PrescriptionInput {
   exercise: Exercise
   /** The slot's substitutions, resolved, in order. What a cap or a back-off may move to comes from this list. */
   substitutions: Exercise[]
-  /** Combined readings for this exercise, most recent first (gymLoads.ts `exerciseHistory`: a rack-capped session reads hold at best). */
+  /** Combined readings for this exercise, most recent first (gymLoads.ts `exerciseHistory`: a rack-capped session that read clean is left out). */
   readings: ReadingResult[]
   /** The last session's sets for this exercise, both sides (gymLoads.ts: from the last session that wasn't rack-capped). */
   lastSets: SetLog[]

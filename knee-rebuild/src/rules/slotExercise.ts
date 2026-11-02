@@ -30,7 +30,7 @@ export interface SlotExerciseInput {
 export interface SlotExercise {
   /** The exercise the slot runs today. */
   exercise: Exercise
-  /** Its combined readings, most recent first (rack-capped sessions read hold at best); on an easier version, or back from one, only those since the move. */
+  /** Its combined readings, most recent first (a rack-capped session that read clean is left out); on an easier version, or back from one, only those since the move. */
   readings: ReadingResult[]
   /** Its last sets, both sides, from the last session that wasn't rack-capped. */
   lastSets: SetLog[]

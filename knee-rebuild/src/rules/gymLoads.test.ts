@@ -67,30 +67,41 @@ describe('a capped session is skipped as the baseline', () => {
   })
 })
 
-describe('a capped clean reads hold', () => {
-  it('capReading turns clean into hold with the reason, and leaves hold and back-off alone', () => {
+describe('a capped clean counts neither way (Shawn, Nov 2)', () => {
+  it('capReading leaves a capped clean out, and leaves hold and back-off alone', () => {
     const clean = { result: 'clean' as const, reasons: ['pain stayed at 2 or under and did not climb'] }
-    const capped = capReading(clean, hotelRdl)
-    expect(capped.result).toBe('hold')
-    expect(capped.reasons).toEqual([...clean.reasons, 'the rack stopped the load at 25 lb; a rack-capped session is not counted as clean'])
+    expect(capReading(clean, hotelRdl)).toBeNull()
     const hold = { result: 'hold' as const, reasons: ['pain reached 4'] }
     const backOff = { result: 'back-off' as const, reasons: ['pain reached 6'] }
     expect(capReading(hold, hotelRdl)).toBe(hold)
     expect(capReading(backOff, hotelRdl)).toBe(backOff)
     expect(capReading(clean, three('w2', 'db-rdl'))).toBe(clean)
   })
-  it('the capped session reads hold for its exercise, most recent first, and the home sessions keep their cleans', () => {
+  it('the capped clean drops out of its exercise\'s readings; the home sessions keep their cleans', () => {
     expect(exerciseReadings(records, 'db-rdl').map((r) => r.reading.result)).toEqual(['clean', 'clean', 'clean'])
     const got = cappedExerciseReadings(records, 'db-rdl')
-    expect(got.map((r) => [r.date, r.reading.result])).toEqual([['2026-11-09', 'hold'], ['2026-11-05', 'clean'], ['2026-11-02', 'clean']])
-    expect(exerciseHistory(records, 'db-rdl').readings).toEqual(['hold', 'clean', 'clean'])
+    expect(got.map((r) => [r.date, r.reading.result])).toEqual([['2026-11-05', 'clean'], ['2026-11-02', 'clean']])
+    expect(exerciseHistory(records, 'db-rdl').readings).toEqual(['clean', 'clean'])
+  })
+  it('two capped cleans in a row are no reading at all, not two holds and so not a back-off', () => {
+    const hotel2 = workout('w4', '2026-11-12', { locationId: 'hotel' })
+    const twice = attachChecks([home1, home2, hotel, hotel2], [...homeSets, ...hotelRdl, ...three('w4', 'db-rdl', { load: 25, rackCapped: true })], [...checks, check('2026-11-13')])
+    expect(exerciseHistory(twice, 'db-rdl').readings).toEqual(['clean', 'clean'])
   })
   it('only the capped exercise is capped: the split squat beside it still reads clean', () => {
     expect(exerciseHistory(records, 'split-squat').readings).toEqual(['clean'])
   })
+  it('a capped session that held still reads hold', () => {
+    const held = attachChecks([home2, hotel], [...three('w2', 'db-rdl'), ...three('w3', 'db-rdl', { load: 25, rackCapped: true, painDuring: 4 })], checks)
+    expect(exerciseHistory(held, 'db-rdl').readings).toEqual(['hold', 'clean'])
+  })
   it('a capped session that hurt still reads back-off', () => {
     const hurt = attachChecks([hotel], three('w3', 'db-rdl', { load: 25, rackCapped: true, painDuring: 6 }), checks)
     expect(exerciseHistory(hurt, 'db-rdl').readings).toEqual(['back-off'])
+  })
+  it('a capped session with no morning check reads hold, as unknown always does, and stands', () => {
+    const unchecked = attachChecks([home2, hotel], [...three('w2', 'db-rdl'), ...hotelRdl], [check('2026-11-06')])
+    expect(exerciseHistory(unchecked, 'db-rdl').readings).toEqual(['hold', 'clean'])
   })
   it('a capped session that is still in progress reads nothing, as today', () => {
     const open = attachChecks([home2, { ...hotel, status: 'in-progress' }], [...three('w2', 'db-rdl'), ...hotelRdl], checks)
@@ -123,8 +134,8 @@ describe('feeding prescribe', () => {
   }
   const next = (history: { readings: ('clean' | 'hold' | 'back-off')[]; lastSets: SetLog[] }) =>
     prescribe({ slot, exercise: rdl, substitutions: [], ...history, week: 3, injuredSide: 'right', dumbbellMax: 80, redFlagActive: false })[0]
-  it('back home after a capped clean at the hotel: repeat 60 lb, neither 25 lb nor a step up', () => {
-    expect(next(exerciseHistory(records, 'db-rdl'))).toMatchObject({ load: 60, basis: 'repeat' })
+  it('back home after a capped clean at the hotel: the two home cleans stand, so 60 lb moves up a step, never from 25 lb', () => {
+    expect(next(exerciseHistory(records, 'db-rdl'))).toMatchObject({ load: 65, basis: 'progress-load' })
   })
   it('without the cap the hotel session would have been the baseline, and clean enough to progress from', () => {
     const raw = { readings: exerciseReadings(records, 'db-rdl').map((r) => r.reading.result), lastSets: lastSetsBySide(records, 'db-rdl') }

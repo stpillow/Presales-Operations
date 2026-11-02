@@ -8,7 +8,8 @@ import type { Reading } from './reading.ts'
  * and a workout's `locationId` changes nothing here. What remains is the rack cap (answer 5): a set
  * logged `rackCapped` ran at the gym's heaviest dumbbell because the prescription was heavier and
  * nothing was there to swap to. A capped session never becomes the baseline a load progresses
- * from, and it never reads clean (PROGRAM-QUESTIONS 73).
+ * from, and a capped clean counts neither way: it is left out of the exercise's readings, so it is
+ * neither a clean nor a hold (Shawn's Nov 2 answer, PROGRAM-QUESTIONS 73).
  */
 
 /** Whether the gym's rack stopped this set short of its prescription. A set without the field was not capped. */
@@ -35,31 +36,31 @@ export function baselineRecords(records: readonly WorkoutRecord[]): WorkoutRecor
 }
 
 /**
- * One session's reading for an exercise, given that exercise's sets from the session: with any
- * rack-capped set it is hold at best. Clean becomes hold, since a load lighter than prescribed earns
- * nothing; hold and back-off stand, because the knee said them at whatever load it carried.
+ * One session's reading for an exercise, as progression counts it, given that exercise's sets from
+ * the session. With any rack-capped set a clean counts neither way (null): a load lighter than
+ * prescribed earns nothing, and the knee didn't complain, so it is no hold either. Hold and back-off
+ * stand, because the knee said them at whatever load it carried (Shawn's Nov 2 answer).
  */
-export function capReading(reading: Reading, sets: readonly SetLog[]): Reading {
-  const capped = sets.filter(isRackCapped)
-  const first = capped[0]
-  if (first === undefined || reading.result !== 'clean') return reading
-  const top = Math.max(...capped.map((s) => s.load))
-  return { result: 'hold', reasons: [...reading.reasons, `the rack stopped the load at ${top} ${first.loadUnit}; a rack-capped session is not counted as clean`] }
+export function capReading(reading: Reading, sets: readonly SetLog[]): Reading | null {
+  return reading.result === 'clean' && sets.some(isRackCapped) ? null : reading
 }
 
 /**
  * `exerciseReadings` with the rack cap: the same combined readings, most recent first, except that a
- * session with any rack-capped set of this exercise reads hold at best.
+ * session with any rack-capped set of this exercise that reads clean is left out.
  */
 export function cappedExerciseReadings(records: readonly WorkoutRecord[], exerciseId: string, injuredSide?: Side): DatedReading[] {
   return [...records].reverse().flatMap((record) => {
     const own = record.sets.filter((s) => s.exerciseId === exerciseId)
-    return exerciseReadings([record], exerciseId, injuredSide).map((r) => ({ ...r, reading: capReading(r.reading, own) }))
+    return exerciseReadings([record], exerciseId, injuredSide).flatMap((r) => {
+      const reading = capReading(r.reading, own)
+      return reading === null ? [] : [{ ...r, reading }]
+    })
   })
 }
 
 export interface ExerciseHistory {
-  /** Combined readings, most recent first; a rack-capped session reads hold at best. */
+  /** Combined readings, most recent first; a rack-capped session that read clean is left out. */
   readings: ReadingResult[]
   /** Each side's last sets from a session that wasn't rack-capped for this exercise. */
   lastSets: SetLog[]
