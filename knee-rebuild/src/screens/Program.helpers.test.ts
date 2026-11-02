@@ -133,6 +133,12 @@ describe('cueCountWords', () => {
     // Counted as it would be stored.
     expect(cueCountWords(`  ${'x'.repeat(200)}  `)).toBe('200 of 200 characters.')
   })
+
+  it('counts an emoji as one character, as the refusal and the schema do', () => {
+    expect(cueCountWords('💪'.repeat(150))).toBeNull()
+    expect(cueCountWords('💪'.repeat(170))).toBe('170 of 200 characters.')
+    expect(cueCountWords('💪'.repeat(201))).toBe('201 of 200 characters: 1 over.')
+  })
 })
 
 describe('removedWords', () => {

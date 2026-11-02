@@ -78,16 +78,30 @@ export function editedParts(slot: Slot, override: ProgramOverride | undefined, k
   return { cues: !sameList(applied.cues, slot.cues), substitutions: !sameList(applied.substitutionIds, slot.substitutionIds) }
 }
 
-/** A cue as it would be stored: every run of spaces, tabs and line breaks one space, the ends trimmed. Plain text, one line. */
+/**
+ * A cue as it would be stored: every run of spaces, tabs, line breaks and other control characters
+ * (a pasted bell or escape the eye can't see) one space, the ends trimmed. Plain text, one line,
+ * which is what the schema's `Cue` takes.
+ */
 export function cleanCue(text: string): string {
-  return text.replace(/\s+/g, ' ').trim()
+  return text.replace(/[\s\p{Cc}]+/gu, ' ').trim()
 }
 
-/** What is wrong with a cue, in words, measured as it would be stored; null when it can be saved. */
+/** A cue's length once cleaned, in characters as the schema counts them (code points): an emoji is one, not two. */
+export function cueLength(text: string): number {
+  return [...cleanCue(text)].length
+}
+
+/**
+ * What is wrong with a cue, in words, measured as it would be stored; null when it can be saved.
+ * It takes exactly what the schema's `Cue` takes once cleaned, so the screen never sends a cue the
+ * phone then refuses without a sentence.
+ */
 export function cueProblem(text: string): string | null {
   const cue = cleanCue(text)
   if (!showsText(cue)) return 'A cue needs at least one word.'
-  if (cue.length > CUE_MAX) return `A cue runs to ${CUE_MAX} characters; this one is ${cue.length}.`
+  const length = cueLength(cue)
+  if (length > CUE_MAX) return `A cue runs to ${CUE_MAX} characters; this one is ${length}.`
   return null
 }
 

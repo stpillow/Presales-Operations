@@ -1,7 +1,7 @@
 import { PROGRAM } from '../app/session.ts'
 import type { Block } from '../rules/markdown.ts'
 import { plainText } from '../rules/markdown.ts'
-import { addableSubstitutions, cleanCue, editedParts, overridesBySlot, slotEdit, type Edited, type SlotEdit } from '../rules/overrides.ts'
+import { addableSubstitutions, cueLength, editedParts, overridesBySlot, slotEdit, type Edited, type SlotEdit } from '../rules/overrides.ts'
 import { slotsForPhaseWeek } from '../rules/session.ts'
 import { CUE_MAX, type Exercise, type IsoDate, type ProgramOverride, type Settings, type Slot } from '../schema/index.ts'
 import { coverageWeek, currentTemplates, shortDate } from './LocationEditor.helpers.ts'
@@ -163,7 +163,7 @@ export const CUE_COUNT_FROM = 160
 
 /** "187 of 200 characters.", "214 of 200 characters: 14 over.", counted as the cue would be stored; null well under the limit. */
 export function cueCountWords(text: string): string | null {
-  const length = cleanCue(text).length
+  const length = cueLength(text)
   if (length < CUE_COUNT_FROM) return null
   return length > CUE_MAX ? `${length} of ${CUE_MAX} characters: ${length - CUE_MAX} over.` : `${length} of ${CUE_MAX} characters.`
 }

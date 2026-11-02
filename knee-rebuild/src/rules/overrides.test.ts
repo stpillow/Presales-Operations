@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { program, templateFor } from '../program/program.ts'
-import { CUE_MAX, ProgramOverride, type Exercise, type Slot } from '../schema/index.ts'
+import { CUE_MAX, Cue, ProgramOverride, type Exercise, type Slot } from '../schema/index.ts'
 import {
   addableSubstitutions,
   applyOverrides,
   applyToTemplate,
   cleanCue,
+  cueLength,
   cueProblem,
   editedParts,
   insertItem,
@@ -152,6 +153,50 @@ describe('cues: cleanCue and cueProblem', () => {
     expect(cueProblem('x'.repeat(214))).toBe('A cue runs to 200 characters; this one is 214.')
     // Measured after cleaning, as it would be stored.
     expect(cueProblem(`  ${'x'.repeat(CUE_MAX)}  `)).toBeNull()
+  })
+
+  it('counts characters as the schema stores them: an emoji is one character, not two', () => {
+    expect(cueLength('Feet high 💪')).toBe(11)
+    expect(cueProblem('💪'.repeat(150))).toBeNull()
+    expect(cueProblem('💪'.repeat(CUE_MAX))).toBeNull()
+    expect(cueProblem('💪'.repeat(201))).toBe('A cue runs to 200 characters; this one is 201.')
+  })
+
+  it('turns a control character into a space, as a line break is: a pasted cue is one line of plain text', () => {
+    expect(cleanCue('Knees out\u0007now')).toBe('Knees out now')
+    expect(cleanCue('Lower\u0085for 3 s\u0000')).toBe('Lower for 3 s')
+    expect(cueProblem('\u0007\u001b')).toBe('A cue needs at least one word.')
+  })
+
+  it('takes exactly the cues the schema stores: what it passes parses, cleaned, and what it refuses would not', () => {
+    const typed = [
+      'Feet high',
+      '  Feet   high  ',
+      'Lower\nfor 3 s',
+      'Knees out\u0007now',
+      'a\u0085b',
+      '\u0000',
+      '   ',
+      '​',
+      '💪'.repeat(CUE_MAX),
+      '💪'.repeat(CUE_MAX + 1),
+      'x'.repeat(CUE_MAX),
+      `${'x'.repeat(CUE_MAX)} `,
+      'x'.repeat(CUE_MAX + 1),
+      'Stop at 90°; RPE 6→7; 10–12',
+    ]
+    for (const text of typed) {
+      const stored = Cue.safeParse(cleanCue(text))
+      expect({ text, takes: cueProblem(text) === null }).toEqual({ text, takes: stored.success })
+      if (stored.success) expect(stored.data).toBe(cleanCue(text))
+    }
+  })
+
+  it('keeps every cue program.md writes as it is, so editing one cue never rewrites or refuses another', () => {
+    for (const cue of program.templates.flatMap((t) => t.slots.flatMap((s) => s.cues))) {
+      expect(cleanCue(cue)).toBe(cue)
+      expect(cueProblem(cue)).toBeNull()
+    }
   })
 })
 
