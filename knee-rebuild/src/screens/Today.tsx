@@ -7,8 +7,10 @@ import { ReadingWord, readingSentence } from '../components/ReadingWord.tsx'
 import { Screen } from '../components/Screen.tsx'
 import { useActiveLocation, useHistory, useLocations, useSettings } from '../db/hooks.ts'
 import { clearMarkOff, putWorkout, reopenWorkout, setActiveLocation, type History } from '../db/repo.ts'
+import { addDays, nextLiftDate, scheduledSession } from '../rules/calendar.ts'
 import { liftGym } from '../rules/gymDay.ts'
 import type { EquipmentId, IsoDate, Location, Settings } from '../schema/index.ts'
+import { nextLiftWords } from './Preview.helpers.ts'
 import { openSettingsAtExport } from './Settings.tsx'
 import {
   NEW_LOCATION_HASH,
@@ -97,6 +99,7 @@ export function Today() {
       ) : (
         <OffBlock label={view.body.label} />
       )}
+      {view.body.kind === 'run' || view.body.kind === 'off' || view.body.kind === 'before-start' ? <NextLiftLink today={today} settings={settings} history={history} /> : null}
       <OpenWorkoutsBlock open={view.open} active={activeLocation} locations={locations} />
       <YesterdayBlock lines={view.yesterday} />
       <ExportLine line={exportLine(settings.lastExportedAt, today, history)} />
@@ -348,6 +351,11 @@ function LiftBlock({
             <p className="text-body text-on-dark-dim">{label} was left early today; what was logged is kept. Resume to carry on in the same session.</p>
           ) : null}
           <MovesBlock template={template} week={workout?.week ?? body.week} before={workout?.date ?? today} label={label} gym={gym} settings={settings} history={history} />
+          {workout === null ? (
+            <Button variant="quiet" onClick={() => navigate({ name: 'preview', date: today })}>
+              See the session first
+            </Button>
+          ) : null}
           <Button variant="primary" wide className="wrap-anywhere" disabled={busy} onClick={() => void start()}>
             {busy ? 'Saving…' : startWords(label, workout, gym, active)}
           </Button>
@@ -519,3 +527,17 @@ function ExportLine({ line }: { line: string | null }) {
     </section>
   )
 }
+
+/** On a day with no lift, a way to look ahead: the next lift, by name and date, opens its preview. */
+function NextLiftLink({ today, settings, history }: { today: IsoDate; settings: Settings; history: History }) {
+  const date = nextLiftDate(addDays(today, 1), settings.startDate, PROGRAM.weeklyTemplate, history.sessionMoves)
+  if (!date) return null
+  const { session } = scheduledSession(date, settings.startDate, PROGRAM.weeklyTemplate, history.sessionMoves)
+  if (!session) return null
+  return (
+    <Button variant="quiet" onClick={() => navigate({ name: 'preview', date })}>
+      {nextLiftWords(date, session, PROGRAM.weeklyTemplateRows)}
+    </Button>
+  )
+}
+

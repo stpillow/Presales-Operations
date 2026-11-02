@@ -21,6 +21,7 @@ const TAB_OF: Record<Route['name'], TabName> = {
   location: 'more',
   'new-location': 'more',
   'next-update': 'more',
+  preview: 'week',
 }
 
 export function activeTab(route: Route): TabName {

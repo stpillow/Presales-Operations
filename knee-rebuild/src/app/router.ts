@@ -19,6 +19,8 @@ export type Route =
   | { name: 'new-location' }
   /** For the next program update: what the gyms have that the program doesn't use, from More. */
   | { name: 'next-update' }
+  /** A read-only look at one day's session before it comes round (`#/preview/2026-11-05`). */
+  | { name: 'preview'; date: string }
 
 /** The editor's id segment that means a gym not made yet. Stored gyms are `planet-fitness` and `loc-N` (src/rules/locations.ts), never this. */
 const NEW = 'new'
@@ -33,6 +35,15 @@ function decoded(segment: string): string | null {
 }
 
 /** Hash routes, so the home-screen app keeps a working back gesture without a server rewrite. */
+/** A YYYY-MM-DD string naming a day that exists (no Feb 30). */
+function isCalendarDate(text: string): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text)
+  if (!m) return false
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])]
+  const day = new Date(Date.UTC(y, mo - 1, d))
+  return day.getUTCFullYear() === y && day.getUTCMonth() === mo - 1 && day.getUTCDate() === d
+}
+
 export function parseHash(hash: string): Route {
   const parts = hash.replace(/^#\/?/, '').split('/').filter(Boolean)
   const [head, arg] = parts
@@ -41,6 +52,10 @@ export function parseHash(hash: string): Route {
       // A malformed escape lands on Today instead of a blank app.
       const workoutId = arg ? decoded(arg) : null
       return workoutId ? { name: 'session', workoutId } : { name: 'today' }
+    }
+    case 'preview': {
+      // Only a real calendar date opens a preview; anything else lands on Week, where the days are.
+      return arg && isCalendarDate(arg) ? { name: 'preview', date: arg } : { name: 'week' }
     }
     case 'location': {
       if (arg === NEW) return { name: 'new-location' }
@@ -71,6 +86,8 @@ export function routeHash(route: Route): string {
       return `#/location/${encodeURIComponent(route.locationId)}`
     case 'new-location':
       return `#/location/${NEW}`
+    case 'preview':
+      return `#/preview/${route.date}`
     default:
       return `#/${route.name}`
   }
