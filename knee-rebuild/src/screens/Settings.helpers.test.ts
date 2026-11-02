@@ -13,6 +13,7 @@ import {
   lostWords,
   migratedWords,
   rangeWords,
+  settingsOnImportWords,
   shareFailure,
   shareRoute,
   REST_MIN,
@@ -255,6 +256,67 @@ describe('resetWords', () => {
       text: 'Everything was erased, but the default settings did not save (no reason was given); reload the app to seed them again.',
       problem: true,
     })
+  })
+})
+
+describe('settingsOnImportWords', () => {
+  const none = { keptRedFlag: null, changes: [] }
+
+  it('says the red flag the import keeps on, when it was set and what was flagged, and that it clears only here with a note', () => {
+    expect(settingsOnImportWords({ keptRedFlag: { active: true, since: '2026-11-05', items: ['locking'] }, changes: [] }, catalog, phases).redFlag).toBe(
+      'The red flag set Thursday Nov 5 stays on after the import: Locking or catching: a mechanical block to straightening or bending. It clears only here, with a note.',
+    )
+    // Joined with the file's own flag: each item once.
+    expect(settingsOnImportWords({ keptRedFlag: { active: true, since: '2026-11-04', items: ['locking', 'numbness'] }, changes: [] }, catalog, phases).redFlag).toBe(
+      'The red flag set Wednesday Nov 4 stays on after the import: Locking or catching: a mechanical block to straightening or bending; Numbness or tingling below the knee. It clears only here, with a note.',
+    )
+    expect(settingsOnImportWords({ keptRedFlag: { active: true, items: ['numbness'] }, changes: [] }, catalog, phases).redFlag).toBe(
+      'The red flag on this phone stays on after the import: Numbness or tingling below the knee. It clears only here, with a note.',
+    )
+  })
+
+  it('says nothing about the red flag when the file carries it as the phone has it', () => {
+    expect(settingsOnImportWords(none, catalog, phases)).toEqual({ redFlag: null, changes: [] })
+  })
+
+  it('says each setting the file changes, the phone’s value then the file’s, in words', () => {
+    const words = settingsOnImportWords(
+      {
+        keptRedFlag: null,
+        changes: [
+          { field: 'injuredSide', phone: 'right', file: 'left' },
+          { field: 'startDate', phone: '2026-11-02', file: '2026-10-26' },
+          { field: 'currentPhase', phone: 2, file: 1 },
+          { field: 'phaseEnteredWeek', phone: 4, file: 1 },
+        ],
+      },
+      catalog,
+      phases,
+    )
+    expect(words.changes).toEqual([
+      'It would change the injured side from the right knee to the left knee.',
+      'It would move the start date from Monday Nov 2 to Monday Oct 26.',
+      'It would change the phase from Phase 2 (Single-leg strength and balance) to Phase 1 (Foundation).',
+      'It would change the week the phase was entered from week 4 to week 1.',
+    ])
+  })
+
+  it('names the years of a start date only when they differ, and a phase it has no name for by its number', () => {
+    const words = settingsOnImportWords(
+      {
+        keptRedFlag: null,
+        changes: [
+          { field: 'startDate', phone: '2027-01-04', file: '2026-12-28' },
+          { field: 'currentPhase', phone: 4, file: 2 },
+        ],
+      },
+      catalog,
+      phases,
+    )
+    expect(words.changes).toEqual([
+      'It would move the start date from Monday Jan 4, 2027 to Monday Dec 28, 2026.',
+      'It would change the phase from Phase 4 to Phase 2 (Single-leg strength and balance).',
+    ])
   })
 })
 

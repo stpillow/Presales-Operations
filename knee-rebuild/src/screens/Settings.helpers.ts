@@ -1,7 +1,7 @@
 import { DAYS, DELOAD_WEEKS, addDays, dayOf, daysBetween, isDeloadWeek, isMonday, weekOf } from '../rules/calendar.ts'
 import { rebaseMoves, rebaseWeekNumber } from '../rules/moves.ts'
 import { clearRedFlag, stopMessage, type RedFlagState } from '../rules/redFlags.ts'
-import { TABLE_WORDS, daysSinceExport, exportDay, type BackupSummary, type BackupTable } from '../rules/backup.ts'
+import { TABLE_WORDS, daysSinceExport, exportDay, type BackupSummary, type BackupTable, type SettingChange, type SettingsOnImport } from '../rules/backup.ts'
 import { IsoDate, type Day, type IsoDateTime, type Phase, type RedFlag, type SessionMove, type Settings, type Side } from '../schema/index.ts'
 
 /**
@@ -276,6 +276,51 @@ export function importedWords(fileName: string, summary: BackupSummary): string 
 export function lostWords(lost: readonly { table: BackupTable; count: number }[]): string | null {
   if (lost.length === 0) return null
   return `It would erase ${andList(lost.map((l) => count(l.table, l.count)))} on this phone that the file doesn’t have.`
+}
+
+/** "Phase 2 (Single-leg strength and balance)", or "Phase 4" when the program names no such phase. */
+function phaseName(number: number, phases: readonly Pick<Phase, 'number' | 'name'>[]): string {
+  const name = phases.find((p) => p.number === number)?.name
+  return name ? `Phase ${number} (${name})` : `Phase ${number}`
+}
+
+/** One setting the file changes, in a sentence: the phone's value, then the file's. */
+function settingChangeWords(change: SettingChange, phases: readonly Pick<Phase, 'number' | 'name'>[]): string {
+  switch (change.field) {
+    case 'injuredSide':
+      return `It would change the injured side from the ${sideWords(change.phone).toLowerCase()} to the ${sideWords(change.file).toLowerCase()}.`
+    case 'startDate': {
+      const years = change.phone.slice(0, 4) !== change.file.slice(0, 4)
+      const day = (date: IsoDate) => (years ? `${dateWords(date)}, ${date.slice(0, 4)}` : dateWords(date))
+      return `It would move the start date from ${day(change.phone)} to ${day(change.file)}.`
+    }
+    case 'currentPhase':
+      return `It would change the phase from ${phaseName(change.phone, phases)} to ${phaseName(change.file, phases)}.`
+    case 'phaseEnteredWeek':
+      return `It would change the week the phase was entered from week ${change.phone} to week ${change.file}.`
+  }
+}
+
+/**
+ * What an import does to the settings (src/rules/backup.ts `settingsOnImport`), said before the
+ * confirm beside the row counts, which can't show it: the red flag the phone has on that the import
+ * keeps on (PROGRAM-QUESTIONS 128: it clears only here, with a note), and each setting the plan
+ * hangs off that the file changes.
+ */
+export function settingsOnImportWords(
+  on: SettingsOnImport,
+  catalog: readonly RedFlag[],
+  phases: readonly Pick<Phase, 'number' | 'name'>[],
+): { redFlag: string | null; changes: string[] } {
+  const flag = on.keptRedFlag
+  const stop = flag ? stopMessage(flag, catalog) : null
+  let redFlag: string | null = null
+  if (flag && stop) {
+    const set = flag.since ? `The red flag set ${dateWords(flag.since)}` : 'The red flag on this phone'
+    const items = stop.items.length > 0 ? `: ${stop.items.join('; ')}` : ''
+    redFlag = `${set} stays on after the import${items}. It clears only here, with a note.`
+  }
+  return { redFlag, changes: on.changes.map((change) => settingChangeWords(change, phases)) }
 }
 
 /** A file from an older app, carried forward: said so, so a surprise in it has a reason. */
