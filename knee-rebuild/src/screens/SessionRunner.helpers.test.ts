@@ -29,6 +29,7 @@ import {
   notHereWords,
   notInBagWords,
   notLoggedLabels,
+  notLoggedWords,
   offerNotes,
   parseStoredSlotIds,
   parseStoredSwaps,
@@ -352,9 +353,25 @@ describe('the gym in words (M4b, design section 4)', () => {
     expect(doneWords(hotel, [])).toEqual({ heading: 'Every required set is logged', line: 'Optional slots are still open below. Finish when you’re done.', bar: 'Every required set is logged.' })
     expect(doneWords(hotel, ['7 Step-off landing', '8 Lateral step-down'])).toEqual({
       heading: 'Every set Hotel gym can run is logged',
-      line: 'Nothing here for 7 Step-off landing, 8 Lateral step-down: tap a row below for Skip, Do it anyway or Swap, or finish.',
+      line: 'Nothing here for 7 Step-off landing; 8 Lateral step-down: tap a row below for Skip, Do it anyway or Swap, or finish.',
       bar: 'Every set Hotel gym can run is logged.',
     })
+  })
+
+  it('separates slots with semicolons, since program.md’s names carry their own commas', () => {
+    expect(doneWords(hotel, ['2 Seated leg curl', '5 Copenhagen plank, short lever']).line).toBe(
+      'Nothing here for 2 Seated leg curl; 5 Copenhagen plank, short lever: tap a row below for Skip, Do it anyway or Swap, or finish.',
+    )
+    // The M4b drive's Finish at Marriott Downtown: one set of the goblet squat logged, the rest open.
+    expect(notLoggedWords(['1 Goblet squat to a bench', '4 Lat pulldown', '5 Cable hip abduction, ankle strap', '6 Single-leg calf raise on a step'], true)).toBe(
+      'Not logged: 1 Goblet squat to a bench; 4 Lat pulldown; 5 Cable hip abduction, ankle strap; 6 Single-leg calf raise on a step. They keep last session’s prescription.',
+    )
+  })
+
+  it('Finish says every required set is logged, or every other one when the not-here line names some', () => {
+    expect(notLoggedWords([], false)).toBe('Every required set is logged.')
+    expect(notLoggedWords([], true)).toBe('Every other required set is logged.')
+    expect(notLoggedWords(['3 Dumbbell bench press'], false)).toBe('Not logged: 3 Dumbbell bench press. They keep last session’s prescription.')
   })
 
   it('Finish’s not-logged list leaves out the slots the not-here line already names', () => {

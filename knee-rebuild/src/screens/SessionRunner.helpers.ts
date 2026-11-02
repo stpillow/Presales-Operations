@@ -549,7 +549,7 @@ export function doneWords(gymName: string, held: readonly string[]): { heading: 
   if (held.length === 0) return { heading: 'Every required set is logged', line: 'Optional slots are still open below. Finish when you’re done.', bar: 'Every required set is logged.' }
   return {
     heading: `Every set ${gymName} can run is logged`,
-    line: `Nothing here for ${held.join(', ')}: tap a row below for Skip, Do it anyway or Swap, or finish.`,
+    line: `Nothing here for ${held.join('; ')}: tap a row below for Skip, Do it anyway or Swap, or finish.`,
     bar: `Every set ${gymName} can run is logged.`,
   }
 }
@@ -568,4 +568,15 @@ export function notLoggedLabels(
   return plans
     .filter((p) => !p.slot.optional && !stopped.has(p.slot.id) && !held.has(p.slot.id) && steps.some((s) => s.slotId === p.slot.id && !done.has(s.key)))
     .map((p) => `${p.slot.label} ${p.exercise.name}`)
+}
+
+/**
+ * Finish's line under the not-here line: the slots `notLoggedLabels` leaves open, separated by
+ * semicolons as the not-here line is (program.md's names carry their own commas: "5 Cable hip
+ * abduction, ankle strap"), or, with none open, that every required set (every other one, when the
+ * not-here line names some) is logged.
+ */
+export function notLoggedWords(labels: readonly string[], notHereSaid: boolean): string {
+  if (labels.length > 0) return `Not logged: ${labels.join('; ')}. They keep last session’s prescription.`
+  return notHereSaid ? 'Every other required set is logged.' : 'Every required set is logged.'
 }

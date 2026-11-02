@@ -23,7 +23,8 @@ export function FinishPanel({
   onBack,
 }: {
   notHere: string | null
-  notLogged: string[]
+  /** `notLoggedWords`' sentence: what is still open, or that every required set is logged. */
+  notLogged: string
   loggedCount: number
   loggedMax: number | null
   busy: boolean
@@ -51,13 +52,7 @@ export function FinishPanel({
     <section aria-label="Finish session" className="flex flex-col gap-4 rounded-md bg-navy-lift p-4">
       <h2 className="font-sans text-h3 font-semibold text-on-dark">Finish the session</h2>
       {notHere ? <p className="text-body text-on-dark-dim wrap-anywhere">{notHere}</p> : null}
-      {notLogged.length > 0 ? (
-        <p className="text-body text-on-dark-dim">
-          Not logged: {notLogged.join(', ')}. They keep last session&apos;s prescription.
-        </p>
-      ) : (
-        <p className="text-body text-on-dark-dim">{notHere ? 'Every other required set is logged.' : 'Every required set is logged.'}</p>
-      )}
+      <p className="text-body text-on-dark-dim">{notLogged}</p>
       <ScalePicker label="Max pain during the session" value={maxPain} options={PAIN_SCALE} onChange={setMaxPain} />
       <Button variant="primary" wide disabled={busy} onClick={() => onFinish(maxPain)}>
         Finish session

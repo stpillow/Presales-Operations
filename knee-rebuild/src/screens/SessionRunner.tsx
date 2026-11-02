@@ -34,6 +34,7 @@ import {
   notHereEntries,
   notHereWords,
   notLoggedLabels,
+  notLoggedWords,
   offerNotes,
   parseStoredSlotIds,
   parseStoredSwaps,
@@ -453,8 +454,8 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
 
   const sessionError = error?.at === 'session' ? error.text : null
 
-  const notLogged = notLoggedLabels(plans, steps, done, stopped, notHere)
   const notHereLine = notHereWords(location.name, notHereEntries(plans, loggedSlots, nameOf))
+  const notLogged = notLoggedWords(notLoggedLabels(plans, steps, done, stopped, notHere), notHereLine !== null)
   const finished = doneWords(
     location.name,
     plans.filter((p) => !p.slot.optional && notHere.has(p.slot.id)).map((p) => `${p.slot.label} ${p.exercise.name}`),
