@@ -10,6 +10,7 @@ import {
   atGymWords,
   dateWords,
   earlierPhaseWords,
+  exportLine,
   gymRows,
   itemWords,
   lackWords,
@@ -661,5 +662,23 @@ describe('a Hold run day at a gym', () => {
     expect(noCheck.body).toMatchObject({ kind: 'run', morning: null })
     const lift = todayView({ today: '2026-11-24', settings: settings({ currentPhase: 2, phaseEnteredWeek: 4 }), history: history(), program: PROGRAM })
     expect(lift.body).toMatchObject({ kind: 'lift', week: 4, phaseWeek: 1 })
+  })
+})
+
+describe('the export reminder (M6)', () => {
+  const run = (date: string): Run => ({ id: `run-${date}`, date, type: 'mbr', miles: 3, minutes: 30, effort: 'easy', maxPain: 0, strides: false, tempo: false })
+  const logged = { workouts: [], runs: [run('2026-11-02'), run('2026-11-04')], morningChecks: [], gateTests: [] }
+  const none = { workouts: [], runs: [], morningChecks: [], gateTests: [] }
+
+  it('says nothing until the last export is more than 7 days old, then counts the days', () => {
+    expect(exportLine('2026-11-10T15:00:00.000Z', '2026-11-17', logged)).toBeNull()
+    expect(exportLine('2026-11-10T15:00:00.000Z', '2026-11-18', logged)).toBe('No export in 8 days')
+    expect(exportLine('2026-11-10T15:00:00.000Z', '2026-11-19', logged)).toBe('No export in 9 days')
+  })
+
+  it('never exported: counts from the first day logged, and says nothing with nothing logged', () => {
+    expect(exportLine(undefined, '2026-11-09', logged)).toBeNull()
+    expect(exportLine(undefined, '2026-11-11', logged)).toBe('No export yet; the logs go back 9 days')
+    expect(exportLine(undefined, '2026-12-20', none)).toBeNull()
   })
 })
