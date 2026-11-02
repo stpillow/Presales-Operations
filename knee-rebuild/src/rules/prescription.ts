@@ -573,10 +573,11 @@ function toRack(here: Here, exercise: Exercise, out: Prescription[]): Prescripti
   const nothing = writtenAfter(here, exercise) ? 'nothing written to swap to is here' : 'nothing is written to swap to'
   const stops = rack > 0 ? `The rack stops at ${rack} lb and ${nothing}: ${rack} lb, rack-capped` : `There are no dumbbells here and ${nothing}: bodyweight, rack-capped`
   return out.map((p) =>
-    over(p)
+    over(p) && p.load !== null
       ? {
           ...p,
-          load: rack,
+          // Ascending sets: a first set already under the rack stays where it was; only what is past it comes down.
+          load: Math.min(p.load, rack),
           ...(p.perSet ? { perSet: p.perSet.map((s) => ({ ...s, load: Math.min(s.load, rack) })) } : {}),
           rackCapped: true,
           note: `${p.note} ${stops}, so the session won’t count as clean.`,

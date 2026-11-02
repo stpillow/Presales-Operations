@@ -311,6 +311,13 @@ describe('where you train (M4b): moves go forward on the slot’s list, to what 
       expect(p.note).toBe('Hold: repeat the last session’s loads and reps exactly. The rack stops at 25 lb and nothing written to swap to is here: 25 lb, rack-capped, so the session won’t count as clean.')
     })
 
+    it('ascending sets past the rack: only the sets past it come down; the lighter first set stays where it was', () => {
+      const ascending = [10, 25, 30].map((load, i) => setLog(i + 1, { exerciseId: 'single-leg-rdl', load, loadUnit: 'lb', reps: 10 }))
+      const p = rdl({ exercise: slRdl, readings: ['hold'], lastSets: ascending, gym: gym(25) })
+      expect(p).toMatchObject({ exerciseId: 'single-leg-rdl', load: 10, rackCapped: true, basis: 'repeat' })
+      expect(p.perSet).toEqual([{ load: 10, reps: 10 }, { load: 25, reps: 10 }, { load: 25, reps: 10 }])
+    })
+
     it('with nothing written to swap to, the rack max is rack-capped at Settings’ rack too', () => {
       const s = slot({ exerciseId: 'db-rdl', repsMin: 10, repsMax: 10 })
       const p = one({ slot: s, exercise: dbRdl, lastSets: rdlSets('db-rdl', 80) })
