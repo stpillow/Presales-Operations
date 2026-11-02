@@ -151,9 +151,13 @@ export function editorView(slot: Slot, override: ProgramOverride | undefined): E
   }
 }
 
-/** What the order of a slot's substitutions does, under the list. */
+/**
+ * What the order of a slot's substitutions does, under the list. The back-off is the engine's
+ * easier version (src/rules/prescription.ts): the next entry after the exercise the slot is on that
+ * this gym has, so each entry is also the back-off for the one before it (PROGRAM-QUESTIONS 79, 84).
+ */
 export const SUBSTITUTION_ORDER_NOTE =
-  'In this order, the gym moves the slot on when something isn’t here, Swap offers them, and a back-off on bodyweight work steps to the first one.'
+  'In this order, the gym moves the slot on when something isn’t here, Swap offers them, and a back-off on bodyweight work steps from the exercise the slot is on to the next one after it that this gym has.'
 
 /** "Back to program.md's", asked once inline before the slot's edits go. */
 export const RESET_ASK = 'Put this slot back to program.md’s cues and substitutions? Your edits to it go.'

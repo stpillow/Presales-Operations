@@ -3,11 +3,13 @@ import programMd from '../../docs/program.md?raw'
 import phasesChart from '../../docs/media/image1.png?inline'
 import mileageChart from '../../docs/media/image2.png?inline'
 import { program, templateFor } from '../program/program.ts'
+import { fallbacksAfter } from '../rules/equipment.ts'
 import { parseInline, parseMarkdown, type Block } from '../rules/markdown.ts'
 import { Settings, type ProgramOverride, type Slot } from '../schema/index.ts'
 import {
   CHART_SIZES,
   CUE_COUNT_FROM,
+  SUBSTITUTION_ORDER_NOTE,
   addSections,
   cueCountWords,
   editedDetail,
@@ -150,6 +152,31 @@ describe('removedWords', () => {
   it('names what came off the list', () => {
     expect(removedWords('cue', 'Feet high')).toBe('Removed the cue “Feet high”.')
     expect(removedWords('substitution', 'Goblet squat to a bench')).toBe('Removed Goblet squat to a bench from the substitutions.')
+  })
+})
+
+describe('SUBSTITUTION_ORDER_NOTE', () => {
+  // The back-off it describes is prescription.ts's easier version: `fallbacksAfter(slot, current)[0]`,
+  // the next entry after the exercise the slot is on that this gym has (PROGRAM-QUESTIONS 79 and 84).
+  const byId = new Map(program.exercises.map((e) => [e.id, e]))
+  const stepUps = seedSlot('p1-c', 'p1c-1')
+  const everything = new Set(program.equipment.map((e) => e.id))
+
+  it('says a back-off on bodyweight work steps to the next one after the exercise the slot is on, that this gym has', () => {
+    expect(SUBSTITUTION_ORDER_NOTE).toBe(
+      'In this order, the gym moves the slot on when something isn’t here, Swap offers them, and a back-off on bodyweight work steps from the exercise the slot is on to the next one after it that this gym has.',
+    )
+    expect(SUBSTITUTION_ORDER_NOTE).not.toContain('first one')
+  })
+
+  it('matches the rule: from the slot’s own exercise the first substitution, from the first the second, and past one the gym lacks', () => {
+    expect([stepUps.exerciseId, ...stepUps.substitutionIds]).toEqual(['step-up', 'step-up-stair', 'split-squat'])
+    expect(fallbacksAfter(stepUps, 'step-up', byId, everything)[0]?.id).toBe('step-up-stair')
+    // Already on its first substitution, the slot backs off to its second: never "the first one".
+    expect(fallbacksAfter(stepUps, 'step-up-stair', byId, everything)[0]?.id).toBe('split-squat')
+    // A gym with no stair: the back-off from the step-up passes over it to the one this gym has.
+    const noStair = new Set(program.equipment.map((e) => e.id).filter((id) => id !== 'stair'))
+    expect(fallbacksAfter(stepUps, 'step-up', byId, noStair)[0]?.id).toBe('split-squat')
   })
 })
 
