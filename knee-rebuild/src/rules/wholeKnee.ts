@@ -34,9 +34,12 @@ const happened = (w: Workout) => w.status === 'finished' || w.status === 'abando
  * The morning that makes a lift on `date` the next lift: the latest morning check on or before that
  * day that reads back-off, with no lift that happened (finished or abandoned) dated from its day to
  * the day before `date`. A later morning that reads clean doesn't undo it: the lift is still the
- * next one after the morning that complained. Null when there is none.
+ * next one after the morning that complained. Null when there is none, and with no date: only a
+ * dated session is a next lift, so a plan with no session day (the morning check's "next time"
+ * preview, a week on) never is (PROGRAM-QUESTIONS 85).
  */
-export function kneeMorning(checks: readonly MorningCheck[], workouts: readonly Workout[], date: IsoDate): KneeMorning | null {
+export function kneeMorning(checks: readonly MorningCheck[], workouts: readonly Workout[], date?: IsoDate): KneeMorning | null {
+  if (date === undefined) return null
   const lifts = workouts.filter((w) => happened(w) && w.date < date)
   const complaining = checks
     .filter((c) => c.date <= date && !lifts.some((w) => w.date >= c.date))

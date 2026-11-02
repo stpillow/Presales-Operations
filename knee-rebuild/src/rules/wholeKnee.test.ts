@@ -60,6 +60,11 @@ describe('kneeMorning: is this the next lift after a morning that read back off?
     expect(kneeMorning([swelling('2026-12-11')], [], '2026-12-10')).toBeNull()
   })
 
+  it('only a dated session can be the next lift: with no date there is none (the morning check\'s next-time preview)', () => {
+    expect(kneeMorning([swelling('2026-12-09')], [], undefined)).toBeNull()
+    expect(kneeMorning([swelling('2026-12-09')], [])).toBeNull()
+  })
+
   it('names the latest of two complaining mornings', () => {
     expect(kneeMorning([swelling('2026-12-08'), check('2026-12-09', { painChangePoints: 2 })], [], '2026-12-10')).toEqual({ date: '2026-12-09', reasons: ['pain up 2 points'] })
   })

@@ -3,7 +3,7 @@ import type { Exercise, MorningCheck, SetLog, Slot, Workout } from '../schema/in
 import { addDays } from './calendar.ts'
 import { attachChecks } from './history.ts'
 import { prescribe } from './prescription.ts'
-import { slotExercise, type SlotExerciseInput } from './slotExercise.ts'
+import { sessionSlotExercise, slotExercise, type SlotExerciseInput } from './slotExercise.ts'
 
 // Question 55: after a back-off moves a slot to its easier version, two cleans on it bring the slot back.
 
@@ -192,6 +192,29 @@ describe('slotExercise: the easier version and the way back (PROGRAM-QUESTIONS 5
   it('two holds in a row on Nordics are a back-off, and move the slot the same way', () => {
     const holds: Logged[] = [{ date: '2027-01-01', exerciseId: 'nordic', read: 'hold' }, { date: '2027-01-05', exerciseId: 'nordic', read: 'hold' }, curl('2027-01-08', 'clean')]
     expect(slotExercise(input(holds)).exercise).toBe(legCurl)
+  })
+})
+
+describe('sessionSlotExercise: a swap chosen for the session beats the slot\'s history', () => {
+  const onCurls = [backedOff, curl('2027-01-08', 'clean')]
+  it('with nothing chosen the history decides', () => {
+    expect(sessionSlotExercise(input(onCurls), undefined)).toEqual(slotExercise(input(onCurls)))
+  })
+  it('a substitution chosen while the history has the slot on the easier version runs, on its own history, with no placement', () => {
+    const lying: Logged = { date: '2026-12-01', exerciseId: 'lying-curl', read: 'hold', load: 30, reps: 10 }
+    const placed = sessionSlotExercise(input([lying, ...onCurls]), 'lying-curl')
+    expect(placed.exercise).toBe(lyingCurl)
+    expect(placed.readings).toEqual(['hold'])
+    expect(placed.lastSets.map((s) => s.load)).toEqual([30, 30, 30])
+    expect(placed.placement).toBeUndefined()
+  })
+  it('the slot\'s own exercise chosen runs on its own readings, the back-off standing', () => {
+    const placed = sessionSlotExercise(input(onCurls), 'nordic')
+    expect(placed).toMatchObject({ exercise: nordic, readings: ['back-off'] })
+    expect(placed.placement).toBeUndefined()
+  })
+  it('a choice that is not on the slot\'s list is ignored', () => {
+    expect(sessionSlotExercise(input(onCurls), 'leg-press')).toEqual(slotExercise(input(onCurls)))
   })
 })
 

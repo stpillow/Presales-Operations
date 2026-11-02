@@ -99,3 +99,15 @@ export function slotExercise(input: SlotExerciseInput): SlotExercise {
       : `On ${easier} since ${back} backed off; two clean readings in a row take the slot back to ${back}.`
   return { exercise: on, ...historyOf(input, on), placement: { note, returned: false } }
 }
+
+/**
+ * Which exercise a slot runs in the session being planned: a swap chosen for this session (the
+ * slot's own exercise or one of its substitutions) beats the slot's history and reads its own
+ * (`exerciseHistory`), with no placement; with nothing chosen, or a choice that isn't on the slot's
+ * list, the history decides (`slotExercise`). PROGRAM-QUESTIONS 84: a Swap chosen for the session
+ * still wins.
+ */
+export function sessionSlotExercise(input: SlotExerciseInput, chosenId: string | undefined): SlotExercise {
+  const chosen = chosenId === undefined ? undefined : [input.own, ...input.substitutions].find((e) => e.id === chosenId)
+  return chosen ? { exercise: chosen, ...historyOf(input, chosen) } : slotExercise(input)
+}
