@@ -380,8 +380,9 @@ export const SWAP_KEY_PREFIX = 'knee-rebuild:swaps:'
 /**
  * Wipes every table, settings and gyms included, and seeds them again through the launch path:
  * `defaults` as the settings row, then the home gym from them (ensureLocations' `homeLocation`).
- * One transaction, so a seed that fails its parse erases nothing. The Settings screen asks twice
- * before calling this.
+ * One transaction, so a seed that fails its parse erases nothing. Every table means the Program
+ * screen's edits too, and the settings row is `defaults` alone, so no `lastExportedAt` survives
+ * (M6). The Settings screen asks twice before calling this.
  */
 export async function resetAll(defaults: Settings, lists: HomeLists, createdOn: IsoDate): Promise<void> {
   const row: SettingsRow = { ...Settings.parse(defaults), id: SETTINGS_ID }
@@ -390,7 +391,14 @@ export async function resetAll(defaults: Settings, lists: HomeLists, createdOn: 
     await db.settings.put(row)
     await writeHome(lists, createdOn)
   })
-  // Workout ids repeat after a reset (they are the date and template), so stale swaps would come back.
+  forgetSwaps()
+}
+
+/**
+ * Takes the Session runner's swaps and Do it anyway out of local storage, after a reset or an
+ * import: workout ids repeat (they are the date and template), so stale ones would come back.
+ */
+export function forgetSwaps(): void {
   try {
     const keys: string[] = []
     for (let i = 0; i < window.localStorage.length; i++) {
