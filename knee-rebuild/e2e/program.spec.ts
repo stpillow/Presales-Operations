@@ -136,3 +136,50 @@ test('Remove says so with Put it back where the tap was, and the undo outlives D
   await putBack.click()
   await expect(slot.getByRole('listitem').filter({ hasText: cue })).toHaveCount(1)
 })
+
+/** Done editing at y 560, after a refused reword and a new cue left in its field. */
+async function closeWithWordsBelow(page: Page): Promise<void> {
+  const slot = legPressSlot(page)
+  await editButton(page).click()
+  await slot.getByRole('textbox', { name: 'Cue 1' }).fill('x'.repeat(230))
+  await newCueField(page).fill('Knee over the second toe')
+  await expect(slot.getByText('A cue runs to 200 characters', { exact: false }).first()).toBeVisible()
+  const done = doneButton(page)
+  await scrollTo(page, done, 560)
+  const before = await topOf(done)
+  await done.click()
+  // The same button, now Edit, stays under the thumb, with what it says under it on screen.
+  const edit = editButton(page)
+  await expect(edit).toBeVisible()
+  expect(Math.abs((await topOf(edit)) - before)).toBeLessThan(4)
+  await expect(slot.getByText('Cue 1 is kept as it was until it fits.', { exact: false })).toBeInViewport()
+  await expect(slot.getByText('Your new cue wasn’t added yet', { exact: false })).toBeInViewport()
+}
+
+test('Done editing keeps the slot under the thumb without scroll anchoring, so what it says under it is on screen', async ({ page }) => {
+  await withoutScrollAnchoring(page)
+  await closeWithWordsBelow(page)
+})
+
+test('Done editing keeps the slot under the thumb with scroll anchoring too', async ({ page }) => {
+  await closeWithWordsBelow(page)
+})
+
+for (const anchoring of [false, true]) {
+  test(`another slot’s Edit, under an open editor, opens that slot where it was tapped${anchoring ? ', with scroll anchoring' : ''}`, async ({ page }) => {
+    if (!anchoring) await withoutScrollAnchoring(page)
+    await opensWhereTapped(page)
+  })
+}
+
+async function opensWhereTapped(page: Page): Promise<void> {
+  await editButton(page).click()
+  const pulldown = page.getByRole('button', { name: /^Edit cues and substitutions for Lat pulldown/ })
+  await scrollTo(page, pulldown, 560)
+  const heading = page.getByRole('region', { name: 'Session A' }).getByRole('heading', { name: 'Lat pulldown', level: 3 })
+  const before = await topOf(heading)
+  await pulldown.click()
+  await expect(page.getByRole('button', { name: /^Done editing Lat pulldown/ })).toBeVisible()
+  expect(Math.abs((await topOf(heading)) - before)).toBeLessThan(4)
+  await expect(heading).toBeInViewport()
+}

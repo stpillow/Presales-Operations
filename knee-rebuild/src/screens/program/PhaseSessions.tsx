@@ -1,4 +1,4 @@
-import { useEffect, useState, type Dispatch, type SetStateAction } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { Button } from '../../components/Button.tsx'
 import { overridesBySlot, withPutBack } from '../../rules/overrides.ts'
 import type { IsoDate, ProgramOverride } from '../../schema/index.ts'
@@ -63,12 +63,28 @@ function SlotCard({ row, override, today, open, onToggle }: { row: SlotRow; over
       setStanding(editFailedWords('Put it back', e))
     }
   }
+  // The tapped card keeps its place on screen as its editor opens or closes: its top on opening (an
+  // editor above it may close in the same tap), its button on closing, so the button and what it says
+  // under it stay under the thumb. Done here, not left to the browser's scroll anchoring, which iOS
+  // Safari before 27 doesn't have; where the browser anchored already, nothing has moved to correct.
+  const itemRef = useRef<HTMLLIElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const anchor = useRef<{ el: HTMLElement; top: number } | null>(null)
+  useLayoutEffect(() => {
+    const held = anchor.current
+    anchor.current = null
+    if (!held) return
+    const moved = held.el.getBoundingClientRect().top - held.top
+    if (Math.abs(moved) >= 1) window.scrollBy(0, moved)
+  }, [open])
   const toggle = () => {
+    const el = open ? buttonRef.current : itemRef.current
+    anchor.current = el ? { el, top: el.getBoundingClientRect().top } : null
     if (!open) setStanding(null)
     onToggle()
   }
   return (
-    <li className="flex flex-col gap-3 border-t border-on-dark-faint pt-4">
+    <li ref={itemRef} className="flex flex-col gap-3 border-t border-on-dark-faint pt-4">
       <div className="flex flex-col gap-1">
         {/* "Edited" sits beside the label in words: an edit never rides on color or a mark alone. */}
         <p className={LABEL}>
@@ -119,7 +135,7 @@ function SlotCard({ row, override, today, open, onToggle }: { row: SlotRow; over
         <SlotEditor slot={row.slot} override={override} today={today} onStanding={setStanding} newCue={newCue} onNewCue={setNewCue} removed={removed} onRemoved={setRemoved} />
       ) : null}
       {/* One button under the slot or its editor, the same element either way, so focus stays on it. */}
-      <Button wide aria-expanded={open} aria-label={`${open ? 'Done editing' : 'Edit cues and substitutions for'} ${row.exerciseName}, slot ${row.label}`} onClick={toggle}>
+      <Button ref={buttonRef} wide aria-expanded={open} aria-label={`${open ? 'Done editing' : 'Edit cues and substitutions for'} ${row.exerciseName}, slot ${row.label}`} onClick={toggle}>
         {open ? 'Done editing' : 'Edit cues and substitutions'}
       </Button>
       {!open && standing ? <Problem>{standing}</Problem> : null}
