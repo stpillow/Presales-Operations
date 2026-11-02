@@ -297,7 +297,6 @@ describe('symmetry forms: hop tests (PROGRAM-QUESTIONS 108, Shawn Nov 2)', () =>
 describe('symmetry forms: load tests', () => {
   it('a load test needs both sides; the line says what is missing', () => {
     expect(formBlocker({ injured: [80], other: [null] }, null)).toBe('Enter both sides to save')
-    expect(formBlocker({ injured: [80], other: [0] }, null)).toBe('Enter both sides to save')
     expect(formBlocker({ injured: [80], other: [100] }, null)).toBeNull()
     expect(symmetryLine({ injured: 80, other: null }, 0.8)).toBe('Enter the other side to see the symmetry.')
     expect(symmetryLine({ injured: null, other: null }, 0.8)).toBe('Enter both sides to see the symmetry.')
@@ -332,6 +331,18 @@ describe('symmetry forms: load tests', () => {
     expect(formBlocker(hop, 3, hop)).toBe('Saved; change a value to save another')
     expect(formBlocker(setValue(hop, 'injured', 1, 57), 3, hop)).toBeNull()
     expect(sameForm(setValue(hop, 'injured', 1, 0), hop)).toBe(false)
+  })
+
+  it('a 0 lb side: the line and the Save button say the same thing, never a percent beside "Enter both sides"', () => {
+    const needs = 'A load test needs a load on each side, so 0 can’t be saved'
+    for (const form of [{ injured: [0], other: [10] }, { injured: [10], other: [0] }, { injured: [0], other: [0] }]) {
+      expect(formBlocker(form, null)).toBe(needs)
+      expect(symmetryLine(formBest(form), 0.9, true)).toBe(`${needs}.`)
+      expect(buildTest({ gate: gate3, item: { id: 'x', text: 'x', evaluator: 'symmetry', threshold: 0.9, testItem: 'bulgarian-load' }, form, today: TODAY, id: 't' })).toEqual({ ok: false, blocker: needs })
+    }
+    // Loads on both sides read as before; hop trials keep 0 as a trial (PROGRAM-QUESTIONS 108).
+    expect(symmetryLine({ injured: 70, other: 100 }, 0.8, true)).toBe('70% · the line is 80%: not yet')
+    expect(symmetryLine({ injured: 0, other: 62 }, 0.9)).toBe('0% · the line is 90%: not yet')
   })
 
   it('a load not entered shows in words, and Enter starts it at the exercise’s first step, not at 0 (a hop starts at 0)', () => {

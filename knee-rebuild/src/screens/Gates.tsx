@@ -339,7 +339,7 @@ function SymmetryBlock({
       <SideFields label={entry.sides.injured} side="injured" values={form.injured} best={best.injured} entry={entry} onEdit={onEdit} />
       <SideFields label={entry.sides.other} side="other" values={form.other} best={best.other} entry={entry} onEdit={onEdit} />
       <p role="status" aria-live="polite" className="text-body text-on-dark">
-        {symmetryLine(best, entry.threshold)}
+        {symmetryLine(best, entry.threshold, entry.trials === null)}
       </p>
       <Button wide disabled={blocker !== null || busy} onClick={onSave}>
         {saving ? 'Saving…' : (blocker ?? 'Save this test')}

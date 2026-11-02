@@ -188,15 +188,21 @@ export function bestWords(best: number | null, unit: string): string {
   return best === null ? 'Best: nothing entered yet' : `Best ${best} ${unit}`
 }
 
+/** Why a load test with a 0 on a side can't save: the line and the Save button say the same. */
+export const ZERO_LOAD_BLOCKER = 'A load test needs a load on each side, so 0 can’t be saved'
+
 /**
  * The live symmetry against the gate's line, from the two bests: "90.3% · the line is 90%: passes".
- * 0 on the injured side reads 0%; 0 on the other side is no percent at all, and the line says so.
+ * On a hop test 0 on the injured side reads 0%, and 0 on the other side is no percent at all, and
+ * the line says so. On a load test (`loadTest`) a 0 on either side can't be saved, so the line says
+ * what Save says rather than a percent beside a refusal.
  */
-export function symmetryLine(best: FormBest, threshold: number): string {
+export function symmetryLine(best: FormBest, threshold: number, loadTest = false): string {
   const { injured, other } = best
   if (injured === null && other === null) return 'Enter both sides to see the symmetry.'
   if (injured === null) return 'Enter the injured side to see the symmetry.'
   if (other === null) return 'Enter the other side to see the symmetry.'
+  if (loadTest && !(injured > 0 && other > 0)) return `${ZERO_LOAD_BLOCKER}.`
   const pct = symmetryPercent(injured, other)
   if (pct === null) return injured === 0 ? 'Both sides are 0, so there is no percent.' : 'The other side is 0, so there is no percent.'
   return `${pct}% · the line is ${lineWords(threshold)}: ${meetsSymmetry(injured, other, threshold) ? 'passes' : 'not yet'}`
@@ -226,7 +232,8 @@ export function formBlocker(form: SymmetryForm, trials: number | null, lastSaved
     if (symmetryPercent(best.injured, best.other) === null) return best.injured === 0 ? 'Both sides are 0, so there is no percent to save' : 'The other side is 0, so there is no percent to save'
     return null
   }
-  if (best.injured === null || best.other === null || !(best.injured > 0) || !(best.other > 0)) return 'Enter both sides to save'
+  if (best.injured === null || best.other === null) return 'Enter both sides to save'
+  if (!(best.injured > 0) || !(best.other > 0)) return ZERO_LOAD_BLOCKER
   return null
 }
 
