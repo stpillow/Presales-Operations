@@ -138,7 +138,11 @@ function NewLocation({ locations }: { locations: Location[] }) {
             autoComplete="off"
             enterKeyHint="done"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => {
+              setName(e.target.value)
+              // A refusal speaks to the name as it was; typing again starts it over.
+              setProblem(null)
+            }}
             className="tap w-full rounded-sm bg-ink px-3 text-body text-on-dark"
           />
           <Note>{nameCountWords(name)}</Note>
@@ -541,6 +545,7 @@ function TypedSection({
           onChange={(e) => {
             setText(e.target.value)
             setResult(null)
+            setDone(null)
           }}
           className="tap w-full rounded-sm bg-ink px-3 text-body text-on-dark"
         />
