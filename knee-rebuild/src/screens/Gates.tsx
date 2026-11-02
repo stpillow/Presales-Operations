@@ -31,6 +31,7 @@ import {
   type ItemView,
   type SymmetryEntry,
   type SymmetryForm,
+  type Trial,
 } from './Gates.helpers.ts'
 
 const TITLE = 'Gates'
@@ -134,7 +135,7 @@ function GateScreen({ today, settings, history }: { today: IsoDate; settings: Se
 
   const formFor = (itemId: string, entry: SymmetryEntry): SymmetryForm => drafts[itemId] ?? openForm(entry.trials, entry.prefill)
 
-  function edit(itemId: string, entry: SymmetryEntry, side: Side, index: number, value: number) {
+  function edit(itemId: string, entry: SymmetryEntry, side: Side, index: number, value: Trial) {
     setDrafts((all) => ({ ...all, [itemId]: setValue(all[itemId] ?? openForm(entry.trials, entry.prefill), side, index, value) }))
     setSaved((all) => withoutKey(all, itemId))
   }
@@ -258,7 +259,7 @@ function ItemRow({
   saved: string | null
   form: SymmetryForm | null
   onTick: (value: boolean) => void
-  onEdit: (side: Side, index: number, value: number) => void
+  onEdit: (side: Side, index: number, value: Trial) => void
   onSave: () => void
 }) {
   const ticking = pending?.kind === 'tick' && pending.itemId === row.item.id ? pending : null
@@ -306,14 +307,18 @@ function SymmetryBlock({
   saving: boolean
   busy: boolean
   saved: string | null
-  onEdit: (side: Side, index: number, value: number) => void
+  onEdit: (side: Side, index: number, value: Trial) => void
   onSave: () => void
 }) {
   const best = formBest(form)
   const blocker = entry.key === null ? 'This item has no test key in the program data' : formBlocker(form, entry.trials)
   return (
     <div className="flex flex-col gap-4 border-l-2 border-on-dark-faint pl-3">
-      <p className="text-small text-on-dark-muted">{entry.trials !== null ? `${entry.trials} trials per side, in inches. The best of each side counts.` : entry.prefillLine}</p>
+      <p className="text-small text-on-dark-muted">
+        {entry.trials !== null
+          ? `Up to ${entry.trials} trials per side, in inches; the best of each side counts, and one trial a side is enough to save. A hop you couldn’t do is 0; a trial left not entered doesn’t count.`
+          : entry.prefillLine}
+      </p>
       <SideFields label={entry.sides.injured} side="injured" values={form.injured} best={best.injured} entry={entry} onEdit={onEdit} />
       <SideFields label={entry.sides.other} side="other" values={form.other} best={best.other} entry={entry} onEdit={onEdit} />
       <p role="status" aria-live="polite" className="text-body text-on-dark">
@@ -342,10 +347,10 @@ function SideFields({
 }: {
   label: string
   side: Side
-  values: number[]
-  best: number
+  values: Trial[]
+  best: number | null
   entry: SymmetryEntry
-  onEdit: (side: Side, index: number, value: number) => void
+  onEdit: (side: Side, index: number, value: Trial) => void
 }) {
   if (entry.trials === null) {
     return <Stepper label={label} unit={entry.unit} decimal step={entry.step} min={0} max={MAX_LOAD} value={values[0] ?? 0} onChange={(n) => onEdit(side, 0, n)} />
@@ -354,10 +359,41 @@ function SideFields({
     <fieldset className="flex flex-col gap-2">
       <legend className={`${LABEL} pb-2`}>{label}</legend>
       {values.map((value, i) => (
-        <Stepper key={i} label={`Trial ${i + 1}`} unit={entry.unit} decimal step={entry.step} min={0} max={MAX_INCHES} value={value} onChange={(n) => onEdit(side, i, n)} />
+        <TrialField key={i} label={`Trial ${i + 1}`} unit={entry.unit} step={entry.step} value={value} onChange={(v) => onEdit(side, i, v)} />
       ))}
       <p className="text-body text-on-dark-dim">{bestWords(best, entry.unit)}</p>
     </fieldset>
+  )
+}
+
+/**
+ * One hop trial. The Stepper can only hold a number, and 0 is a trial (a hop he couldn't do), so a
+ * trial starts as the words "Not entered" with an Enter button that puts it at 0; Clear takes it back.
+ */
+function TrialField({ label, unit, step, value, onChange }: { label: string; unit: string; step: number; value: Trial; onChange: (value: Trial) => void }) {
+  if (value === null) {
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <span className="text-body text-on-dark-dim">
+          {label}
+          <span className="text-on-dark-muted"> ({unit})</span>
+        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-small text-on-dark-muted">Not entered</span>
+          <Button aria-label={`Enter ${label.toLowerCase()}, starting at 0`} onClick={() => onChange(0)}>
+            Enter
+          </Button>
+        </div>
+      </div>
+    )
+  }
+  return (
+    <div className="flex flex-col gap-1">
+      <Stepper label={label} unit={unit} decimal step={step} min={0} max={MAX_INCHES} value={value} onChange={onChange} />
+      <Button variant="quiet" className="self-end" aria-label={`Clear ${label.toLowerCase()}: back to not entered`} onClick={() => onChange(null)}>
+        Clear
+      </Button>
+    </div>
   )
 }
 

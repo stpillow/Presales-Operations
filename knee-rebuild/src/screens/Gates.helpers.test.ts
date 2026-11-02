@@ -164,7 +164,7 @@ describe('done criterion: gate 1 evaluates from logged data alone', () => {
     const legPress = byId(view, 'g1-sl-leg-press')
     if (legPress.kind !== 'symmetry') throw new Error('expected a symmetry item')
     expect(legPress.entry.prefill).toBeNull()
-    expect(openForm(legPress.entry.trials, legPress.entry.prefill)).toEqual({ injured: [0], other: [0] })
+    expect(openForm(legPress.entry.trials, legPress.entry.prefill)).toEqual({ injured: [null], other: [null] })
     expect(legPress.entry.prefillLine).toBe('Nothing to prefill: no session has logged both sides of this exercise (Single-leg leg press) yet. Enter the loads from the test.')
   })
 })
@@ -181,7 +181,9 @@ describe('done criterion: the hop-test worked example', () => {
     expect(hop.entry.sides).toEqual({ injured: 'Right · injured', other: 'Left' })
 
     let form = openForm(hop.entry.trials, hop.entry.prefill)
-    expect(form).toEqual({ injured: [0, 0, 0], other: [0, 0, 0] })
+    // Every trial starts not entered: a 0 would be a hop he couldn't do.
+    expect(form).toEqual({ injured: [null, null, null], other: [null, null, null] })
+    expect(symmetryLine(formBest(form), hop.entry.threshold)).toBe('Enter both sides to see the symmetry.')
     ;[50, 56, 54].forEach((v, i) => (form = setValue(form, 'injured', i, v)))
     ;[60, 62, 61].forEach((v, i) => (form = setValue(form, 'other', i, v)))
     const best = formBest(form)
@@ -213,22 +215,74 @@ describe('done criterion: the hop-test worked example', () => {
   })
 })
 
-describe('symmetry forms', () => {
-  it('a hop test saves only with every trial entered on both sides', () => {
-    expect(formBlocker({ injured: [56, 0, 54], other: [60, 62, 0] }, 3)).toBe('Enter all three trials on each side to save (4 of 6 entered)')
-    expect(formBlocker({ injured: [56, 50, 54], other: [60, 62, 61] }, 3)).toBeNull()
-    const hop = gate3.items[0]
-    if (!hop) throw new Error('no hop item')
-    expect(buildTest({ gate: gate3, item: hop, form: { injured: [56, 0, 0], other: [62, 0, 0] }, today: TODAY, id: 't' })).toEqual({ ok: false, blocker: 'Enter all three trials on each side to save (2 of 6 entered)' })
+describe('symmetry forms: hop tests (PROGRAM-QUESTIONS 86, Shawn Nov 2)', () => {
+  const hop = gate3.items[0]
+  if (!hop) throw new Error('no hop item')
+  const phase3 = settings({ currentPhase: 3, phaseEnteredWeek: 8 })
+
+  it('saves once one trial on each side is entered; trials not entered are left out of the test', () => {
+    const none = openForm(3, null)
+    expect(formBlocker(none, 3)).toBe('Enter at least one trial on each side to save')
+    const injuredOnly = setValue(none, 'injured', 0, 56)
+    expect(formBlocker(injuredOnly, 3)).toBe('Enter at least one trial on each side to save')
+    expect(symmetryLine(formBest(injuredOnly), 0.9)).toBe('Enter the other side to see the symmetry.')
+    expect(symmetryLine(formBest(setValue(none, 'other', 2, 62)), 0.9)).toBe('Enter the injured side to see the symmetry.')
+
+    const form = setValue(injuredOnly, 'other', 1, 62)
+    expect(form).toEqual({ injured: [56, null, null], other: [null, 62, null] })
+    expect(formBlocker(form, 3)).toBeNull()
+    expect(formBest(form)).toEqual({ injured: 56, other: 62 })
+    expect(symmetryLine(formBest(form), 0.9)).toBe('90.3% · the line is 90%: passes')
+    expect(buildTest({ gate: gate3, item: hop, form, today: TODAY, id: 't' })).toEqual({
+      ok: true,
+      test: { id: 't', date: TODAY, gate: 3, item: 'single-hop', valueInjured: 56, valueOther: 62, trialsInjured: [56], trialsOther: [62], pass: true, manual: false },
+    })
   })
 
+  it('0 is a trial (he couldn’t hop), distinct from not entered: 0 on the injured side reads 0% and fails', () => {
+    let form = setValue(openForm(3, null), 'injured', 0, 0)
+    expect(form.injured).toEqual([0, null, null])
+    expect(formBest(form).injured).toBe(0)
+    expect(bestWords(0, 'in')).toBe('Best 0 in')
+    expect(bestWords(null, 'in')).toBe('Best: nothing entered yet')
+    // Clearing a trial takes it back to not entered.
+    expect(setValue(form, 'injured', 0, null).injured).toEqual([null, null, null])
+
+    form = setValue(setValue(form, 'other', 0, 62), 'other', 1, 60)
+    expect(symmetryLine(formBest(form), 0.9)).toBe('0% · the line is 90%: not yet')
+    expect(formBlocker(form, 3)).toBeNull()
+    const draft = buildTest({ gate: gate3, item: hop, form, today: TODAY, id: 'gate-test-2026-11-22T16:00:00.000Z-single-hop' })
+    if (!draft.ok) throw new Error(draft.blocker)
+    expect(draft.test).toMatchObject({ valueInjured: 0, valueOther: 62, trialsInjured: [0], trialsOther: [62, 60], pass: false, manual: false })
+
+    const after = gatesView({ today: TODAY, settings: phase3, history: { ...loggedPhase1(), gateTests: [draft.test] }, program: PROGRAM })
+    const evaluated = byId(after, 'g3-single-hop')
+    expect(evaluated).toMatchObject({ pass: false, mark: '○', word: 'Not yet', detail: '0% (0 vs 62) against a 90% line, tested Sunday Nov 22.' })
+    if (evaluated.kind !== 'symmetry') throw new Error('expected a symmetry item')
+    expect(evaluated.entry.earlier[0]).toMatchObject({ percent: '0%', values: '0 vs 62 in', pass: false, word: '○ not yet' })
+  })
+
+  it('0 on both sides cannot be a percent: the line says so and Save waits', () => {
+    const form = { injured: [0, null, null], other: [0, 0, null] }
+    expect(symmetryLine(formBest(form), 0.9)).toBe('Both sides are 0, so there is no percent.')
+    expect(formBlocker(form, 3)).toBe('Both sides are 0, so there is no percent to save')
+    expect(buildTest({ gate: gate3, item: hop, form, today: TODAY, id: 't' })).toEqual({ ok: false, blocker: 'Both sides are 0, so there is no percent to save' })
+    // The other side alone at 0 can't be a percent either.
+    const otherZero = { injured: [20, null, null], other: [0, null, null] }
+    expect(symmetryLine(formBest(otherZero), 0.9)).toBe('The other side is 0, so there is no percent.')
+    expect(formBlocker(otherZero, 3)).toBe('The other side is 0, so there is no percent to save')
+  })
+})
+
+describe('symmetry forms: load tests', () => {
   it('a load test needs both sides; the line says what is missing', () => {
+    expect(formBlocker({ injured: [80], other: [null] }, null)).toBe('Enter both sides to save')
     expect(formBlocker({ injured: [80], other: [0] }, null)).toBe('Enter both sides to save')
     expect(formBlocker({ injured: [80], other: [100] }, null)).toBeNull()
-    expect(symmetryLine({ injured: 80, other: 0 }, 0.8)).toBe('Enter the other side to see the symmetry.')
-    expect(symmetryLine({ injured: 0, other: 0 }, 0.8)).toBe('Enter both sides to see the symmetry.')
+    expect(symmetryLine({ injured: 80, other: null }, 0.8)).toBe('Enter the other side to see the symmetry.')
+    expect(symmetryLine({ injured: null, other: null }, 0.8)).toBe('Enter both sides to see the symmetry.')
     expect(symmetryLine({ injured: 70, other: 100 }, 0.8)).toBe('70% · the line is 80%: not yet')
-    expect(bestWords(0, 'in')).toBe('Best: nothing entered yet')
+    expect(openForm(null, { date: '2026-12-01', injured: 80, other: 100 })).toEqual({ injured: [80], other: [100] })
   })
 
   it('an item without a test key cannot save', () => {
@@ -239,8 +293,8 @@ describe('symmetry forms', () => {
   it('setValue changes one value and leaves the form it came from alone', () => {
     const form = openForm(3, null)
     const next = setValue(form, 'other', 1, 62)
-    expect(next).toEqual({ injured: [0, 0, 0], other: [0, 62, 0] })
-    expect(form.other).toEqual([0, 0, 0])
+    expect(next).toEqual({ injured: [null, null, null], other: [null, 62, null] })
+    expect(form.other).toEqual([null, null, null])
   })
 })
 

@@ -29,4 +29,10 @@ describe('symmetry', () => {
     expect(bestOfTrials([50, 56, 54])).toBe(56)
     expect(bestOfTrials([])).toBe(0)
   })
+  it('a 0 is a trial: 0 on the injured side reads 0% and fails; 0 against 0 is no percent (PROGRAM-QUESTIONS 86)', () => {
+    expect(bestOfTrials([0])).toBe(0)
+    expect(symmetryPercent(0, 62)).toBe(0)
+    expect(meetsSymmetry(0, 62, 0.9)).toBe(false)
+    expect(symmetryPercent(0, 0)).toBeNull()
+  })
 })

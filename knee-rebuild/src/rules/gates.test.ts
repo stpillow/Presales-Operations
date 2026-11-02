@@ -82,6 +82,13 @@ describe('evaluateGate (rule 8)', () => {
     expect(result.items[0]).toMatchObject({ pass: true, detail: expect.stringContaining('90.3%') })
   })
 
+  it('a hop test with one trial a side reads its bests; 0 on the injured side reads 0% and fails (PROGRAM-QUESTIONS 86)', () => {
+    const one = test({ gate: 3, item: 'single-hop', trialsInjured: [56], trialsOther: [62], valueInjured: 56, valueOther: 62 })
+    expect(evaluateGate(gate3, ctx({ gateTests: [one] })).items[0]).toMatchObject({ pass: true, detail: expect.stringContaining('90.3% (56 vs 62)') })
+    const zero = test({ gate: 3, item: 'single-hop', trialsInjured: [0], trialsOther: [62, 60], valueInjured: 0, valueOther: 62 })
+    expect(evaluateGate(gate3, ctx({ gateTests: [zero] })).items[0]).toMatchObject({ pass: false, detail: expect.stringContaining('0% (0 vs 62)') })
+  })
+
   it('no swelling after plyos needs checks, no swelling, and a Phase 3 A or C session in the window', () => {
     const plyo: Workout = { id: 'w9', date: '2026-11-18', templateId: 'p3-a', phase: 3, week: 8, isDeload: true, status: 'finished' }
     expect(evaluateGate(gate3, ctx({ morningChecks: [check('2026-11-19')], workouts: [plyo] })).items[1]?.pass).toBe(true)

@@ -152,64 +152,93 @@ export function loadPrefill(records: readonly WorkoutRecord[], exerciseId: strin
   return null
 }
 
+/**
+ * One value in a form: a trial or a load, or null when it isn't entered. A hop trial of 0 is a
+ * trial (he couldn't hop), not a blank (PROGRAM-QUESTIONS 86); the Stepper can only show numbers,
+ * so not entered lives here.
+ */
+export type Trial = number | null
+
 /** One side's values: the trials of a hop test, or the one value of a load test. */
 export interface SymmetryForm {
-  injured: number[]
-  other: number[]
+  injured: Trial[]
+  other: Trial[]
 }
 
-/** A fresh form: the trials at 0 for a hop test, else the prefill's loads (or 0 with nothing to prefill from). */
+/** Each side's best so far; null when nothing is entered on that side. */
+export interface FormBest {
+  injured: number | null
+  other: number | null
+}
+
+/** A fresh form: every trial not entered for a hop test, else the prefill's loads (not entered with nothing to prefill from). */
 export function openForm(trials: number | null, prefill: LoadPrefill | null): SymmetryForm {
-  if (trials !== null) return { injured: Array.from({ length: trials }, () => 0), other: Array.from({ length: trials }, () => 0) }
-  return { injured: [prefill?.injured ?? 0], other: [prefill?.other ?? 0] }
+  if (trials !== null) return { injured: Array.from({ length: trials }, () => null), other: Array.from({ length: trials }, () => null) }
+  return { injured: [prefill?.injured ?? null], other: [prefill?.other ?? null] }
 }
 
-/** The form with one value changed. */
-export function setValue(form: SymmetryForm, side: 'injured' | 'other', index: number, value: number): SymmetryForm {
+/** The form with one value changed; null takes it back to not entered. */
+export function setValue(form: SymmetryForm, side: 'injured' | 'other', index: number, value: Trial): SymmetryForm {
   const values = form[side].map((v, i) => (i === index ? value : v))
   return { ...form, [side]: values }
 }
 
-/** Each side's best: the best of three for a hop test (bestOfTrials), the one value otherwise. */
-export function formBest(form: SymmetryForm): { injured: number; other: number } {
-  return { injured: bestOfTrials(form.injured), other: bestOfTrials(form.other) }
+/** The values a side has entered, in order: what a saved test stores as its trials. */
+export function enteredValues(values: readonly Trial[]): number[] {
+  return values.filter((v): v is number => v !== null)
 }
 
-/** A side's best, kept and shown: "Best 56 in", or that nothing is entered yet. */
-export function bestWords(best: number, unit: string): string {
-  return best > 0 ? `Best ${best} ${unit}` : 'Best: nothing entered yet'
+function bestEntered(values: readonly Trial[]): number | null {
+  const entered = enteredValues(values)
+  return entered.length === 0 ? null : bestOfTrials(entered)
 }
 
-/** The live symmetry against the gate's line: "90.3% · the line is 90%: passes". */
-export function symmetryLine(best: { injured: number; other: number }, threshold: number): string {
-  const pct = symmetryPercent(best.injured, best.other)
-  if (pct === null) return best.injured > 0 ? 'Enter the other side to see the symmetry.' : 'Enter both sides to see the symmetry.'
-  return `${pct}% · the line is ${lineWords(threshold)}: ${meetsSymmetry(best.injured, best.other, threshold) ? 'passes' : 'not yet'}`
+/** Each side's best: the best of the entered trials for a hop test (bestOfTrials), the one value otherwise. */
+export function formBest(form: SymmetryForm): FormBest {
+  return { injured: bestEntered(form.injured), other: bestEntered(form.other) }
 }
 
-const COUNT_WORD: Record<number, string> = { 1: 'one', 2: 'two', 3: 'three', 4: 'four', 5: 'five' }
+/** A side's best, kept and shown: "Best 56 in" ("Best 0 in" when he couldn't hop), or that nothing is entered yet. */
+export function bestWords(best: number | null, unit: string): string {
+  return best === null ? 'Best: nothing entered yet' : `Best ${best} ${unit}`
+}
 
 /**
- * Why the form can't be saved yet, in words, or null when it can. A hop test is best of three on
- * each leg (program.md), so every trial is entered; a load test needs a value on each side.
+ * The live symmetry against the gate's line, from the two bests: "90.3% · the line is 90%: passes".
+ * 0 on the injured side reads 0%; 0 on the other side is no percent at all, and the line says so.
+ */
+export function symmetryLine(best: FormBest, threshold: number): string {
+  const { injured, other } = best
+  if (injured === null && other === null) return 'Enter both sides to see the symmetry.'
+  if (injured === null) return 'Enter the injured side to see the symmetry.'
+  if (other === null) return 'Enter the other side to see the symmetry.'
+  const pct = symmetryPercent(injured, other)
+  if (pct === null) return injured === 0 ? 'Both sides are 0, so there is no percent.' : 'The other side is 0, so there is no percent.'
+  return `${pct}% · the line is ${lineWords(threshold)}: ${meetsSymmetry(injured, other, threshold) ? 'passes' : 'not yet'}`
+}
+
+/**
+ * Why the form can't be saved yet, in words, or null when it can. A hop test saves with at least
+ * one trial entered on each side, a 0 included (Shawn, Nov 2), but not when the other side's best
+ * is 0: that is no percent. A load test needs a load on each side.
  */
 export function formBlocker(form: SymmetryForm, trials: number | null): string | null {
+  const best = formBest(form)
   if (trials !== null) {
-    const all = [...form.injured, ...form.other]
-    const entered = all.filter((v) => v > 0).length
-    if (entered < all.length) return `Enter all ${COUNT_WORD[trials] ?? trials} trials on each side to save (${entered} of ${all.length} entered)`
+    if (best.injured === null || best.other === null) return 'Enter at least one trial on each side to save'
+    if (symmetryPercent(best.injured, best.other) === null) return best.injured === 0 ? 'Both sides are 0, so there is no percent to save' : 'The other side is 0, so there is no percent to save'
     return null
   }
-  const best = formBest(form)
-  if (!(best.injured > 0) || !(best.other > 0)) return 'Enter both sides to save'
+  if (best.injured === null || best.other === null || !(best.injured > 0) || !(best.other > 0)) return 'Enter both sides to save'
   return null
 }
 
 export type TestDraft = { ok: true; test: GateTest } | { ok: false; blocker: string }
 
 /**
- * The GateTest a symmetry form saves: the best of each side as the values, the trials when the item
- * has trials, and the pass from meetsSymmetry against the item's line. Never manual.
+ * The GateTest a symmetry form saves: the best of each side as the values, the entered trials when
+ * the item has trials (a trial not entered isn't stored), and the pass from meetsSymmetry against
+ * the item's line. Never manual.
  */
 export function buildTest(input: { gate: Pick<Gate, 'number'>; item: GateItem; form: SymmetryForm; today: IsoDate; id: string }): TestDraft {
   const { gate, item, form, today, id } = input
@@ -217,7 +246,9 @@ export function buildTest(input: { gate: Pick<Gate, 'number'>; item: GateItem; f
   const trials = item.trials ?? null
   const blocker = formBlocker(form, trials)
   if (blocker) return { ok: false, blocker }
-  const best = formBest(form)
+  const { injured, other } = formBest(form)
+  // formBlocker has already said no to a side with nothing entered; this only narrows the types.
+  if (injured === null || other === null) return { ok: false, blocker: 'Enter both sides to save' }
   return {
     ok: true,
     test: {
@@ -225,10 +256,10 @@ export function buildTest(input: { gate: Pick<Gate, 'number'>; item: GateItem; f
       date: today,
       gate: gate.number,
       item: item.testItem,
-      valueInjured: best.injured,
-      valueOther: best.other,
-      ...(trials !== null ? { trialsInjured: [...form.injured], trialsOther: [...form.other] } : {}),
-      pass: meetsSymmetry(best.injured, best.other, lineOf(item)),
+      valueInjured: injured,
+      valueOther: other,
+      ...(trials !== null ? { trialsInjured: enteredValues(form.injured), trialsOther: enteredValues(form.other) } : {}),
+      pass: meetsSymmetry(injured, other, lineOf(item)),
       manual: false,
     },
   }
