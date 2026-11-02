@@ -32,6 +32,7 @@ import {
   painWords,
   phaseWords,
   redFlagView,
+  resetWords,
   restTimerWords,
   shareFailure,
   shareRoute,
@@ -43,20 +44,21 @@ import {
 } from './Settings.helpers.ts'
 
 const TITLE = 'Settings'
-const ERASED = 'Everything on this phone was erased. Settings are back to their defaults.'
 const FLASH_MS = 1500
 
 /** Which part of the screen a save, a Saved word or a problem belongs to. */
-type Field = 'injuredSide' | 'startDate' | 'restTimerSeconds' | 'painPerSet' | 'redFlag' | 'export' | 'reset'
+type Field = 'injuredSide' | 'startDate' | 'restTimerSeconds' | 'painPerSet' | 'redFlag' | 'export'
 type Problem = { field: Field; text: string } | null
 type ResetStep = 'idle' | 'confirm' | 'erasing'
+/** What a reset came to (`resetWords`), said in the Reset section where Yes was tapped. */
+type ResetResult = ReturnType<typeof resetWords>
 
 /**
  * Resetting storage seeds the settings row and the home gym again in the same transaction, but if
  * the app shell swaps this screen out meanwhile, what the reset came to waits here for the next
- * mount to say it.
+ * mount to say it, in the Reset section.
  */
-let pendingNotice: string | null = null
+let pendingReset: ResetResult | null = null
 
 /**
  * Set by Today's "No export in 9 days · Export": the next Settings mount opens at its Export
@@ -103,8 +105,8 @@ function SettingsForm({ stored }: { stored: SettingsRecord }) {
   const mounted = useRef(false)
   const [savedField, flashSaved] = useFlash()
   const [problem, setProblem] = useState<Problem>(null)
-  const [notice, setNotice] = useState<string | null>(null)
   const [resetStep, setResetStep] = useState<ResetStep>('idle')
+  const [resetResult, setResetResult] = useState<ResetResult | null>(null)
   // What the last start-date change did to the stored session moves, when it dropped any.
   const [movesNotice, setMovesNotice] = useState<string | null>(null)
   // Where the red-flag section sits is settled once per visit: clearing it, the Saved word that follows, and a
@@ -113,9 +115,9 @@ function SettingsForm({ stored }: { stored: SettingsRecord }) {
 
   useEffect(() => {
     mounted.current = true
-    if (pendingNotice !== null) {
-      setNotice(pendingNotice)
-      pendingNotice = null
+    if (pendingReset !== null) {
+      setResetResult(pendingReset)
+      pendingReset = null
     }
     return () => {
       mounted.current = false
@@ -184,35 +186,36 @@ function SettingsForm({ stored }: { stored: SettingsRecord }) {
   async function eraseEverything(): Promise<void> {
     setResetStep('erasing')
     setProblem(null)
+    setResetResult(null)
     pending.current += 1
-    pendingNotice = ERASED
+    pendingReset = resetWords({ kind: 'erased' })
     try {
       await resetAll(defaultSettings(PROGRAM), PROGRAM, today)
     } catch (e) {
       pending.current -= 1
-      pendingNotice = null
+      pendingReset = null
       setResetStep('confirm')
-      setProblem({ field: 'reset', text: `Nothing was erased (${errorWords(e)}); tap again to retry.` })
+      setResetResult(resetWords({ kind: 'not-erased', error: e }))
       return
     }
     try {
       const seeded = await ensureSettings(defaultSettings(PROGRAM))
       pending.current -= 1
       if (mounted.current) {
-        pendingNotice = null
+        pendingReset = null
         adopt(seeded)
-        setNotice(ERASED)
+        setResetResult(resetWords({ kind: 'erased' }))
         setResetStep('idle')
       }
     } catch (e) {
       pending.current -= 1
-      const text = `Everything was erased, but the default settings did not save (${errorWords(e)}); reload the app to seed them again.`
+      const result = resetWords({ kind: 'not-seeded', error: e })
       if (mounted.current) {
-        pendingNotice = null
+        pendingReset = null
         setResetStep('idle')
-        setProblem({ field: 'reset', text })
+        setResetResult(result)
       } else {
-        pendingNotice = text
+        pendingReset = result
       }
     }
   }
@@ -223,12 +226,6 @@ function SettingsForm({ stored }: { stored: SettingsRecord }) {
 
   return (
     <Screen title={TITLE} lead="Each change saves on its own; a Saved word confirms it.">
-      {notice ? (
-        <p role="status" className="text-body text-on-dark">
-          {notice}
-        </p>
-      ) : null}
-
       {flagFirst ? redFlag : null}
 
       <Section label="Injured side" saved={savedField === 'injuredSide'} problem={problemFor('injuredSide')}>
@@ -301,9 +298,15 @@ function SettingsForm({ stored }: { stored: SettingsRecord }) {
 
       <ResetSection
         step={resetStep}
-        problem={problemFor('reset')}
-        onArm={() => setResetStep('confirm')}
-        onDisarm={() => setResetStep('idle')}
+        result={resetResult}
+        onArm={() => {
+          setResetResult(null)
+          setResetStep('confirm')
+        }}
+        onDisarm={() => {
+          setResetResult(null)
+          setResetStep('idle')
+        }}
         onErase={() => void eraseEverything()}
       />
     </Screen>
@@ -507,22 +510,31 @@ function RedFlagSection({
   )
 }
 
-/** Two taps to erase: "Reset all data", then "Yes, erase everything"; a way back out sits beside it. */
+/**
+ * Two taps to erase: "Reset all data", then "Yes, erase everything"; a way back out sits beside it.
+ * What the reset came to is said here, where Yes was tapped, and brought into view: the top of
+ * Settings is a long scroll up, and a mount after the app shell swapped Settings out starts there.
+ */
 function ResetSection({
   step,
-  problem,
+  result,
   onArm,
   onDisarm,
   onErase,
 }: {
   step: ResetStep
-  problem: string | null
+  result: ResetResult | null
   onArm: () => void
   onDisarm: () => void
   onErase: () => void
 }) {
+  const said = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    // Centered, so the tab bar fixed along the bottom never covers it.
+    if (result) said.current?.scrollIntoView({ block: 'center' })
+  }, [result])
   return (
-    <Section label="Reset" saved={false} problem={problem}>
+    <Section label="Reset" saved={false} problem={null}>
       {step === 'idle' ? (
         <Button wide onClick={onArm}>
           Reset all data
@@ -540,6 +552,17 @@ function ResetSection({
           </Button>
         </>
       )}
+      {/* The status line stays mounted, so the sentence is announced when it arrives; a problem is an alert. */}
+      <div ref={said} className="flex flex-col gap-2">
+        <p role="status" className={result && !result.problem ? 'text-body text-on-dark' : 'sr-only'}>
+          {result && !result.problem ? result.text : ''}
+        </p>
+        {result?.problem ? (
+          <p role="alert" className="text-body text-on-dark">
+            {result.text}
+          </p>
+        ) : null}
+      </div>
     </Section>
   )
 }

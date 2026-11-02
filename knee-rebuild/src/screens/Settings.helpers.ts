@@ -184,6 +184,21 @@ export function errorWords(error: unknown): string {
   return text.trim().length > 0 ? text.trim() : 'no reason was given'
 }
 
+/** How Reset all data ended: everything erased and the defaults seeded, nothing erased, or erased with the defaults not saved. */
+export type ResetOutcome = { kind: 'erased' } | { kind: 'not-erased'; error: unknown } | { kind: 'not-seeded'; error: unknown }
+
+/** What a reset came to, one sentence, said in the Reset section where Yes was tapped; `problem` when it didn't go as asked. */
+export function resetWords(outcome: ResetOutcome): { text: string; problem: boolean } {
+  switch (outcome.kind) {
+    case 'erased':
+      return { text: 'Everything on this phone was erased. Settings are back to their defaults.', problem: false }
+    case 'not-erased':
+      return { text: `Nothing was erased (${errorWords(outcome.error)}); tap again to retry.`, problem: true }
+    case 'not-seeded':
+      return { text: `Everything was erased, but the default settings did not save (${errorWords(outcome.error)}); reload the app to seed them again.`, problem: true }
+  }
+}
+
 // ---------------------------------------------------------------------------------------------
 // Backup: export and import (M6). What a file is and whether it may be imported is
 // src/rules/backup.ts's call; these name its answers and pick how the phone hands the file over.

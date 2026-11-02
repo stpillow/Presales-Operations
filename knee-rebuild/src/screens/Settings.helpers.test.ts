@@ -28,6 +28,7 @@ import {
   painWords,
   phaseWords,
   redFlagView,
+  resetWords,
   restTimerWords,
   sideWords,
   startDateChange,
@@ -243,6 +244,17 @@ describe('errorWords', () => {
     expect(errorWords(new Error('QuotaExceededError: storage is full'))).toBe('QuotaExceededError: storage is full')
     expect(errorWords('nope')).toBe('nope')
     expect(errorWords(new Error('  '))).toBe('no reason was given')
+  })
+})
+
+describe('resetWords', () => {
+  it('says what Reset all data came to in one sentence, for the Reset section where Yes was tapped, and whether it is a problem', () => {
+    expect(resetWords({ kind: 'erased' })).toEqual({ text: 'Everything on this phone was erased. Settings are back to their defaults.', problem: false })
+    expect(resetWords({ kind: 'not-erased', error: new Error('QuotaExceededError') })).toEqual({ text: 'Nothing was erased (QuotaExceededError); tap again to retry.', problem: true })
+    expect(resetWords({ kind: 'not-seeded', error: new Error('  ') })).toEqual({
+      text: 'Everything was erased, but the default settings did not save (no reason was given); reload the app to seed them again.',
+      problem: true,
+    })
   })
 })
 
