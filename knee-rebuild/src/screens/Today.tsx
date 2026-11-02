@@ -8,7 +8,7 @@ import { Screen } from '../components/Screen.tsx'
 import { useHistory, useSettings } from '../db/hooks.ts'
 import { putWorkout, reopenWorkout } from '../db/repo.ts'
 import type { IsoDate, Settings } from '../schema/index.ts'
-import { newWorkoutId, todayView, type OpenWorkout, type TodayBody, type TodayView, type YesterdayLine } from './Today.helpers.ts'
+import { newWorkoutId, runLabel, runWeekWords, suggestionWords, todayView, type OpenWorkout, type TodayBody, type TodayView, type YesterdayLine } from './Today.helpers.ts'
 
 const LABEL = 'font-mono text-small uppercase tracking-[0.22em] text-on-dark-muted'
 const SECTION = 'flex flex-col gap-4'
@@ -60,7 +60,7 @@ export function Today() {
       ) : view.body.kind === 'lift' ? (
         <LiftBlock body={view.body} settings={settings} today={today} takenIds={history.workouts.map((w) => w.id)} />
       ) : view.body.kind === 'run' ? (
-        <RunBlock label={view.body.label} note={view.body.note} />
+        <RunBlock body={view.body} />
       ) : (
         <OffBlock label={view.body.label} />
       )}
@@ -224,15 +224,30 @@ function FinishedBlock({ body }: { body: Lift }) {
   )
 }
 
-function RunBlock({ label, note }: { label: string; note: string | null }) {
+function RunBlock({ body }: { body: Extract<TodayBody, { kind: 'run' }> }) {
+  const s = body.suggestion ? suggestionWords(body.suggestion) : null
   return (
     <section aria-label="Scheduled session" className={SECTION}>
-      <h2 className={HEADING}>{label}</h2>
-      {note ? <p className="text-body text-on-dark-dim">{note}</p> : null}
-      <Button variant="primary" wide onClick={() => navigate({ name: 'run' })}>
-        Log the run
+      <h2 className={HEADING}>{body.label}</h2>
+      {body.note ? <p className="text-body text-on-dark-dim">{body.note}</p> : null}
+      {body.loggedToday.length > 0 ? (
+        <p className="text-body text-on-dark">
+          ✓ Logged today: {body.loggedToday.map((r) => `${runLabel(r.type)}${r.miles > 0 ? `, ${r.miles} mi` : ''}`).join('; ')}.
+        </p>
+      ) : s ? (
+        <div className="flex flex-col gap-1">
+          <p className="text-body text-on-dark">{s.headline}</p>
+          {s.reasons.map((r) => (
+            <p key={r} className="text-small text-on-dark-dim">
+              {r}
+            </p>
+          ))}
+        </div>
+      ) : null}
+      <p className="text-small text-on-dark-dim">{runWeekWords(body)}</p>
+      <Button variant={body.loggedToday.length > 0 ? 'secondary' : 'primary'} wide onClick={() => navigate({ name: 'run' })}>
+        {body.loggedToday.length > 0 ? 'Log another run' : 'Log the run'}
       </Button>
-      <p className="text-small text-on-dark-muted">The run logger arrives in M4.</p>
     </section>
   )
 }

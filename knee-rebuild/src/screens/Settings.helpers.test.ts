@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Settings } from '../schema/index.ts'
+import type { SessionMove, Settings } from '../schema/index.ts'
 import {
   DUMBBELL_PRESETS,
   DUMBBELL_STEP,
@@ -10,6 +10,7 @@ import {
   clearedSettings,
   dateWords,
   deloadWeeksLine,
+  droppedMovesWords,
   errorWords,
   mondaysAround,
   painWords,
@@ -17,6 +18,7 @@ import {
   redFlagView,
   restTimerWords,
   sideWords,
+  startDateChange,
   weekLine,
 } from './Settings.helpers.ts'
 
@@ -91,6 +93,44 @@ describe('checkStartDate', () => {
     expect(checkStartDate('')).toEqual({ ok: false, message: 'Pick a date. Week 1 starts on it, and the deload weeks hang off it.', mondays: [] })
     expect(checkStartDate('2026-02-30')).toEqual({ ok: false, message: '"2026-02-30" is not a calendar date.', mondays: [] })
     expect(checkStartDate('nope')).toMatchObject({ ok: false, mondays: [] })
+  })
+})
+
+describe('startDateChange', () => {
+  const moves: SessionMove[] = [
+    { id: 'move-000001', week: 1, dayA: 'mon', dayB: 'tue' },
+    { id: 'move-000002', week: 2, dayA: 'thu', dayB: 'fri' },
+    { id: 'move-000003', week: 3, dayA: 'wed', dayB: 'sat' },
+  ]
+  it('keeps each move on the dates it was made for, and says nothing when none is dropped (M4 review)', () => {
+    // A start moved a week earlier renumbers every move one week later.
+    expect(startDateChange(START, '2026-10-26', moves)).toEqual({ moves: moves.map((m) => ({ ...m, week: m.week + 1 })), dropped: 0, notice: null, phaseEnteredWeek: 2 })
+    expect(startDateChange(START, START, moves)).toEqual({ moves, dropped: 0, notice: null, phaseEnteredWeek: 1 })
+    expect(startDateChange(START, '2026-11-09', [])).toEqual({ moves: [], dropped: 0, notice: null, phaseEnteredWeek: 1 })
+    // The week the current phase was entered stays on its calendar week too.
+    expect(startDateChange(START, '2026-11-09', [], 4).phaseEnteredWeek).toBe(3)
+  })
+  it('drops a move that falls before the new week 1 and says how many', () => {
+    const later = startDateChange(START, '2026-11-09', moves)
+    expect(later.moves).toEqual([
+      { id: 'move-000002', week: 1, dayA: 'thu', dayB: 'fri' },
+      { id: 'move-000003', week: 2, dayA: 'wed', dayB: 'sat' },
+    ])
+    expect(later.dropped).toBe(1)
+    expect(later.notice).toBe('1 session move was for a week before the new week 1, so it was dropped. The other 2 stay on the dates they were made for.')
+    expect(startDateChange(START, '2026-11-23', moves)).toEqual({ moves: [], dropped: 3, notice: '3 session moves were for weeks before the new week 1, so they were dropped.', phaseEnteredWeek: 1 })
+  })
+  it('refuses start dates that are not whole weeks apart, as the rule does', () => {
+    expect(() => startDateChange(START, '2026-11-10', moves)).toThrow(RangeError)
+  })
+})
+
+describe('droppedMovesWords', () => {
+  it('is silent when nothing was dropped, and counts the dropped and the kept otherwise', () => {
+    expect(droppedMovesWords(0, 4)).toBeNull()
+    expect(droppedMovesWords(1, 0)).toBe('1 session move was for a week before the new week 1, so it was dropped.')
+    expect(droppedMovesWords(2, 1)).toBe('2 session moves were for weeks before the new week 1, so they were dropped. The other one stays on the dates it was made for.')
+    expect(droppedMovesWords(1, 3)).toBe('1 session move was for a week before the new week 1, so it was dropped. The other 3 stay on the dates they were made for.')
   })
 })
 

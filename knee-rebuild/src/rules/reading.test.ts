@@ -90,8 +90,12 @@ describe('combinedReading (rule 3)', () => {
 describe('morningCheckApplies', () => {
   const workout = { kind: 'workout' as const, id: 'w1', date: '2026-11-03' }
   it('follows an explicit link', () => {
-    expect(morningCheckApplies(check({ appliesTo: { kind: 'workout', id: 'w1' } }), workout)).toBe(true)
-    expect(morningCheckApplies(check({ appliesTo: { kind: 'workout', id: 'w2' }, date: '2026-11-04' }), workout)).toBe(false)
+    expect(morningCheckApplies(check({ appliesTo: { kind: 'workout', id: 'w1' }, date: '2026-11-09' }), workout)).toBe(true)
+  })
+  it('a link adds its session; it no longer hides the rest of the day before (M4 review)', () => {
+    expect(morningCheckApplies(check({ appliesTo: { kind: 'workout', id: 'w2' }, date: '2026-11-04' }), workout)).toBe(true)
+    expect(morningCheckApplies(check({ appliesTo: { kind: 'run', id: 'r1' }, date: '2026-11-04' }), workout)).toBe(true)
+    expect(morningCheckApplies(check({ appliesTo: { kind: 'workout', id: 'w2' }, date: '2026-11-06' }), workout)).toBe(false)
   })
   it('otherwise only the morning after counts: a same-day check describes the day before', () => {
     expect(morningCheckApplies(check({ date: '2026-11-04' }), workout)).toBe(true)

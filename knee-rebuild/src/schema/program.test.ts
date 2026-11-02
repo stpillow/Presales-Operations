@@ -44,13 +44,20 @@ describe('data/program.json', () => {
     }
   })
 
-  it('mileage plan matches the chart: 10 to 18 by week 11, down weeks 4, 8 and 12', () => {
+  it('mileage plan: the chart’s climb to 18 by week 11, held flat in deload weeks 4, 8 and 12 (Shawn, Nov 1)', () => {
     const miles = program.mileagePlan.map((w) => w.targetMiles)
-    expect(miles).toEqual([10, 11, 12, 9, 13, 14, 15, 11, 16, 17, 18, 14])
+    expect(miles).toEqual([10, 11, 12, 12, 13, 14, 15, 15, 16, 17, 18, 18])
+    // Only climbs, never decreases (PROGRAM-QUESTIONS 1).
+    for (let i = 1; i < miles.length; i++) expect(miles[i]).toBeGreaterThanOrEqual(miles[i - 1] ?? 0)
     expect(program.mileagePlan.filter((w) => w.isDown).map((w) => w.week)).toEqual([4, 8, 12])
     expect(program.mileagePlan.map((w) => w.week)).toEqual(Array.from({ length: 12 }, (_, i) => i + 1))
   })
 
+  it('selectorized machines log pounds in 5 lb steps, not plate numbers (Shawn, Nov 1)', () => {
+    const stacks = program.exercises.filter((e) => e.loadType === 'stack')
+    expect(stacks.length).toBeGreaterThan(0)
+    for (const e of stacks) expect({ id: e.id, unit: e.loadUnit, step: e.increment }).toEqual({ id: e.id, unit: 'lb', step: 5 })
+  })
   it('the mileage down weeks are the lifting deload weeks', () => {
     expect(program.mileagePlan.filter((w) => w.isDown).map((w) => w.week)).toEqual([...DELOAD_WEEKS])
   })

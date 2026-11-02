@@ -6,6 +6,8 @@ import {
   openWorkouts,
   phaseName,
   runLabel,
+  runWeekWords,
+  suggestionWords,
   sessionLabel,
   sessionLetter,
   sessionNote,
@@ -45,6 +47,7 @@ const PROGRAM: ProgramLike = {
     { id: 'numbness', text: 'Numbness or tingling below the knee' },
   ],
   templates: [template('p1-a', 1, 'A'), template('p1-b', 1, 'B'), template('p1-c', 1, 'C'), template('p2-a', 2, 'A')],
+  mileagePlan: [10, 11, 12, 9, 13, 14, 15, 11, 16, 17, 18, 14].map((targetMiles, i) => ({ week: i + 1, targetMiles, isDown: [4, 8, 12].includes(i + 1) })),
 }
 
 const settings = (over: Partial<Settings> = {}): Settings => ({
@@ -251,7 +254,7 @@ describe('todayView', () => {
     expect(v.body.kind === 'lift' && v.body.template?.id).toBe('p2-a')
   })
   it('a run day points at the run logger with the program’s note; the off day carries its note', () => {
-    expect(view('2026-11-02').body).toEqual({ kind: 'run', label: 'Run: MBR', note: 'Easy and conversational' })
+    expect(view('2026-11-02').body).toMatchObject({ kind: 'run', label: 'Run: MBR', note: 'Easy and conversational', target: 10, weekMiles: 0, loggedToday: [] })
     expect(view('2026-11-08').body).toEqual({ kind: 'off', label: 'Off: Kona walk and mobility only' })
   })
   it('follows a moved session', () => {
@@ -302,5 +305,58 @@ describe('todayView', () => {
     expect(v.body.kind).toBe('run')
     expect(v.yesterday).toEqual([{ label: 'Session A', result: 'hold', checkDone: true }])
     expect(v.open).toEqual([{ workoutId: 'w0', label: 'Session C', dateWords: 'Monday, November 2' }])
+  })
+})
+
+describe('run days', () => {
+  const view = (today: string, s: Partial<Settings> = {}, h: Partial<HistoryLike> = {}) => todayView({ today, settings: settings(s), history: history(h), program: PROGRAM })
+  const run = (date: string, miles: number, type: Run['type'] = 'mbr'): Run => ({ id: `r-${date}`, date, type, miles, minutes: 30, effort: 'easy', maxPain: 1, strides: false, tempo: false })
+  it('suggests the run’s share of the week, under the ceiling', () => {
+    const v = view('2026-11-06', {}, { runs: [run('2026-11-02', 3), run('2026-11-04', 3, 'easy')] })
+    expect(v.body).toMatchObject({ kind: 'run', weekMiles: 6, target: 10 })
+    expect(v.body.kind === 'run' && v.body.suggestion?.miles).toBe(4)
+  })
+  it('shows what was already logged today', () => {
+    const v = view('2026-11-02', {}, { runs: [run('2026-11-02', 3)] })
+    expect(v.body.kind === 'run' && v.body.loggedToday.map((r: Run) => r.miles)).toEqual([3])
+  })
+  it('shows the cap’s reason only when the rule capped the week (M4 review)', () => {
+    // Week 3 (plan 12) logs 12 miles and one run reads hold; week 4 is the down week, plan 9.
+    const weekThree = [run('2026-11-16', 3.5), { ...run('2026-11-18', 3.5, 'easy'), maxPain: 4 }, run('2026-11-20', 5, 'long')]
+    const checks = ['2026-11-17', '2026-11-19', '2026-11-21'].map((date) => check(date))
+    const deload = view('2026-11-23', {}, { runs: weekThree, morningChecks: checks })
+    expect(deload.body).toMatchObject({ kind: 'run', target: 9, capped: false })
+    expect(deload.body.kind === 'run' && runWeekWords(deload.body)).toBe('This week: 0 of 9 miles')
+    // Week 1 logs 6 of 10 with a hold, so week 2 (plan 11) is capped at 6.
+    const weekOne = [run('2026-11-02', 3), { ...run('2026-11-04', 3, 'easy'), maxPain: 4 }]
+    const capped = view('2026-11-09', {}, { runs: weekOne, morningChecks: [check('2026-11-03'), check('2026-11-05')] })
+    expect(capped.body).toMatchObject({ kind: 'run', target: 6, capped: true })
+    expect(capped.body.kind === 'run' && runWeekWords(capped.body)).toBe('This week: 0 of 6 miles · last week read hold: capped at last week’s 6 miles')
+  })
+  it('names no target outside the plan', () => {
+    const v = view('2027-01-25', { currentPhase: 3, phaseEnteredWeek: 8 }, { runs: [run('2027-01-25', 2)] })
+    expect(v.body).toMatchObject({ kind: 'run', target: null, capped: false })
+    expect(v.body.kind === 'run' && runWeekWords(v.body)).toBe('This week: 2 miles')
+  })
+  it('a hold morning suggests the swap', () => {
+    const check = { id: 'm', date: '2026-11-04', appliesTo: null, stiffnessUnder30Min: true, worseThanYesterday: true, visibleSwelling: false, warmth: false, painChangePoints: 1, redFlags: [] }
+    const v = view('2026-11-04', {}, { morningChecks: [check] })
+    expect(v.body.kind === 'run' && v.body.suggestion?.swapSuggested).toBe(true)
+    expect(v.body.kind === 'run' && v.body.suggestion && suggestionWords(v.body.suggestion).headline).toBe('Suggested: a 30 to 40 minute elliptical or rower swap')
+  })
+  it('prints the engine’s headline and its reasons as sentences, writing no prescription of its own (M4 review)', () => {
+    const clean = check('2026-11-06')
+    const v = view('2026-11-06', {}, { runs: [run('2026-11-02', 3), run('2026-11-04', 3, 'easy')], morningChecks: [clean] })
+    if (v.body.kind !== 'run' || !v.body.suggestion) throw new Error('expected a run suggestion')
+    expect(suggestionWords(v.body.suggestion)).toEqual({ headline: `Suggested: ${v.body.suggestion.headline}`, reasons: [] })
+    expect(suggestionWords(v.body.suggestion).headline).toBe('Suggested: 4 miles')
+    // Outside the plan the engine has no miles; whatever it says is what the screen prints.
+    const late = view('2027-01-29', { currentPhase: 3, phaseEnteredWeek: 8 }, { morningChecks: [check('2027-01-29')] })
+    if (late.body.kind !== 'run' || !late.body.suggestion) throw new Error('expected a run suggestion')
+    expect(suggestionWords(late.body.suggestion).headline).toBe(`Suggested: ${late.body.suggestion.headline}`)
+    expect(suggestionWords(late.body.suggestion).reasons).toEqual(late.body.suggestion.reasons.map((r) => `${r.charAt(0).toUpperCase()}${r.slice(1)}.`))
+    expect(suggestionWords(late.body.suggestion).reasons).toContain('Carry a 2 × 5 min comfortably-hard segment with 3 min easy between.')
+    // ...and the headline over that tempo does not say easy.
+    expect(suggestionWords(late.body.suggestion).headline).toBe('Suggested: distance by feel')
   })
 })

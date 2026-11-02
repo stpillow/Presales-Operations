@@ -108,3 +108,27 @@ Method: a five-angle adversarial review run as a workflow (data integrity; rule 
 Not fixed, logged: the Stop panel's count starts at the prefilled target rather than blank (relabelled instead); the engine never moves a slot back from a back-off substitution (PROGRAM-QUESTIONS 55, before Phase 2).
 
 Verified in a browser drive after the fixes: the full Session A loop, a mid-exercise swap asking for a load again, End then Resume reopening the same session, and a malformed link landing on Today, with no console errors.
+
+## Findings, M4 (Nov 2, 2026)
+
+Method: the same five-angle workflow as M3 (data integrity; rule fidelity and placement; the run logger, Week and Today against the M4 brief; security and robustness; dates and edge cases), up to six findings per angle, three skeptics per finding (code reading, the spec, reproduction), two confirmations to survive. A usage limit stopped the first run; it resumed from cache. 22 reported, 20 survived, most reproduced with a script; they collapse to 11 defects. A fix workflow then ran a rules fixer, two screen fixers on disjoint files and an independent verifier, who confirmed all 20 against code and tests and re-ran the browser drive (15 checks, no console errors).
+
+| # | Finding | Fix |
+|---|---|---|
+| 47 | A run logged later for a day whose next-morning check was linked to that day's lift read hold for good and capped next week, with false words on two screens | A stored link adds its session and no longer hides the rest of the day before (`morningCheckApplies`; PROGRAM-QUESTIONS 52 updated) |
+| 48 | A lift day with only a run logged read "✓ Done" while Today still offered the lift | `sessionDone`: Done only when what was logged is that day's session |
+| 49 | After a hold morning the suggestion still told him to carry a tempo, strides or a faster effort | Reasons come from the final flags |
+| 50 | With no morning check yet, the suggestion treated the morning as clean | Miles stand; strides, the tempo and any faster effort wait on a clean check (PROGRAM-QUESTIONS 60) |
+| 51 | A capped run rounded up past the week's ceiling and printed float noise ("3.9000000000000004") | Floor to the quarter mile; round what is left |
+| 52 | Today judged the cap by matching the reason string and wrote its own run prescription text | `capped` drives the words; `RunSuggestion.headline`; a cap at or above the plan is no cap |
+| 53 | Typing into a prefilled Stepper on iPhone appended: 4.5 over a suggested 3 saved 34.5 miles | Focus starts an empty field with the value as placeholder; an empty field keeps the value; miles capped at 30 |
+| 54 | A swap could save at 0 minutes, its only measure | "Set the minutes first" |
+| 55 | The logger planned whatever type was picked, so a run on a lift day got the long-run share and a tempo | Only the day's scheduled run gets a suggestion |
+| 56 | The logger's date followed the live clock across midnight and the week's turn, even after a pick | Pinned when the logger opens; a date that drops out blocks Save in words |
+| 57 | A Sunday run couldn't be dated Sunday on Monday, so its hold capped the wrong week | On a Monday, yesterday is a choice (PROGRAM-QUESTIONS 62) |
+| 58 | A new start date slid session moves onto other dates, including logged days | `rebaseMoves` in the same write as the date; dropped moves said in words; the phase-entered week rebased too; the date saves only on a tap (PROGRAM-QUESTIONS 61) |
+| 59 | (verifier) Past week 12 the headline said "easy, by feel" above the engine's own tempo line | "distance by feel" when a hard effort is on |
+| 60 | (verifier) A lift logged on a run day lost its summary link once Done meant the day's own session | The summary link follows any finished or abandoned lift |
+
+Not fixed, logged: a run with Time left untouched saves 0 minutes (runs measure miles; low); the run logger's swap heading is still its own words rather than the rule's headline (cosmetic; the decision is the rule's).
+

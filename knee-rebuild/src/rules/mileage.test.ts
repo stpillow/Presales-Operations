@@ -17,6 +17,11 @@ describe('weekTarget (rule 7)', () => {
   it('the cap never raises the target above the plan', () => {
     expect(weekTarget(plan, 4, { readings: ['hold'], actualMiles: 12 })).toMatchObject({ target: 9, capped: false })
   })
+  it('a cap at or above the plan’s number is not a cap: the reason says the plan (M4 review)', () => {
+    expect(weekTarget(plan, 4, { readings: ['hold'], actualMiles: 12 })).toEqual({ target: 9, capped: false, reason: 'from the plan' })
+    expect(weekTarget(plan, 4, { readings: ['clean', 'back-off'], actualMiles: 9 })).toEqual({ target: 9, capped: false, reason: 'from the plan' })
+    expect(weekTarget(plan, 4, { readings: ['back-off'], actualMiles: 8.5 })).toEqual({ target: 8.5, capped: true, reason: 'last week read back-off: capped at last week’s 8.5 miles' })
+  })
   it('is null outside the 12 weeks', () => {
     expect(weekTarget(plan, 13, null).target).toBeNull()
   })
