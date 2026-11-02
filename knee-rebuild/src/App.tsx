@@ -13,7 +13,7 @@ import { Locations } from './screens/Locations.tsx'
 import { MorningCheck } from './screens/MorningCheck.tsx'
 import { More } from './screens/More.tsx'
 import { NextUpdate } from './screens/NextUpdate.tsx'
-import { Placeholder } from './screens/Placeholder.tsx'
+import { Program } from './screens/Program.tsx'
 import { Progress } from './screens/Progress.tsx'
 import { RunLogger } from './screens/RunLogger.tsx'
 import { SessionRunner } from './screens/SessionRunner.tsx'
@@ -98,7 +98,7 @@ export function App() {
           case 'gates':
             return <Gates />
           case 'program':
-            return <Placeholder title="Program" milestone="M6" what="The current phase's sessions, an editor for cues and substitutions, and program.md as reference." />
+            return <Program />
         }
       })()}
       {route.name === 'session' ? null : <TabBar route={route} />}
