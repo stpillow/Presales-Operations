@@ -71,9 +71,15 @@ export function suggestRun(input: {
   if (input.target !== null) {
     const split = runSplit(input.target)
     const share = type === 'long' ? split.long : split.others
-    const left = Math.max(0, input.target - input.milesSoFar)
-    miles = Math.round(Math.min(share, left) * 4) / 4
-    if (share > left) reasons.push(`capped at the ${left} miles left under this week's ${input.target}`)
+    // Hundredths, as miles are logged, so 10 - 6.1 is 3.9 and not 3.9000000000000004. A capped run
+    // rounds down to the quarter mile: rounding to the nearest could go over the ceiling.
+    const left = Math.max(0, Math.round((input.target - input.milesSoFar) * 100) / 100)
+    if (share > left) {
+      miles = Math.floor(left * 4 + 1e-9) / 4
+      reasons.push(`capped at the ${left} miles left under this week's ${input.target}`)
+    } else {
+      miles = share
+    }
   }
   const phase3 = input.currentPhase >= 3
   const plannedStrides = type === 'easy' && phase3

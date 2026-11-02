@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { MileageWeek, Run, WeeklyTemplate, Workout } from '../schema/index.ts'
 import type { SubjectReading } from './history.ts'
+import { weekMiles } from './mileage.ts'
 import { readingsInWeek, runTypeFor, runsInWeek, sessionDone, suggestRun, targetForWeek, weekDays, weekMilesSummary } from './weekPlan.ts'
 
 const START = '2026-11-02'
@@ -54,6 +55,16 @@ describe('suggestRun', () => {
     const s = suggestRun({ ...base, session: 'run:long', milesSoFar: 7.5 })
     expect(s?.miles).toBe(2.5)
     expect(s?.reasons.join(' ')).toContain('capped')
+  })
+  it('floors a capped run to the quarter mile and says what is left in hundredths, never float noise', () => {
+    const left = (logged: number[], target: number, session: 'run:long' | 'run:easy' = 'run:long') =>
+      suggestRun({ ...base, session, target, milesSoFar: weekMiles(logged.map((m, i) => run(`2026-11-0${i + 2}`, m))) })
+    expect(left([3.3, 3.3], 10)).toMatchObject({ miles: 3.25, reasons: ["capped at the 3.4 miles left under this week's 10"] })
+    expect(left([3.1, 3], 10)).toMatchObject({ miles: 3.75, reasons: ["capped at the 3.9 miles left under this week's 10"] })
+    expect(left([4.6, 4.5], 12)).toMatchObject({ miles: 2.75, reasons: ["capped at the 2.9 miles left under this week's 12"] })
+    expect(left([3.6, 3.5], 10, 'run:easy')).toMatchObject({ miles: 2.75, reasons: ["capped at the 2.9 miles left under this week's 10"] })
+    expect(left([3.25, 3], 10)).toMatchObject({ miles: 3.75 })
+    expect(left([5, 5.5], 10)).toMatchObject({ miles: 0, reasons: ["capped at the 0 miles left under this week's 10"] })
   })
   it('strides on Wednesdays and the tempo on Fridays from the third week, in Phase 3 only', () => {
     expect(suggestRun({ ...base, session: 'run:easy', currentPhase: 3, phaseWeek: 1 })?.strides).toBe(true)
