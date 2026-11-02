@@ -92,11 +92,34 @@ describe('slotExercise: the easier version and the way back (PROGRAM-QUESTIONS 5
     expect(p.note).toBe(`${placed.placement?.note} Clean once: same load, same target; clean again to progress.`)
   })
 
-  it('the easier version counts only its readings since the move: an older clean on it does not make two', () => {
+  it('a clean on the easier version from before the back-off counts toward the two, once one is since the move (Shawn, Nov 2)', () => {
     const { placed, p } = plan(input([curl('2026-12-01', 'clean'), backedOff, curl('2027-01-08', 'clean')]))
+    expect(placed.exercise).toBe(nordic)
+    expect(placed.placement).toEqual({ note: 'Back on Nordic negatives: Leg curls read clean twice.', returned: true })
+    expect(p).toMatchObject({ exerciseId: 'nordic', basis: 'repeat' })
+  })
+
+  it('cleans from before the back-off alone never bring the slot back: the back-off is served at least once', () => {
+    const before = [curl('2026-12-01', 'clean'), curl('2026-12-04', 'clean'), backedOff]
+    const { placed, p } = plan(input(before))
+    expect(placed.exercise).toBe(nordic)
+    expect(placed.placement).toBeUndefined()
+    expect(p).toMatchObject({ exerciseId: 'leg-curl', basis: 'back-off', note: 'Back off: the easier version, Leg curls.' })
+    expect(slotExercise(input([...before, curl('2027-01-08', 'clean')])).placement?.returned).toBe(true)
+  })
+
+  it('a hold on the easier version from before the back-off still breaks the run of cleans', () => {
+    const placed = slotExercise(input([curl('2026-12-01', 'hold'), backedOff, curl('2027-01-08', 'clean')]))
     expect(placed.exercise).toBe(legCurl)
-    expect(placed.readings).toEqual(['clean'])
-    expect(p.basis).toBe('same')
+    expect(placed.readings).toEqual(['clean', 'hold'])
+    expect(placed.placement?.note).toMatch(/clean once/)
+  })
+
+  it('the easier version prescribes from all its readings, as every exercise does: an older hold and a hold since are two holds', () => {
+    const { placed, p } = plan(input([curl('2026-12-01', 'hold'), backedOff, curl('2027-01-08', 'hold')]))
+    expect(placed.exercise).toBe(legCurl)
+    expect(placed.readings).toEqual(['hold', 'hold'])
+    expect(p).toMatchObject({ exerciseId: 'leg-curl', load: 30, basis: 'back-off' })
   })
 
   it('two cleans in a row on the leg curls return the slot to Nordics at their last session', () => {
