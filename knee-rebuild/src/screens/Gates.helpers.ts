@@ -439,6 +439,21 @@ export function advanceQuestion(gate: Pick<Gate, 'toPhase'>, phases: readonly Ph
   return `${lead} and week bands count from this week.`
 }
 
+/** How the inline confirm closed: Not yet, Yes (the phase advanced), or a change to the checklist under it. */
+export type ConfirmClose = 'not-yet' | 'advanced' | 'checklist'
+
+/**
+ * Where focus goes when the confirm closes, so a VoiceOver user is never left on the page: Not yet
+ * back to Advance phase; Yes to the line saying what changed, since the Advance button is then the
+ * next gate's and disabled, and focus on it would fall to the page; a tick or a save in the
+ * checklist leaves focus where the tap was.
+ */
+export function focusAfterConfirm(closedBy: ConfirmClose): 'advance-button' | 'advanced-line' | null {
+  if (closedBy === 'not-yet') return 'advance-button'
+  if (closedBy === 'advanced') return 'advanced-line'
+  return null
+}
+
 /** What the screen says once the phase has advanced. */
 export function advancedWords(settings: Pick<Settings, 'currentPhase' | 'phaseEnteredWeek'>, phases: readonly Phase[]): string {
   return `${phaseTitle(phases, settings.currentPhase)}, entered in week ${settings.phaseEnteredWeek}.`

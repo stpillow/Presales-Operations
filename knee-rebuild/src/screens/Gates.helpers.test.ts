@@ -20,6 +20,7 @@ import {
   enterWords,
   errorWords,
   formBest,
+  focusAfterConfirm,
   formBlocker,
   gateContext,
   gatesView,
@@ -542,6 +543,14 @@ describe('advancing the phase', () => {
     if (view.kind !== 'gate') throw new Error('expected gate 1')
     expect(view.stop).toEqual({ headline: 'Stop. Call the ortho or PT.', items: [flag.text] })
     expect(gatesView({ today: TODAY, settings: settings(), history: loggedPhase1(), program: PROGRAM })).toMatchObject({ kind: 'gate', stop: null })
+  })
+
+  it('focus after the confirm closes: Not yet goes back to Advance phase, Yes to the line saying what changed, anything else stays put', () => {
+    // After Yes the Advance button is the next gate's, disabled, so focus on it would fall to the page.
+    expect(focusAfterConfirm('not-yet')).toBe('advance-button')
+    expect(focusAfterConfirm('advanced')).toBe('advanced-line')
+    // A tick in the checklist closes the confirm too; focus stays on the tick.
+    expect(focusAfterConfirm('checklist')).toBeNull()
   })
 
   it('asks a Phase 4 question that doesn’t promise templates', () => {

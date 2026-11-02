@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import { navigate } from '../app/router.ts'
 import { PROGRAM } from '../app/session.ts'
 import { useToday } from '../app/today.ts'
@@ -18,6 +18,7 @@ import {
   clearWords,
   enterStart,
   enterWords,
+  focusAfterConfirm,
   formBest,
   formBlocker,
   gatesView,
@@ -30,6 +31,7 @@ import {
   tickErrorSentence,
   trialName,
   withoutKey,
+  type ConfirmClose,
   type GatesView,
   type ItemView,
   type SymmetryEntry,
@@ -97,12 +99,26 @@ function GateScreen({ today, settings, history, locations }: { today: IsoDate; s
   const [lastSaved, setLastSaved] = useState<Record<string, SymmetryForm>>({})
   const [confirming, setConfirming] = useState(false)
   const [advanced, setAdvanced] = useState<string | null>(null)
+  /** How the confirm last closed, read when it does (focusAfterConfirm). */
+  const closedBy = useRef<ConfirmClose>('checklist')
+  /** The line saying what changed: always mounted, empty until an advance, so its words are announced when they arrive. */
+  const advancedLine = useRef<HTMLParagraphElement>(null)
 
   // Yes, advance sits at the foot of a long page and the new gate's checklist replaces everything
-  // above it: bring the top into view, where the new gate's title and the line saying what changed are.
+  // above it: bring the top into view, where the new gate's title and the line saying what changed
+  // are, and put focus on that line, not on the next gate's disabled Advance button.
   useEffect(() => {
-    if (advanced !== null) window.scrollTo({ top: 0 })
+    if (advanced === null) return
+    window.scrollTo({ top: 0 })
+    if (focusAfterConfirm('advanced') === 'advanced-line') advancedLine.current?.focus()
   }, [advanced])
+
+  // Kept at the same place in both bodies below, so the region stays mounted from gate 3 into Phase 4.
+  const advancedStatus = (
+    <p ref={advancedLine} role="status" tabIndex={-1} className={advanced ? 'text-body text-on-dark' : 'sr-only'}>
+      {advanced ?? ''}
+    </p>
+  )
 
   const view = gatesView({ today, settings, history, program: PROGRAM, locations })
   const takenIds = history.gateTests.map((t) => t.id)
@@ -111,11 +127,7 @@ function GateScreen({ today, settings, history, locations }: { today: IsoDate; s
   if (view.kind === 'no-gate') {
     return (
       <Screen title={TITLE} lead={view.line}>
-        {advanced ? (
-          <p role="status" className="text-body text-on-dark">
-            {advanced}
-          </p>
-        ) : null}
+        {advancedStatus}
         <p className="text-body text-on-dark-dim">No gate leads out of Phase {settings.currentPhase} yet, so there is nothing to check here.</p>
         <Button wide onClick={() => navigate({ name: 'today' })}>
           Today
@@ -180,6 +192,7 @@ function GateScreen({ today, settings, history, locations }: { today: IsoDate; s
       // The week is phaseEntryWeek's, through the view: next week once this week's lifts have begun (PROGRAM-QUESTIONS 113).
       const next = advancePhase(settings, body.gate, body.result.passes, body.entryWeek)
       await saveSettings(next)
+      closedBy.current = 'advanced'
       setConfirming(false)
       setDrafts({})
       setLastSaved({})
@@ -194,11 +207,7 @@ function GateScreen({ today, settings, history, locations }: { today: IsoDate; s
 
   return (
     <Screen title={TITLE} lead={gate.title}>
-      {advanced ? (
-        <p role="status" className="text-body text-on-dark">
-          {advanced}
-        </p>
-      ) : null}
+      {advancedStatus}
       <p role="status" aria-live="polite" className="text-lead text-on-dark">
         {view.countLine}
       </p>
@@ -251,7 +260,11 @@ function GateScreen({ today, settings, history, locations }: { today: IsoDate; s
           setError('advance', null)
           setConfirming(true)
         }}
-        onCancel={() => setConfirming(false)}
+        closedBy={closedBy}
+        onCancel={() => {
+          closedBy.current = 'not-yet'
+          setConfirming(false)
+        }}
         onYes={() => void advance(view)}
       />
     </Screen>
@@ -520,6 +533,7 @@ function AdvanceBlock({
   saving,
   busy,
   error,
+  closedBy,
   onAsk,
   onCancel,
   onYes,
@@ -529,12 +543,14 @@ function AdvanceBlock({
   saving: boolean
   busy: boolean
   error: string | null
+  closedBy: RefObject<ConfirmClose>
   onAsk: () => void
   onCancel: () => void
   onYes: () => void
 }) {
-  // The confirm replaces the button just tapped: focus goes to its question, and back to Advance
-  // phase when it closes, so a VoiceOver user is never left on nothing.
+  // The confirm replaces the button just tapped: focus goes to its question, and when it closes
+  // through Not yet, back to Advance phase (focusAfterConfirm), so a VoiceOver user is never left
+  // on nothing. Yes moves focus to the line saying what changed (GateScreen).
   const box = useRef<HTMLElement>(null)
   const opened = useRef(false)
   useEffect(() => {
@@ -543,9 +559,10 @@ function AdvanceBlock({
       box.current?.querySelector<HTMLElement>('[data-confirm-question]')?.focus()
     } else if (opened.current) {
       opened.current = false
-      box.current?.querySelector<HTMLElement>('button')?.focus()
+      if (focusAfterConfirm(closedBy.current) === 'advance-button') box.current?.querySelector<HTMLElement>('button')?.focus()
+      closedBy.current = 'checklist'
     }
-  }, [confirming])
+  }, [confirming, closedBy])
   return (
     <section ref={box} aria-label="Advance phase" className={SECTION}>
       <h2 className={HEADING}>Advance phase</h2>
