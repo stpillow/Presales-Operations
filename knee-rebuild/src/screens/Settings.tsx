@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { navigate } from '../app/router.ts'
 import { PROGRAM } from '../app/session.ts'
 import { useToday } from '../app/today.ts'
 import { Button } from '../components/Button.tsx'
@@ -9,6 +10,7 @@ import { useSettings } from '../db/hooks.ts'
 import { defaultSettings, ensureSettings, resetAll, saveSettings, saveSettingsAndMoves } from '../db/repo.ts'
 import type { IsoDate, Settings as SettingsRecord } from '../schema/index.ts'
 import {
+  DUMBBELLS_LINE,
   REST_MAX,
   REST_MIN,
   REST_STEP,
@@ -226,7 +228,10 @@ function SettingsForm({ stored }: { stored: SettingsRecord }) {
 
       {/* Each gym's rack is its own from M4b; Settings' dumbbell max is frozen (the home gym was first written from it). */}
       <Section label="Dumbbells" saved={false} problem={null}>
-        <Note>Dumbbells are set per gym in Where you train.</Note>
+        <p className="text-body text-on-dark-dim">{DUMBBELLS_LINE}</p>
+        <Button wide onClick={() => navigate({ name: 'locations' })}>
+          Where you train
+        </Button>
       </Section>
 
       <Section label="Rest timer" saved={savedField === 'restTimerSeconds'} problem={problemFor('restTimerSeconds')}>

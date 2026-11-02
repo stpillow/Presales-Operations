@@ -35,11 +35,11 @@ export function sideWords(side: Side): string {
   return side === 'left' ? 'Left knee' : 'Right knee'
 }
 
-/** The rack presets from the brief, and the stepper's limits: any heavier dumbbell is still a whole number of pounds. */
-export const DUMBBELL_PRESETS: readonly number[] = [60, 75, 80]
-export const DUMBBELL_STEP = 5
-export const DUMBBELL_MIN = 5
-export const DUMBBELL_MAX = 200
+/**
+ * The dumbbell section since M4b: each gym's rack is its own (`Location.dumbbellMaxLb`, set in the
+ * location editor), and Settings' dumbbell max is frozen, so the section is this line and a link.
+ */
+export const DUMBBELLS_LINE = 'Dumbbells are set per gym in Where you train.'
 
 /** Rest in 15 s steps, from a quarter minute to ten minutes. */
 export const REST_STEP = 15
