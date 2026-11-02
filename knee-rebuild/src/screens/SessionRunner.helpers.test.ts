@@ -55,7 +55,7 @@ import {
   swapsFromSets,
   swapValue,
   todayGymWords,
-  useHereTooLabel,
+  todayTooLabel,
   warmUpWords,
   withoutEnginePicks,
 } from './SessionRunner.helpers.ts'
@@ -396,7 +396,7 @@ describe('the gym in words (M4b, design section 4)', () => {
   })
   it('says where Today plans when the session runs at another gym', () => {
     expect(todayGymWords('Planet Fitness')).toBe('Today plans at Planet Fitness; a Change here moves only this session.')
-    expect(useHereTooLabel('Marriott Downtown')).toBe('Use Marriott Downtown on Today too')
+    expect(todayTooLabel('Marriott Downtown')).toBe('Use Marriott Downtown on Today too')
   })
 
   it('the Done bar on a slot with nothing here, and the end of the session with such slots left', () => {

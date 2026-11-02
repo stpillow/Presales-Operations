@@ -597,7 +597,7 @@ export function todayGymWords(activeName: string): string {
 }
 
 /** The tap that makes the session's gym the one Today plans at too. */
-export function useHereTooLabel(gymName: string): string {
+export function todayTooLabel(gymName: string): string {
   return `Use ${gymName} on Today too`
 }
 

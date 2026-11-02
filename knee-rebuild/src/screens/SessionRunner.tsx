@@ -53,7 +53,7 @@ import {
   swapsFromSets,
   templateForWorkout,
   todayGymWords,
-  useHereTooLabel,
+  todayTooLabel,
   warmUpWords,
   withoutEnginePicks,
   type GymMark,
@@ -502,7 +502,7 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
   const todayGym = locations?.find((l) => l.id === settings.activeLocationId)
   const elsewhere =
     todayGym && todayGym.id !== location.id
-      ? { words: todayGymWords(todayGym.name), label: useHereTooLabel(location.name), onUse: () => void write(() => setActiveLocation(location.id), undefined, 'gym') }
+      ? { words: todayGymWords(todayGym.name), label: todayTooLabel(location.name), onUse: () => void write(() => setActiveLocation(location.id), undefined, 'gym') }
       : null
 
   const notHereLine = notHereWords(location.name, notHereEntries(plans, loggedSlots, nameOf))
