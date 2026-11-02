@@ -16,7 +16,7 @@ export function GymNotes({ lines, actions, busy }: { lines: readonly string[]; a
   return (
     <div aria-label="At this gym" className="flex flex-col gap-2">
       {lines.map((line) => (
-        <p key={line} className="text-small text-on-dark">
+        <p key={line} className="text-small text-on-dark wrap-anywhere">
           {line}
         </p>
       ))}

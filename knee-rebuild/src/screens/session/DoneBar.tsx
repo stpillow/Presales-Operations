@@ -10,7 +10,7 @@ export function DoneBar({ timer, line, label, disabled, onPress }: { timer?: Rea
     <div aria-label="Done bar" className="fixed inset-x-0 bottom-0 z-10 border-t border-on-dark-faint bg-navy px-4 pt-3 pb-[calc(12px+env(safe-area-inset-bottom))]">
       <div className="mx-auto flex max-w-[36rem] flex-col gap-2">
         {timer}
-        <p className="text-small text-on-dark-dim">{line}</p>
+        <p className="text-small text-on-dark-dim wrap-anywhere">{line}</p>
         <Button variant="primary" wide disabled={disabled} onClick={onPress} className="touch-manipulation">
           {label}
         </Button>

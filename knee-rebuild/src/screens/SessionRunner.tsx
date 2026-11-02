@@ -37,12 +37,14 @@ import {
   offerNotes,
   parseStoredSlotIds,
   parseStoredSwaps,
+  pickNotHereWords,
   routeLines,
   setStepKey,
+  standingMarkFor,
   stopReasonLabel,
   swapChoices,
+  swapPick,
   swapsFromSets,
-  swapValue,
   templateForWorkout,
   warmUpWords,
   withoutEnginePicks,
@@ -167,7 +169,8 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
   const [panel, setPanel] = useState<'finish' | 'end' | null>(null)
   const [saving, setSaving] = useState(false)
   const [cooling, setCooling] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  /** A write that failed, in a sentence, where it was asked for: under the gym line, or in whatever the card's place shows (the card, Finish, End). */
+  const [error, setError] = useState<{ at: 'gym' | 'session'; text: string } | null>(null)
   const [skippedRest, setSkippedRest] = useState<number | null>(null)
   const [showWarmUp, setShowWarmUp] = useState(false)
   const topRef = useRef<HTMLDivElement | null>(null)
@@ -229,7 +232,7 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
       <RestTimer startedAt={restStart} seconds={settings.restTimerSeconds} hideAfterSeconds={SHOW_GO_FOR_SECONDS} onSkip={() => setSkippedRest(restStart)} />
     ) : null
 
-  async function write(action: () => Promise<void>, after?: () => void) {
+  async function write(action: () => Promise<void>, after?: () => void, at: 'gym' | 'session' = 'session') {
     setSaving(true)
     setError(null)
     try {
@@ -237,7 +240,7 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
       after?.()
       setCooling(true)
     } catch (e) {
-      setError(`Not saved: ${message(e)}. Tap again.`)
+      setError({ at, text: `Not saved: ${message(e)}. Tap again.` })
     } finally {
       setSaving(false)
     }
@@ -329,25 +332,24 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
   }
 
   /**
-   * A Swap pick. Picking what the gym would run anyway is no swap; on a slot with nothing here that
-   * is its own exercise, so the pick is Do it anyway. Any other pick keeps what it offers to mark
-   * (`swapOffer`): what a pick that isn't here lacks, or what the exercise on the card needed that a
-   * pick that is here doesn't.
+   * A Swap pick (`swapPick`): the swap it stores, Do it anyway when it is the gym's own pick on a
+   * slot with nothing here, and otherwise what it offers to mark (`swapOffer`): what a pick that
+   * isn't here lacks, or what the exercise on the card needed that a pick that is here doesn't.
    */
   function swap(plan: SlotPlan, exerciseId: string | null) {
     const slotId = plan.slot.id
-    const value = swapValue(exerciseId, engineBySlot.get(slotId) ?? plan.slot.exerciseId)
-    const next = { ...stored, [slotId]: value }
+    const cardId = plan.prescriptions[0]?.exerciseId ?? plan.exercise.id
+    const pick = swapPick({ pickId: exerciseId, engineId: engineBySlot.get(slotId) ?? plan.slot.exerciseId, cardId, routeKind: plan.route.kind })
+    const next = { ...stored, [slotId]: pick.value }
     setStored(next)
     writeStored(storageKey, next)
     setMarked(null)
-    const leftId = plan.prescriptions[0]?.exerciseId ?? plan.exercise.id
-    if (exerciseId !== null && value === null && plan.route.kind === 'none') {
+    if (pick.anyway) {
       setOffer(null)
       doAnyway(slotId)
       return
     }
-    const pending = exerciseId === null || exerciseId === leftId ? null : swapOffer(exerciseById(leftId), exerciseById(exerciseId), available, CARRIED)
+    const pending = pick.offers && exerciseId !== null ? swapOffer(exerciseById(cardId), exerciseById(exerciseId), available, CARRIED) : null
     setOffer(pending ? { slotId, offer: pending } : null)
   }
 
@@ -362,16 +364,22 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
     )
   }
 
-  /** What the card says the gym does to a slot, and the taps it offers: Skip and Do it anyway, then the marks. */
+  /**
+   * What the card says the gym does to a slot, and the taps it offers: Skip and Do it anyway, then the
+   * marks. A slot run anyway, or swapped to a pick that isn't here, keeps offering to mark what it
+   * lacks (`standingMarkFor`, read from what is stored, so a reload keeps it) and says what the gym
+   * lacks for a pick in words; otherwise the last pick's offer stands.
+   */
   function gymFor(plan: SlotPlan): { lines: string[]; actions: GymAction[] } {
     const slotId = plan.slot.id
     const swapped = chosen[slotId] !== undefined
+    const cardId = plan.prescriptions[0]?.exerciseId ?? plan.exercise.id
     const capped = plan.prescriptions.some((p) => p.rackCapped === true)
     const lines = routeLines({ route: plan.route, swapped, gymName: location.name, items: ITEMS, nameOf, rackCappedLb: capped ? location.dumbbellMaxLb : null })
-    // Run anyway (Do it anyway, or a set logged): offer to mark what its exercise lacks, as a pick that isn't here does.
-    const anyway = !swapped && plan.route.kind === 'none' && !notHere.has(slotId)
-    const placed = exerciseById(plan.route.exerciseId)
-    const pending = anyway ? swapOffer(placed, placed, available, CARRIED) : offer?.slotId === slotId ? offer.offer : null
+    const pickLine = swapped ? pickNotHereWords(exerciseById(cardId), available, location.name, ITEMS) : null
+    const standingId = standingMarkFor({ routeKind: plan.route.kind, routeExerciseId: plan.route.exerciseId, swapped, cardId, held: notHere.has(slotId) })
+    const standing = standingId ? swapOffer(exerciseById(standingId), exerciseById(standingId), available, CARRIED) : null
+    const pending = standing ?? (offer?.slotId === slotId ? offer.offer : null)
     const notes = offerNotes(pending, available, ITEMS)
     const actions: GymAction[] = notHere.has(slotId)
       ? [
@@ -380,7 +388,7 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
         ]
       : []
     for (const m of notes.marks) actions.push({ label: m.label, onPress: () => mark(slotId, m) })
-    return { lines: [...lines, ...notes.lines, ...(marked?.slotId === slotId ? [marked.text] : [])], actions }
+    return { lines: [...lines, ...(pickLine ? [pickLine] : []), ...notes.lines, ...(marked?.slotId === slotId ? [marked.text] : [])], actions }
   }
 
   function pickSide(slotId: string, side: SetSide) {
@@ -423,8 +431,27 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
 
   function openPanel(which: 'finish' | 'end') {
     setPanel(which)
+    setError(null)
     bringToTop()
   }
+
+  /**
+   * Change, before the first set: the session plans at the gym picked. Do it anyway answered "nothing
+   * here" at the old gym, so it doesn't follow the session to the new one (the runner starts afresh
+   * there, keyed by the gym); a swap is the session's own and stays.
+   */
+  function changeGym(locationId: string) {
+    void write(
+      async () => {
+        await setWorkoutLocation(workout.id, locationId)
+        writeStored(anywayKey, null)
+      },
+      undefined,
+      'gym',
+    )
+  }
+
+  const sessionError = error?.at === 'session' ? error.text : null
 
   const notLogged = notLoggedLabels(plans, steps, done, stopped, notHere)
   const notHereLine = notHereWords(location.name, notHereEntries(plans, loggedSlots, nameOf))
@@ -463,11 +490,8 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
         locations={locations ? listedLocations(locations) : undefined}
         locked={gymLocked(sets.length)}
         busy={busy}
-        onPick={(locationId) =>
-          void write(async () => {
-            await setWorkoutLocation(workout.id, locationId)
-          })
-        }
+        error={error?.at === 'gym' ? error.text : null}
+        onPick={changeGym}
       />
       <div className="-mt-4 flex flex-wrap items-center justify-between gap-2">
         <Button variant="quiet" onClick={() => navigate({ name: 'today' })}>
@@ -512,9 +536,9 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
 
       <div ref={topRef} className="scroll-mt-4">
         {panel === 'finish' ? (
-          <FinishPanel notHere={notHereLine} notLogged={notLogged} loggedCount={sets.length} loggedMax={loggedMaxPain(sets)} busy={busy} onFinish={finish} onBack={() => setPanel(null)} />
+          <FinishPanel notHere={notHereLine} notLogged={notLogged} loggedCount={sets.length} loggedMax={loggedMaxPain(sets)} busy={busy} error={sessionError} onFinish={finish} onBack={() => setPanel(null)} />
         ) : panel === 'end' ? (
-          <EndPanel loggedCount={sets.length} busy={busy} onEnd={end} onBack={() => setPanel(null)} />
+          <EndPanel loggedCount={sets.length} busy={busy} error={sessionError} onEnd={end} onBack={() => setPanel(null)} />
         ) : activePlan ? (
           <ActiveCard
             key={`${editing ? `edit:${editing.id}` : (current?.slotId === activePlan.slot.id ? current.key : `view:${activePlan.slot.id}`)}:${activePlan.prescriptions[0]?.exerciseId ?? ''}`}
@@ -537,7 +561,7 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
             gym={gymFor(activePlan)}
             held={held}
             busy={busy}
-            error={error}
+            error={sessionError}
             timer={timer}
             idleBar={idleBar}
             onLog={(draft, stop) => current && logStep(current, activePlan, draft, stop)}
@@ -550,8 +574,13 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
         ) : (
           <>
             <section aria-label="Now" className="flex flex-col gap-2 rounded-md bg-navy-lift p-4">
-              <h2 className="font-sans text-h3 font-semibold text-on-dark">{finished.heading}</h2>
-              <p className="text-body text-on-dark-dim">{finished.line}</p>
+              <h2 className="font-sans text-h3 font-semibold text-on-dark wrap-anywhere">{finished.heading}</h2>
+              <p className="text-body text-on-dark-dim wrap-anywhere">{finished.line}</p>
+              {sessionError ? (
+                <p role="alert" className="text-body text-on-dark">
+                  {sessionError}
+                </p>
+              ) : null}
             </section>
             <DoneBar timer={timer} line={idleBar.line} label={idleBar.label} disabled={busy} onPress={idleBar.onPress} />
           </>

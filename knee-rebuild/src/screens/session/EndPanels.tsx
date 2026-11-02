@@ -2,6 +2,15 @@ import { useState } from 'react'
 import { Button } from '../../components/Button.tsx'
 import { PAIN_SCALE, ScalePicker } from '../../components/ScalePicker.tsx'
 
+/** A write the panel asked for that failed, in a sentence: the panel replaces the card, so it says it. */
+function NotSaved({ error }: { error: string | null }) {
+  return error ? (
+    <p role="alert" className="text-body text-on-dark wrap-anywhere">
+      {error}
+    </p>
+  ) : null
+}
+
 /** Finish, inline: what the gym changed (`notHere`, in words), what wasn't logged, max pain during the session, then the write. */
 export function FinishPanel({
   notHere,
@@ -9,6 +18,7 @@ export function FinishPanel({
   loggedCount,
   loggedMax,
   busy,
+  error,
   onFinish,
   onBack,
 }: {
@@ -17,6 +27,7 @@ export function FinishPanel({
   loggedCount: number
   loggedMax: number | null
   busy: boolean
+  error: string | null
   onFinish: (maxPain: number | null) => void
   onBack: () => void
 }) {
@@ -29,6 +40,7 @@ export function FinishPanel({
         <Button wide disabled={busy} onClick={() => onFinish(null)}>
           Discard this session
         </Button>
+        <NotSaved error={error} />
         <Button variant="quiet" onClick={onBack}>
           Back
         </Button>
@@ -38,7 +50,7 @@ export function FinishPanel({
   return (
     <section aria-label="Finish session" className="flex flex-col gap-4 rounded-md bg-navy-lift p-4">
       <h2 className="font-sans text-h3 font-semibold text-on-dark">Finish the session</h2>
-      {notHere ? <p className="text-body text-on-dark-dim">{notHere}</p> : null}
+      {notHere ? <p className="text-body text-on-dark-dim wrap-anywhere">{notHere}</p> : null}
       {notLogged.length > 0 ? (
         <p className="text-body text-on-dark-dim">
           Not logged: {notLogged.join(', ')}. They keep last session&apos;s prescription.
@@ -50,6 +62,7 @@ export function FinishPanel({
       <Button variant="primary" wide disabled={busy} onClick={() => onFinish(maxPain)}>
         Finish session
       </Button>
+      <NotSaved error={error} />
       <Button variant="quiet" onClick={onBack}>
         Back
       </Button>
@@ -58,7 +71,7 @@ export function FinishPanel({
 }
 
 /** End without finishing, inline: says what is kept, then marks the workout abandoned. */
-export function EndPanel({ loggedCount, busy, onEnd, onBack }: { loggedCount: number; busy: boolean; onEnd: () => void; onBack: () => void }) {
+export function EndPanel({ loggedCount, busy, error, onEnd, onBack }: { loggedCount: number; busy: boolean; error: string | null; onEnd: () => void; onBack: () => void }) {
   return (
     <section aria-label="End without finishing" className="flex flex-col gap-4 rounded-md bg-navy-lift p-4">
       <h2 className="font-sans text-h3 font-semibold text-on-dark">End without finishing</h2>
@@ -70,6 +83,7 @@ export function EndPanel({ loggedCount, busy, onEnd, onBack }: { loggedCount: nu
       <Button wide disabled={busy} onClick={onEnd}>
         {loggedCount === 0 ? 'Discard this session' : 'End session'}
       </Button>
+      <NotSaved error={error} />
       <Button variant="quiet" onClick={onBack}>
         Back
       </Button>

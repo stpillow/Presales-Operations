@@ -32,13 +32,16 @@ import {
   offerNotes,
   parseStoredSlotIds,
   parseStoredSwaps,
+  pickNotHereWords,
   prescriptionWords,
   rackCappedWords,
   rangeStopOptions,
   routeLines,
   setWords,
   showsLoad,
+  standingMarkFor,
   swapChoices,
+  swapPick,
   swapsFromSets,
   swapValue,
   warmUpWords,
@@ -285,6 +288,39 @@ describe('the gym in words (M4b, design section 4)', () => {
     expect(swapValue('goblet-squat-bench', 'goblet-squat-bench')).toBeNull()
     expect(swapValue('leg-press', 'goblet-squat-bench')).toBe('leg-press')
     expect(swapValue(null, 'goblet-squat-bench')).toBeNull()
+  })
+
+  it('a Swap pick: what it stores, when it is Do it anyway, and when it may offer a mark', () => {
+    // A moved slot: picking the slot's own exercise is a swap, and may offer a mark; the gym's own pick is none.
+    expect(swapPick({ pickId: 'leg-press', engineId: 'goblet-squat-bench', cardId: 'goblet-squat-bench', routeKind: 'moved' })).toEqual({ value: 'leg-press', anyway: false, offers: true })
+    expect(swapPick({ pickId: 'goblet-squat-bench', engineId: 'goblet-squat-bench', cardId: 'smith-box-squat', routeKind: 'moved' })).toEqual({ value: null, anyway: false, offers: true })
+    // A slot with nothing here: its own exercise (the gym's pick) is Do it anyway, which makes its own offer.
+    expect(swapPick({ pickId: 'seated-leg-curl', engineId: 'seated-leg-curl', cardId: 'seated-leg-curl', routeKind: 'none' })).toEqual({ value: null, anyway: true, offers: false })
+    expect(swapPick({ pickId: 'lying-leg-curl', engineId: 'seated-leg-curl', cardId: 'seated-leg-curl', routeKind: 'none' })).toEqual({ value: 'lying-leg-curl', anyway: false, offers: true })
+    // Back to (no pick) and a pick of what is already on the card offer nothing.
+    expect(swapPick({ pickId: null, engineId: 'seated-leg-curl', cardId: 'lying-leg-curl', routeKind: 'none' })).toEqual({ value: null, anyway: false, offers: false })
+    expect(swapPick({ pickId: 'smith-box-squat', engineId: 'goblet-squat-bench', cardId: 'smith-box-squat', routeKind: 'moved' })).toEqual({ value: 'smith-box-squat', anyway: false, offers: false })
+  })
+
+  it('the exercise whose lacks the card keeps offering to mark: a slot run anyway, or a swap, after a reload too', () => {
+    const none = { routeKind: 'none' as const, routeExerciseId: 'seated-leg-curl' }
+    expect(standingMarkFor({ ...none, swapped: false, cardId: 'seated-leg-curl', held: false })).toBe('seated-leg-curl')
+    // Still held for Skip or Do it anyway: those are the offers, not a mark.
+    expect(standingMarkFor({ ...none, swapped: false, cardId: 'seated-leg-curl', held: true })).toBeNull()
+    expect(standingMarkFor({ ...none, swapped: true, cardId: 'lying-leg-curl', held: false })).toBe('lying-leg-curl')
+    expect(standingMarkFor({ routeKind: 'moved', routeExerciseId: 'goblet-squat-bench', swapped: true, cardId: 'smith-box-squat', held: false })).toBe('smith-box-squat')
+    expect(standingMarkFor({ routeKind: 'moved', routeExerciseId: 'goblet-squat-bench', swapped: false, cardId: 'goblet-squat-bench', held: false })).toBeNull()
+    expect(standingMarkFor({ routeKind: 'own', routeExerciseId: 'leg-press', swapped: false, cardId: 'leg-press', held: false })).toBeNull()
+  })
+
+  it('a swap to an exercise that isn’t here says so in words; dumbbells and the bag are said by the offer’s own lines', () => {
+    const hotelHas = new Set(['flat-bench', 'dumbbells'])
+    expect(pickNotHereWords(exerciseById('smith-box-squat'), hotelHas, hotel, items)).toBe('Not at Hotel gym: Smith machine, which Smith machine box squat needs.')
+    expect(pickNotHereWords(exerciseById('smith-box-squat'), new Set<string>(), hotel, items)).toBe('Not at Hotel gym: Smith machine and flat bench, which Smith machine box squat needs.')
+    expect(pickNotHereWords(exerciseById('single-leg-calf-raise-step'), hotelHas, hotel, items)).toBe('Not at Hotel gym: Step platforms or stair, which Single-leg calf raise on a step needs.')
+    expect(pickNotHereWords(exerciseById('goblet-squat-bench'), hotelHas, hotel, items)).toBeNull()
+    expect(pickNotHereWords(exerciseById('goblet-squat-bench'), new Set(['flat-bench']), hotel, items)).toBeNull()
+    expect(pickNotHereWords(exerciseById('cable-hip-abduction'), new Set(['cable-station']), hotel, items)).toBeNull()
   })
 
   it('turns a mark offer into words and buttons, dropping what is already marked', () => {

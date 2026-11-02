@@ -468,6 +468,44 @@ export function swapValue(pickId: string | null, engineId: string): string | nul
   return pickId === null || pickId === engineId ? null : pickId
 }
 
+/**
+ * What a Swap pick does to the session (design section 4). `value` is the swap stored (`swapValue`:
+ * the gym's own pick is no swap). On a slot with nothing here the gym's own pick is the slot's own
+ * exercise, so the pick is Do it anyway (`anyway`), which makes its own offer. Otherwise a pick of
+ * an exercise other than the one on the card `offers` what `swapOffer` says to mark; Back to (no
+ * pick) and a pick of what the card already runs offer nothing.
+ */
+export function swapPick(input: { pickId: string | null; engineId: string; cardId: string; routeKind: SlotRoute['kind'] }): { value: string | null; anyway: boolean; offers: boolean } {
+  const value = swapValue(input.pickId, input.engineId)
+  const anyway = input.pickId !== null && value === null && input.routeKind === 'none'
+  return { value, anyway, offers: !anyway && input.pickId !== null && input.pickId !== input.cardId }
+}
+
+/**
+ * The exercise whose lacks the card keeps offering to mark, from what is stored rather than the last
+ * tap, so a reload keeps it: a slot with nothing here that runs anyway (Do it anyway, or a set
+ * logged; `held` while it waits for Skip or Do it anyway) offers what its exercise lacks, and a swap
+ * offers what its pick lacks (`swapOffer` of the pick against itself: nothing when it is here). Null
+ * otherwise; a here pick's mark-off is offered once, at the pick.
+ */
+export function standingMarkFor(input: { routeKind: SlotRoute['kind']; routeExerciseId: string; swapped: boolean; cardId: string; held: boolean }): string | null {
+  if (input.held) return null
+  if (input.swapped) return input.cardId
+  return input.routeKind === 'none' ? input.routeExerciseId : null
+}
+
+/**
+ * A swap to an exercise that isn't here, in words beside its marks: "Not at Hotel gym: Smith
+ * machine, which Smith machine box squat needs." Only what the gym lacks: dumbbells (the dumbbell
+ * max) and the bag (Settings' kit) are said by the offer's own lines (`offerNotes`). Null when the
+ * gym lacks nothing else.
+ */
+export function pickNotHereWords(pick: Pick<Exercise, 'name' | 'requires' | 'stages' | 'stageRequires'>, available: Available, gymName: string, items: readonly ItemLike[]): string | null {
+  const atGym = missingHere(pick, available).filter((r) => r !== DUMBBELLS && !inBag(r, items))
+  if (atGym.length === 0) return null
+  return `Not at ${gymName}: ${capitalize(atGym.map((r) => requirementWords(r, items)).join(' and '))}, which ${pick.name} needs.`
+}
+
 export interface GymMark {
   id: EquipmentId
   /** True: `setPresent(…, true)`, "Mark … here". False: `markOff`, "… isn't here: mark it". */
