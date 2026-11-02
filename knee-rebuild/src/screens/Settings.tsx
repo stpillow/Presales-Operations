@@ -11,6 +11,7 @@ import { useSettings } from '../db/hooks.ts'
 import { defaultSettings, ensureSettings, getSettings, resetAll, saveSettings, saveSettingsAndMoves } from '../db/repo.ts'
 import { backupFileName, backupText, lostOnImport, parseBackup, settingsOnImport, sizeProblem, summarize, type Backup, type BackupSummary, type BackupTable } from '../rules/backup.ts'
 import type { IsoDate, IsoDateTime, Settings as SettingsRecord } from '../schema/index.ts'
+import { forgetSlotDrafts } from './program/drafts.ts'
 import {
   DUMBBELLS_LINE,
   IMPORT_CONFIRM,
@@ -217,6 +218,8 @@ function SettingsForm({ stored }: { stored: SettingsRecord }) {
     pendingReset = resetWords({ kind: 'erased' })
     try {
       await resetAll(defaultSettings(PROGRAM), PROGRAM, today)
+      // The Program screen's unsaved drafts were for lists that are gone: no Put it back after "There is no undo".
+      forgetSlotDrafts()
     } catch (e) {
       pending.current -= 1
       pendingReset = null
@@ -257,6 +260,8 @@ function SettingsForm({ stored }: { stored: SettingsRecord }) {
     pending.current += 1
     try {
       await replaceAll(backup, PROGRAM, today)
+      // The Program screen's unsaved drafts were for the lists the file replaced.
+      forgetSlotDrafts()
       // Read once more for the row as written (the red flag it kept, the export stamp). Should that read
       // fail, the live query's echo is the row: adopted here if it came already, else when it comes.
       const row = await getSettings().catch(() => undefined)

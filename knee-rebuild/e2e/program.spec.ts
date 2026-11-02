@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises'
 import { expect, test, type Locator, type Page } from '@playwright/test'
 
 /*
@@ -135,6 +136,61 @@ test('Remove says so with Put it back where the tap was, and the undo outlives D
   await expect(slot.getByText(`Removed the cue “${cue}”.`)).toBeVisible()
   await putBack.click()
   await expect(slot.getByRole('listitem').filter({ hasText: cue })).toHaveCount(1)
+})
+
+/** From any tab to a screen on More, the way Shawn goes: More, then the screen's button. No reload. */
+async function viaMore(page: Page, name: 'Settings' | 'Program'): Promise<void> {
+  await page.getByRole('navigation', { name: 'Sections' }).getByRole('button', { name: 'More' }).click()
+  await page.getByRole('button', { name, exact: true }).click()
+  await expect(page.getByRole('heading', { name, level: 1 })).toBeVisible()
+}
+
+/** A substitution removed and a new cue typed but not added: what the slot holds that isn't stored. */
+async function leaveDrafts(page: Page): Promise<void> {
+  const slot = legPressSlot(page)
+  await editButton(page).click()
+  await slot.getByRole('button', { name: 'Remove Smith machine box squat' }).click()
+  await expect(slot.getByText('Removed Smith machine box squat from the substitutions.')).toBeVisible()
+  await newCueField(page).fill('Typed before everything was replaced')
+  await doneButton(page).click()
+  await expect(slot.getByText('Your new cue wasn’t added yet', { exact: false })).toBeVisible()
+}
+
+async function expectNoDrafts(page: Page): Promise<void> {
+  const slot = legPressSlot(page)
+  await expect(slot.getByRole('list').last().getByRole('listitem')).toHaveText(['45° leg press', 'Smith machine box squat', 'Goblet squat to a bench'])
+  await expect(slot.getByText('Removed Smith machine box squat from the substitutions.')).toHaveCount(0)
+  await expect(slot.getByRole('button', { name: 'Put it back' })).toHaveCount(0)
+  await expect(slot.getByText('Your new cue wasn’t added yet', { exact: false })).toHaveCount(0)
+  await editButton(page).click()
+  await expect(newCueField(page)).toHaveValue('')
+}
+
+test('Reset all data and an import let go of what the editor held for the lists they replaced: no Put it back, no waiting cue', async ({ page }) => {
+  // Reset all data: "There is no undo", so nothing the old lists held is offered back.
+  await leaveDrafts(page)
+  await viaMore(page, 'Settings')
+  await page.getByRole('button', { name: 'Reset all data' }).click()
+  await page.getByRole('button', { name: 'Yes, erase everything' }).click()
+  await expect(page.getByText('Everything on this phone was erased. Settings are back to their defaults.')).toBeVisible()
+  await viaMore(page, 'Program')
+  await expectNoDrafts(page)
+  await doneButton(page).click()
+
+  // An import replaces every list with the file's: a removal from the old ones is no longer there to put back.
+  await viaMore(page, 'Settings')
+  await page.getByRole('button', { name: 'Export JSON' }).click()
+  const download = page.waitForEvent('download')
+  await page.getByRole('link', { name: /^Save knee-rebuild-/ }).click()
+  const file = await readFile(await (await download).path())
+  await viaMore(page, 'Program')
+  await leaveDrafts(page)
+  await viaMore(page, 'Settings')
+  await page.locator('input[type="file"]').setInputFiles({ name: 'backup.json', mimeType: 'application/json', buffer: file })
+  await page.getByRole('button', { name: 'Yes, replace everything' }).click()
+  await expect(page.getByText(/^Imported backup\.json\./)).toBeVisible()
+  await viaMore(page, 'Program')
+  await expectNoDrafts(page)
 })
 
 /** Done editing at y 560, after a refused reword and a new cue left in its field. */

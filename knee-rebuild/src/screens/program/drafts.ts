@@ -6,9 +6,11 @@ export type Removed = RemovedItem & { words: string }
 /**
  * What a slot's card on the Program screen holds that isn't stored yet: the new-cue field's text,
  * the editor's last refusal, and the last removal Put it back can undo. A card unmounts when the editor's view changes or Shawn leaves for
- * another tab, so they wait here, by slot id, until the app closes; the card reads them back when
- * it mounts again, so "It waits in the new-cue field" holds (Program.helpers `unaddedCueWords`).
- * Nothing here is a decision or a write; a reload starts empty, as any unsaved field does.
+ * another tab, so they wait here, by slot id, until the app closes, or until Reset all data or an
+ * import replaces the lists they were typed against (Settings calls `forgetSlotDrafts`); the card
+ * reads them back when it mounts again, so "It waits in the new-cue field" holds (Program.helpers
+ * `unaddedCueWords`). Nothing here is a decision or a write; a reload starts empty, as any unsaved
+ * field does.
  */
 export interface SlotDraft {
   /** The new-cue field's text, typed but not added. */
@@ -35,7 +37,7 @@ export function keepSlotDraft<K extends keyof SlotDraft>(slotId: string, part: K
   else drafts.set(slotId, next)
 }
 
-/** Lets go of every slot's draft. */
+/** Lets go of every slot's draft: after Reset all data or an import, whose lists the drafts no longer match. */
 export function forgetSlotDrafts(): void {
   drafts.clear()
 }
