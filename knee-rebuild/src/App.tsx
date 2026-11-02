@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
-import { useRoute } from './app/router.ts'
+import { routeHash, useRoute } from './app/router.ts'
 import { useToday } from './app/today.ts'
 import { Button } from './components/Button.tsx'
+import { ErrorBoundary } from './components/ErrorBoundary.tsx'
 import { TabBar } from './components/TabBar.tsx'
 import { useActiveLocation, useSettings } from './db/hooks.ts'
 import { defaultSettings, ensureLocations, ensureSettings, requestPersistentStorage } from './db/repo.ts'
@@ -69,38 +70,41 @@ export function App() {
           </Button>
         </div>
       ) : null}
-      {(() => {
-        switch (route.name) {
-          case 'today':
-            return <Today />
-          case 'session':
-            return <SessionRunner workoutId={route.workoutId} />
-          case 'morning':
-            return <MorningCheck />
-          case 'settings':
-            return <Settings />
-          case 'more':
-            return <More />
-          case 'locations':
-            return <Locations />
-          case 'location':
-            return <LocationEditor key={route.locationId} locationId={route.locationId} />
-          case 'new-location':
-            return <LocationEditor key="new" locationId={null} />
-          case 'next-update':
-            return <NextUpdate />
-          case 'run':
-            return <RunLogger />
-          case 'week':
-            return <Week />
-          case 'progress':
-            return <Progress />
-          case 'gates':
-            return <Gates />
-          case 'program':
-            return <Program />
-        }
-      })()}
+      {/* A throw inside a screen shows its name and a way out, not a blank app; the update prompt and the tab bar stay outside it. */}
+      <ErrorBoundary screen={route.name} resetKey={routeHash(route)}>
+        {(() => {
+          switch (route.name) {
+            case 'today':
+              return <Today />
+            case 'session':
+              return <SessionRunner workoutId={route.workoutId} />
+            case 'morning':
+              return <MorningCheck />
+            case 'settings':
+              return <Settings />
+            case 'more':
+              return <More />
+            case 'locations':
+              return <Locations />
+            case 'location':
+              return <LocationEditor key={route.locationId} locationId={route.locationId} />
+            case 'new-location':
+              return <LocationEditor key="new" locationId={null} />
+            case 'next-update':
+              return <NextUpdate />
+            case 'run':
+              return <RunLogger />
+            case 'week':
+              return <Week />
+            case 'progress':
+              return <Progress />
+            case 'gates':
+              return <Gates />
+            case 'program':
+              return <Program />
+          }
+        })()}
+      </ErrorBoundary>
       {route.name === 'session' ? null : <TabBar route={route} />}
     </>
   )
