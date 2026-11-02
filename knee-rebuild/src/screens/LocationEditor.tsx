@@ -378,7 +378,11 @@ function NameSection({
           onFocus={() => {
             editing.current = true
           }}
-          onChange={(e) => setDraft(e.target.value)}
+          onChange={(e) => {
+            setDraft(e.target.value)
+            // A refusal speaks to the name as it was; typing again starts it over.
+            setRefusal(null)
+          }}
           onBlur={commit}
           className="tap w-full rounded-sm bg-ink px-3 text-body text-on-dark"
         />
@@ -495,14 +499,15 @@ function TypedSection({
   const [done, setDone] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
-  const settle = async (w: () => Promise<unknown>, words: string) => {
+  /** Writes, then says what it came to; the field empties only if it still holds what was submitted, so text typed meanwhile stays. */
+  const settle = async (w: () => Promise<unknown>, words: string, submitted: string) => {
     setBusy(true)
     const ok = await write(w)
     setBusy(false)
     if (ok) {
       setDone(words)
-      setResult(null)
-      setText('')
+      setResult((r) => (r === null || r.typed === submitted ? null : r))
+      setText((t) => (t === submitted ? '' : t))
     }
   }
 
@@ -510,15 +515,15 @@ function TypedSection({
     setDone(null)
     const outcome = typedOutcome(text, PROGRAM.equipment, USED, available)
     const words = outcomeWords(outcome, text, PROGRAM.equipment)
-    if (outcome.kind === 'keep') return void settle(() => addExtra(location.id, text, today), words)
-    if (outcome.kind === 'unused') return void settle(() => setPresent(location.id, outcome.id, true), words)
+    if (outcome.kind === 'keep') return void settle(() => addExtra(location.id, text, today), words, text)
+    if (outcome.kind === 'unused') return void settle(() => setPresent(location.id, outcome.id, true), words, text)
     setResult({ typed: text, outcome, words })
   }
 
   const pick = (itemId: EquipmentId, typed: string) => {
     const outcome = itemOutcome(itemId, PROGRAM.equipment, USED, available)
-    if (outcome.kind === 'mark') return void settle(() => setPresent(location.id, itemId, true), markedWords(itemId, PROGRAM.equipment))
-    if (outcome.kind === 'unused') return void settle(() => setPresent(location.id, itemId, true), outcomeWords(outcome, typed, PROGRAM.equipment))
+    if (outcome.kind === 'mark') return void settle(() => setPresent(location.id, itemId, true), markedWords(itemId, PROGRAM.equipment), typed)
+    if (outcome.kind === 'unused') return void settle(() => setPresent(location.id, itemId, true), outcomeWords(outcome, typed, PROGRAM.equipment), typed)
     setResult({ typed, outcome, words: outcomeWords(outcome, typed, PROGRAM.equipment) })
   }
 
@@ -565,7 +570,12 @@ function TypedSection({
             {result.words}
           </p>
           {outcome?.kind === 'mark' ? (
-            <Button variant="primary" wide disabled={busy} onClick={() => void settle(() => setPresent(location.id, outcome.id, true), markedWords(outcome.id, PROGRAM.equipment))}>
+            <Button
+              variant="primary"
+              wide
+              disabled={busy}
+              onClick={() => void settle(() => setPresent(location.id, outcome.id, true), markedWords(outcome.id, PROGRAM.equipment), result.typed)}
+            >
               Mark {nameOf(outcome.id)} here
             </Button>
           ) : null}
@@ -580,7 +590,7 @@ function TypedSection({
                 variant="quiet"
                 wide
                 disabled={busy}
-                onClick={() => void settle(() => addExtra(location.id, result.typed, today), outcomeWords({ kind: 'keep' }, result.typed, PROGRAM.equipment))}
+                onClick={() => void settle(() => addExtra(location.id, result.typed, today), outcomeWords({ kind: 'keep' }, result.typed, PROGRAM.equipment), result.typed)}
               >
                 {KEEP_AS_TYPED}
               </Button>
