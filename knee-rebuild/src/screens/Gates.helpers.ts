@@ -4,6 +4,7 @@ import { attachChecks, subjectReadings, type WorkoutRecord } from '../rules/hist
 import { weekOf } from '../rules/calendar.ts'
 import { loadSeries, phaseEntryWeek } from '../rules/progress.ts'
 import { progressionSuspended, stopMessage, type RedFlagState } from '../rules/redFlags.ts'
+import { phaseRunsExercise } from '../rules/session.ts'
 import { bestOfTrials, meetsSymmetry, symmetryPercent } from '../rules/unilateral.ts'
 import type { Exercise, Gate, GateItem, GateTest, IsoDate, Phase, Program, Settings, Side } from '../schema/index.ts'
 import { shortDateWords } from './Today.helpers.ts'
@@ -288,9 +289,13 @@ export function earlierTests(tests: readonly GateTest[], gate: number, key: stri
     })
 }
 
-/** Where a load form's numbers came from, in one sentence. */
-export function prefillWords(exercise: Pick<Exercise, 'name' | 'loadUnit'> | null, prefill: LoadPrefill | null, injuredSide: Side): string {
+/**
+ * Where a load form's numbers came from, in one sentence. `notRunIn` is the phase when it runs no
+ * slot of the exercise, so no session of it can prefill the test (gate 1, PROGRAM-QUESTIONS 114).
+ */
+export function prefillWords(exercise: Pick<Exercise, 'name' | 'loadUnit'> | null, prefill: LoadPrefill | null, injuredSide: Side, notRunIn: number | null = null): string {
   if (!exercise) return 'Nothing to prefill from: enter the values from the test.'
+  if (notRunIn !== null) return `Phase ${notRunIn} doesn’t run this exercise (${exercise.name}), so no session can prefill this test. Enter the loads from the test.`
   if (!prefill) return `Nothing to prefill: no session has logged both sides of this exercise (${exercise.name}) yet. Enter the loads from the test.`
   const unit = exercise.loadUnit === 'none' ? '' : ` ${exercise.loadUnit}`
   const injured = SIDE_WORD[injuredSide].toLowerCase()
@@ -418,7 +423,7 @@ export type GatesView =
       stop: { headline: string; items: string[] } | null
     }
 
-function symmetryEntry(item: GateItem, gate: Gate, history: HistoryLike, records: readonly WorkoutRecord[], injuredSide: Side, exercises: readonly Exercise[]): SymmetryEntry {
+function symmetryEntry(item: GateItem, gate: Gate, history: HistoryLike, records: readonly WorkoutRecord[], injuredSide: Side, program: ProgramLike): SymmetryEntry {
   const key = item.testItem ?? null
   const threshold = lineOf(item)
   const trials = item.trials ?? null
@@ -429,8 +434,10 @@ function symmetryEntry(item: GateItem, gate: Gate, history: HistoryLike, records
   // The program data names the exercise whose sets prefill a load test (PROGRAM-QUESTIONS 25: "prefilled
   // from the latest SetLogs per side"); hop tests have no logged exercise to start from.
   const exerciseId = item.prefillExerciseId
-  const exercise = exerciseId ? (exercises.find((e) => e.id === exerciseId) ?? null) : null
-  const prefill = exercise ? loadPrefill(records, exercise.id, injuredSide) : null
+  const exercise = exerciseId ? (program.exercises.find((e) => e.id === exerciseId) ?? null) : null
+  // A phase that runs no slot of the exercise can't produce a session to prefill from (PROGRAM-QUESTIONS 114).
+  const runs = exercise !== null && phaseRunsExercise(program.templates, gate.fromPhase, exercise.id)
+  const prefill = exercise && runs ? loadPrefill(records, exercise.id, injuredSide) : null
   const unit = exercise && exercise.loadUnit !== 'none' ? exercise.loadUnit : 'lb'
   return {
     key,
@@ -439,16 +446,16 @@ function symmetryEntry(item: GateItem, gate: Gate, history: HistoryLike, records
     unit,
     step: exercise && exercise.increment > 0 ? exercise.increment : 5,
     prefill,
-    prefillLine: prefillWords(exercise, prefill, injuredSide),
+    prefillLine: prefillWords(exercise, prefill, injuredSide, exercise && !runs ? gate.fromPhase : null),
     earlier: key ? earlierTests(history.gateTests, gate.number, key, threshold, unit) : [],
     sides,
   }
 }
 
-function itemView(r: GateItemResult, gate: Gate, history: HistoryLike, records: readonly WorkoutRecord[], injuredSide: Side, exercises: readonly Exercise[]): ItemView {
+function itemView(r: GateItemResult, gate: Gate, history: HistoryLike, records: readonly WorkoutRecord[], injuredSide: Side, program: ProgramLike): ItemView {
   const base: ItemBase = { item: r.item, pass: r.pass, ...stateWords(r.pass), detail: detailWords(r.detail) }
   if (r.item.evaluator === 'manual') return { ...base, kind: 'manual' }
-  if (r.item.evaluator === 'symmetry') return { ...base, kind: 'symmetry', entry: symmetryEntry(r.item, gate, history, records, injuredSide, exercises) }
+  if (r.item.evaluator === 'symmetry') return { ...base, kind: 'symmetry', entry: symmetryEntry(r.item, gate, history, records, injuredSide, program) }
   return { ...base, kind: 'auto' }
 }
 
@@ -465,7 +472,7 @@ export function gatesView(input: { today: IsoDate; settings: Settings; history: 
     gate,
     result,
     countLine: passCountWords(result),
-    items: result.items.map((r) => itemView(r, gate, history, records, settings.injuredSide, program.exercises)),
+    items: result.items.map((r) => itemView(r, gate, history, records, settings.injuredSide, program)),
     advance: advanceState(result, settings.redFlag),
     entryWeek,
     question: advanceQuestion(gate, program.phases, entryWeek, weekOf(today, settings.startDate)),

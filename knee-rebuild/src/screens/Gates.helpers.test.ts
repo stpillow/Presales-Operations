@@ -124,20 +124,16 @@ describe('done criterion: gate 1 evaluates from logged data alone', () => {
     expect(byId(view, 'g1-clean-weeks')).toMatchObject({ pass: false, word: 'Not yet', detail: '1 of 12 readings in the last 14 days read hold.' })
   })
 
-  it('with the leg-press test prefilled from logged sets and the stance ticked, the gate passes and advances only on confirmation', () => {
-    const logged = loggedPhase1()
-    // A single-leg leg press session that logged both sides: right (injured) 80 lb, left 100 lb.
-    const sl = workout('2026-11-19', { id: 'w-sl' })
-    const slSets = [set('w-sl', 'single-leg-leg-press', 'right', 1, 75, { reps: 10 }), set('w-sl', 'single-leg-leg-press', 'right', 2, 80, { reps: 10 }), set('w-sl', 'single-leg-leg-press', 'left', 1, 100, { reps: 10 })]
-    const history: HistoryLike = { ...logged, workouts: [...logged.workouts, sl], setLogs: [...logged.setLogs, ...slSets] }
-
+  it('with the leg-press test entered and the stance ticked, the gate passes and advances only on confirmation', () => {
+    const history = loggedPhase1()
     const view = gatesView({ today: TODAY, settings: settings(), history, program: PROGRAM })
     const legPress = byId(view, 'g1-sl-leg-press')
     if (legPress.kind !== 'symmetry') throw new Error('expected a symmetry item')
-    expect(legPress.entry).toMatchObject({ key: 'sl-leg-press-10rm', threshold: 0.8, trials: null, unit: 'lb', step: 5, prefill: { date: '2026-11-19', injured: 80, other: 100 } })
-    expect(legPress.entry.prefillLine).toBe('Prefilled from Thursday Nov 19’s session: Single-leg leg press, 80 lb right and 100 lb left, the heaviest set on each side. Change either to what the test lifted.')
+    // Phase 1 runs no single-leg leg press, so the loads come from the test itself (PROGRAM-QUESTIONS 114).
+    expect(legPress.entry).toMatchObject({ key: 'sl-leg-press-10rm', threshold: 0.8, trials: null, unit: 'lb', step: 5, prefill: null })
 
-    const form = openForm(legPress.entry.trials, legPress.entry.prefill)
+    // The test lifted right (injured) 80 lb and left 100 lb.
+    const form = setValue(setValue(openForm(legPress.entry.trials, legPress.entry.prefill), 'injured', 0, 80), 'other', 0, 100)
     expect(symmetryLine(formBest(form), legPress.entry.threshold)).toBe('80% · the line is 80%: passes')
     const draft = buildTest({ gate: gate1, item: legPress.item, form, today: TODAY, id: newGateTestId('2026-11-22T15:00:00.000Z', 'sl-leg-press-10rm', []) })
     if (!draft.ok) throw new Error(draft.blocker)
@@ -161,13 +157,33 @@ describe('done criterion: gate 1 evaluates from logged data alone', () => {
     expect(advancedWords(next, program.phases)).toBe('Phase 2: Single-leg strength and balance, entered in week 4.')
   })
 
-  it('says so when no session has logged both sides of the test exercise', () => {
+  it('says Phase 1 doesn’t run the test’s exercise, so nothing can prefill it, rather than "yet" (PROGRAM-QUESTIONS 114)', () => {
     const view = gatesView({ today: TODAY, settings: settings(), history: loggedPhase1(), program: PROGRAM })
     const legPress = byId(view, 'g1-sl-leg-press')
     if (legPress.kind !== 'symmetry') throw new Error('expected a symmetry item')
-    expect(legPress.entry.prefill).toBeNull()
+    expect(legPress.entry).toMatchObject({ prefill: null, unit: 'lb', step: 5 })
     expect(openForm(legPress.entry.trials, legPress.entry.prefill)).toEqual({ injured: [null], other: [null] })
-    expect(legPress.entry.prefillLine).toBe('Nothing to prefill: no session has logged both sides of this exercise (Single-leg leg press) yet. Enter the loads from the test.')
+    expect(legPress.entry.prefillLine).toBe('Phase 1 doesn’t run this exercise (Single-leg leg press), so no session can prefill this test. Enter the loads from the test.')
+  })
+
+  it('a set logged on the test exercise in Phase 1 still doesn’t prefill it: the phase can’t produce one', () => {
+    const logged = loggedPhase1()
+    const sl = workout('2026-11-19', { id: 'w-sl' })
+    const slSets = [set('w-sl', 'single-leg-leg-press', 'right', 1, 80, { reps: 10 }), set('w-sl', 'single-leg-leg-press', 'left', 1, 100, { reps: 10 })]
+    const history: HistoryLike = { ...logged, workouts: [...logged.workouts, sl], setLogs: [...logged.setLogs, ...slSets] }
+    // The rule itself still finds the session; the screen doesn't offer it for a phase that doesn't run the exercise.
+    expect(loadPrefill(attachChecks(history.workouts, history.setLogs, []), 'single-leg-leg-press', 'right')).toEqual({ date: '2026-11-19', injured: 80, other: 100 })
+    const legPress = byId(gatesView({ today: TODAY, settings: settings(), history, program: PROGRAM }), 'g1-sl-leg-press')
+    if (legPress.kind !== 'symmetry') throw new Error('expected a symmetry item')
+    expect(legPress.entry.prefill).toBeNull()
+  })
+
+  it('a phase that runs the test’s exercise but hasn’t logged both sides yet says "yet"', () => {
+    const phase2 = settings({ currentPhase: 2, phaseEnteredWeek: 4 })
+    const row = byId(gatesView({ today: '2026-11-24', settings: phase2, history: { ...loggedPhase1(), gateTests: [] }, program: PROGRAM }), 'g2-sl-leg-press')
+    if (row.kind !== 'symmetry') throw new Error('expected a symmetry item')
+    expect(row.entry.prefill).toBeNull()
+    expect(row.entry.prefillLine).toBe('Nothing to prefill: no session has logged both sides of this exercise (Single-leg leg press) yet. Enter the loads from the test.')
   })
 })
 
