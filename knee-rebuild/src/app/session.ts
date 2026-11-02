@@ -1,5 +1,6 @@
 import { exerciseById, program, templateFor } from '../program/program.ts'
-import { attachChecks, exerciseReadings, lastSetsBySide, recordsBefore, type WorkoutRecord } from '../rules/history.ts'
+import { exerciseHistory } from '../rules/gymLoads.ts'
+import { attachChecks, recordsBefore, type WorkoutRecord } from '../rules/history.ts'
 import { prescribe, type Prescription } from '../rules/prescription.ts'
 import { phaseWeekOf, slotsForPhaseWeek } from '../rules/session.ts'
 import type { Exercise, IsoDate, SessionLetter, SessionTemplate, Settings, Slot } from '../schema/index.ts'
@@ -38,13 +39,14 @@ export function planSession(input: {
     const allowed = choice !== undefined && (choice === slot.exerciseId || slot.substitutionIds.includes(choice))
     const exercise = exerciseById(allowed ? choice : slot.exerciseId)
     const substitutions = slot.substitutionIds.map(exerciseById)
-    const readings = exerciseReadings(records, exercise.id, settings.injuredSide).map((r) => r.reading.result)
+    // Rack-capped sessions read hold at best and never set the baseline (gymLoads.ts); without the field, as before.
+    const { readings, lastSets } = exerciseHistory(records, exercise.id, settings.injuredSide)
     const prescriptions = prescribe({
       slot,
       exercise,
       substitutions,
       readings,
-      lastSets: lastSetsBySide(records, exercise.id),
+      lastSets,
       week,
       injuredSide: settings.injuredSide,
       dumbbellMax: settings.dumbbellMax,

@@ -263,3 +263,152 @@ describe('nextSubstitution', () => {
     expect(nextSubstitution({ id: 'b' }, [a, b])).toBeUndefined()
   })
 })
+
+describe('where you train (M4b): moves go forward on the slot’s list, to what is here', () => {
+  // Inline copies of the seed's shapes: Phase 1 C1 (step-up), Phase 1 C2 (DB RDL), Phase 2 A7 (balance).
+  const gym = (dumbbellMaxLb: number, ...items: string[]) => ({ available: new Set([...items, ...(dumbbellMaxLb > 0 ? ['dumbbells'] : [])]), dumbbellMaxLb })
+  const dbRdl = ex({ id: 'db-rdl', name: 'Dumbbell Romanian deadlift', pattern: 'hinge', loadType: 'dumbbell-each', loadUnit: 'lb', increment: 5, requires: ['dumbbells'] })
+  const slRdl = ex({ id: 'single-leg-rdl', name: 'Single-leg RDL', pattern: 'hinge', loadType: 'dumbbell-single', loadUnit: 'lb', increment: 5, unilateral: true, requires: ['dumbbells'] })
+  const smithRdl = ex({ id: 'smith-rdl', name: 'Smith machine RDL', pattern: 'hinge', loadType: 'smith-plates', loadUnit: 'lb', increment: 10, requires: ['smith-machine'] })
+  const p1c2 = slot({ id: 'p1c-2', exerciseId: 'db-rdl', repsMin: 10, repsMax: 10, rpeTarget: 7, substitutionIds: ['single-leg-rdl', 'smith-rdl'] })
+  const rdl = (over: Partial<PrescriptionInput>) => one({ slot: p1c2, exercise: dbRdl, substitutions: [slRdl, smithRdl], ...over })
+  const rdlSets = (exerciseId: string, load: number) => threeSets({ exerciseId, load, loadUnit: 'lb', reps: 10 })
+
+  describe('the rack', () => {
+    it('a swapped single-leg RDL over the rack goes to the Smith RDL, not itself', () => {
+      const p = rdl({ exercise: slRdl, lastSets: rdlSets('single-leg-rdl', 80), gym: gym(80, 'smith-machine') })
+      expect(p).toMatchObject({ exerciseId: 'smith-rdl', load: null, loadUnit: 'lb', repsTarget: 10, basis: 'progress-load' })
+      expect(p.note).toBe('Clean twice at the top of the range: load up one step (5 lb), back to 10 reps. That is past the rack’s 80 lb dumbbells: swap to Smith machine RDL and pick its load.')
+      expect(rdl({ exercise: slRdl, readings: ['hold'], lastSets: rdlSets('single-leg-rdl', 30), gym: gym(25, 'smith-machine') }).exerciseId).toBe('smith-rdl')
+    })
+
+    it('a 60 lb hold at a 25 lb rack falls to the next fallback that is here', () => {
+      const p = rdl({ readings: ['hold'], lastSets: rdlSets('db-rdl', 60), gym: gym(25, 'smith-machine') })
+      expect(p).toMatchObject({ exerciseId: 'single-leg-rdl', load: null, basis: 'repeat' })
+      expect(p.perSet).toBeUndefined()
+      expect(p.rackCapped).toBeUndefined()
+      expect(p.note).toBe('Hold: repeat the last session’s loads and reps exactly. That is past the rack’s 25 lb dumbbells: swap to Single-leg RDL and pick its load.')
+      // The same hold at Settings' 80 lb rack, with no gym given, repeats 60 lb as before.
+      expect(rdl({ readings: ['hold'], lastSets: rdlSets('db-rdl', 60) })).toMatchObject({ exerciseId: 'db-rdl', load: 60, basis: 'repeat' })
+    })
+
+    it('the cap reads every basis: a deload week at a lighter rack moves too, at the lightest version', () => {
+      expect(rdl({ week: 4, lastSets: rdlSets('db-rdl', 60), gym: gym(25, 'smith-machine') })).toMatchObject({ exerciseId: 'single-leg-rdl', load: 5, sets: 2, basis: 'deload' })
+      expect(rdl({ readings: ['clean'], lastSets: rdlSets('db-rdl', 30), gym: gym(25) })).toMatchObject({ exerciseId: 'single-leg-rdl', basis: 'same' })
+    })
+
+    it('with no fallback here, the rack max is prescribed, rack-capped, and the note says so', () => {
+      const p = rdl({ exercise: slRdl, readings: ['hold'], lastSets: [...rdlSets('single-leg-rdl', 30).slice(0, 2), setLog(3, { exerciseId: 'single-leg-rdl', load: 20, loadUnit: 'lb', reps: 10 })], gym: gym(25) })
+      expect(p).toMatchObject({ exerciseId: 'single-leg-rdl', load: 25, rackCapped: true, basis: 'repeat' })
+      expect(p.perSet).toEqual([{ load: 25, reps: 10 }, { load: 25, reps: 10 }, { load: 20, reps: 10 }])
+      expect(p.note).toBe('Hold: repeat the last session’s loads and reps exactly. The rack stops at 25 lb and nothing written to swap to is here: 25 lb, rack-capped, so the session won’t count as clean.')
+    })
+
+    it('with nothing written to swap to, the rack max is rack-capped at Settings’ rack too', () => {
+      const s = slot({ exerciseId: 'db-rdl', repsMin: 10, repsMax: 10 })
+      const p = one({ slot: s, exercise: dbRdl, lastSets: rdlSets('db-rdl', 80) })
+      expect(p).toMatchObject({ exerciseId: 'db-rdl', load: 80, rackCapped: true, basis: 'progress-load' })
+      expect(p.note).toBe('Clean twice at the top of the range: load up one step (5 lb), back to 10 reps. The rack stops at 80 lb and nothing is written to swap to: 80 lb, rack-capped, so the session won’t count as clean.')
+      expect(one({ slot: s, exercise: dbRdl, lastSets: rdlSets('db-rdl', 70) }).rackCapped).toBeUndefined()
+    })
+
+    it('a unilateral slot moves as one when either side is past the rack', () => {
+      const bss = ex({ id: 'bulgarian-split-squat', name: 'Bulgarian split squat', loadType: 'dumbbell-each', loadUnit: 'lb', increment: 5, unilateral: true, requires: ['flat-bench'] })
+      const split = ex({ id: 'split-squat', name: 'Split squat', loadType: 'dumbbell-each', loadUnit: 'lb', increment: 5, unilateral: true, requires: [] })
+      const s = slot({ exerciseId: 'bulgarian-split-squat', repsMin: 8, repsMax: 8, unilateral: true, substitutionIds: ['split-squat'] })
+      const sets = [...threeSets({ side: 'right', load: 25, loadUnit: 'lb', reps: 8 }), ...threeSets({ side: 'left', load: 30, loadUnit: 'lb', reps: 8 })]
+      const [injured, healthy] = prescribe(input({ slot: s, exercise: bss, substitutions: [split], readings: ['hold'], lastSets: sets, gym: gym(25, 'flat-bench') }))
+      expect(injured).toMatchObject({ side: 'right', exerciseId: 'split-squat', load: null })
+      expect(injured?.note).toContain('The other side is past the rack’s 25 lb dumbbells, so the slot swaps to Split squat and pick its load.')
+      expect(healthy).toMatchObject({ side: 'left', exerciseId: 'split-squat', load: null, budgetFromInjured: true })
+      expect(healthy?.note).toContain('That is past the rack’s 25 lb dumbbells: swap to Split squat and pick its load.')
+    })
+
+    it('no gym given reads as everything here at Settings’ rack', () => {
+      const cases: Partial<PrescriptionInput>[] = [
+        { lastSets: rdlSets('db-rdl', 80) },
+        { exercise: slRdl, lastSets: rdlSets('single-leg-rdl', 80) },
+        { readings: ['back-off'], lastSets: rdlSets('db-rdl', 60) },
+        { readings: ['hold'], lastSets: rdlSets('db-rdl', 60) },
+      ]
+      for (const c of cases) expect(rdl({ ...c, gym: gym(80, 'smith-machine') })).toEqual(rdl(c))
+    })
+  })
+
+  describe('bodyweight back-offs', () => {
+    const stepUp = ex({ id: 'step-up', name: 'Step-up', pattern: 'single-leg', loadType: 'step-height', loadUnit: 'in', increment: 2, heightIncrementIn: 2, holdsLoad: 'dumbbell-each', unilateral: true, requires: ['step-platforms'] })
+    const stair = ex({ id: 'step-up-stair', name: 'Step-up on the lowest stair in the club', pattern: 'single-leg', loadType: 'step-height', loadUnit: 'in', increment: 2, heightIncrementIn: 2, holdsLoad: 'dumbbell-each', unilateral: true, requires: ['stair'] })
+    const split = ex({ id: 'split-squat', name: 'Split squat', pattern: 'single-leg', loadType: 'dumbbell-each', loadUnit: 'lb', increment: 5, unilateral: true, requires: [] })
+    const p1c1 = slot({ id: 'p1c-1', exerciseId: 'step-up', repsMin: 10, repsMax: 10, rpeTarget: 6, progressionRule: 'height-then-load', unilateral: true, heightIn: 6, heightMaxIn: 8, loadBeforeHeightLb: 20, substitutionIds: ['step-up-stair', 'split-squat'] })
+    const bodyweight = (exerciseId: string) => [...threeSets({ exerciseId, side: 'right', load: 0, loadUnit: 'lb', reps: 10, heightIn: 6 }), ...threeSets({ exerciseId, side: 'left', load: 0, loadUnit: 'lb', reps: 10, heightIn: 6 })]
+    const backOff = (exercise: Exercise, available: string[]) =>
+      prescribe(input({ slot: p1c1, exercise, substitutions: [stair, split], readings: ['back-off'], lastSets: bodyweight(exercise.id), gym: gym(80, ...available) }))
+
+    it('a back-off from the stair step-up, at a gym with no step platforms, goes forward to the split squat, never back to the step-up', () => {
+      const out = backOff(stair, ['stair'])
+      expect(out.map((p) => p.exerciseId)).toEqual(['split-squat', 'split-squat'])
+      expect(out[0]).toMatchObject({ side: 'right', basis: 'back-off', loadUnit: 'lb', load: null, repsTarget: 10, note: 'Back off: the easier version, Split squat.' })
+      // A split squat has no step: the stair's height doesn't follow it.
+      expect(out[0]?.heightIn).toBeUndefined()
+    })
+
+    it('a back-off from the step-up with no stair passes over the stair to the split squat', () => {
+      expect(backOff(stepUp, ['step-platforms']).map((p) => p.exerciseId)).toEqual(['split-squat', 'split-squat'])
+      expect(backOff(stepUp, ['step-platforms', 'stair']).map((p) => p.exerciseId)).toEqual(['step-up-stair', 'step-up-stair'])
+    })
+
+    it('with nothing lighter here, a back-off cuts a set and says nothing on the list is here', () => {
+      const curl = ex({ id: 'single-leg-seated-leg-curl', name: 'Single-leg seated leg curl', pattern: 'hamstring', requires: ['seated-leg-curl'] })
+      const nordic = ex({ id: 'nordic-negatives', pattern: 'hamstring', loadType: 'bodyweight', loadUnit: 'none', increment: 0, requires: ['mats'] })
+      const s = slot({ exerciseId: 'nordic-negatives', repsMin: 3, repsMax: 5, progressionRule: 'fixed', substitutionIds: ['single-leg-seated-leg-curl'] })
+      const p = one({ slot: s, exercise: nordic, substitutions: [curl], readings: ['back-off'], lastSets: threeSets({ exerciseId: 'nordic-negatives', load: 0, loadUnit: 'none', reps: 4 }), gym: gym(80, 'mats') })
+      expect(p).toMatchObject({ exerciseId: 'nordic-negatives', sets: 2, basis: 'back-off', note: 'Back off: 2 sets instead of 3; nothing lighter on the list is here.' })
+    })
+  })
+
+  describe('the stage ceiling', () => {
+    const bosuLadder = ['folded mat', 'folded mat, slow head turns', 'folded mat, eyes closed', 'bosu', 'bosu, slow head turns', 'bosu, eyes closed']
+    const matOrBosu = ex({
+      id: 'balance-mat-bosu', name: 'Balance on a folded mat or bosu', pattern: 'balance', loadType: 'time', loadUnit: 's', increment: 5, unilateral: true,
+      requires: [{ anyOf: ['mats', 'bosu'] }], stages: bosuLadder, stageRequires: [['mats'], ['mats'], ['mats'], ['bosu'], ['bosu'], ['bosu']],
+    })
+    const singleLeg = ex({
+      id: 'single-leg-balance', name: 'Single-leg balance', pattern: 'balance', loadType: 'time', loadUnit: 's', increment: 5, unilateral: true,
+      requires: [], stages: ['eyes open', 'eyes closed', 'on a folded mat'], stageRequires: [[], [], ['mats']],
+    })
+    const p2a7 = slot({ id: 'p2a-7', exerciseId: 'balance-mat-bosu', repsMin: 30, repsMax: 30, repUnit: 'seconds', progressionRule: 'stage', unilateral: true, injuredOnly: true, substitutionIds: ['single-leg-balance'] })
+    const holds = (exerciseId: string, stage: number) => threeSets({ exerciseId, side: 'right', load: 0, loadUnit: 's', reps: undefined, seconds: 30, stage, rpe: undefined })
+    const balance = (over: Partial<PrescriptionInput>) => one({ slot: p2a7, exercise: matOrBosu, substitutions: [singleLeg], ...over })
+
+    it('stops the ladder at the last stage the gym supports', () => {
+      expect(balance({ lastSets: holds('balance-mat-bosu', 2), gym: gym(80, 'mats') })).toMatchObject({ stage: 2, basis: 'at-top', note: 'Bosu isn’t marked here; staying at folded mat, eyes closed.' })
+      const named = balance({ lastSets: holds('balance-mat-bosu', 2), gym: { ...gym(80, 'mats'), names: new Map([['bosu', 'Bosu or balance pad']]) } })
+      expect(named.note).toBe('Bosu or balance pad isn’t marked here; staying at folded mat, eyes closed.')
+      expect(balance({ lastSets: holds('balance-mat-bosu', 1), gym: gym(80, 'mats') })).toMatchObject({ stage: 2, basis: 'progress-stage' })
+      expect(balance({ lastSets: holds('balance-mat-bosu', 2), gym: gym(80, 'mats', 'bosu') })).toMatchObject({ stage: 3, basis: 'progress-stage' })
+      expect(balance({ lastSets: holds('balance-mat-bosu', 2) })).toMatchObject({ stage: 3, basis: 'progress-stage' })
+    })
+
+    it('brings a ladder from a gym with a bosu back down to the top stage here, on every basis', () => {
+      expect(balance({ readings: ['hold'], lastSets: holds('balance-mat-bosu', 4), gym: gym(80, 'mats') })).toMatchObject({
+        stage: 2, basis: 'repeat', note: 'Hold: repeat the last session’s loads and reps exactly. Bosu isn’t marked here; back to folded mat, eyes closed.',
+      })
+      expect(balance({ readings: ['back-off'], lastSets: holds('balance-mat-bosu', 5), gym: gym(80, 'mats') })).toMatchObject({ stage: 2, basis: 'back-off', note: 'Back off: Bosu isn’t marked here; back to folded mat, eyes closed.' })
+      expect(balance({ readings: ['back-off'], lastSets: holds('balance-mat-bosu', 3), gym: gym(80, 'mats') })).toMatchObject({ stage: 2, basis: 'back-off', note: 'Back off: back a stage, to folded mat, eyes closed.' })
+    })
+
+    it('single-leg balance with no mats stays at eyes closed', () => {
+      const s = slot({ id: 'p1a-7', exerciseId: 'single-leg-balance', repsMin: 30, repsMax: 30, repUnit: 'seconds', progressionRule: 'stage', unilateral: true, injuredOnly: true })
+      const p = one({ slot: s, exercise: singleLeg, lastSets: holds('single-leg-balance', 1), gym: gym(80) })
+      expect(p).toMatchObject({ stage: 1, basis: 'at-top', note: 'Mats aren’t marked here; staying at eyes closed.' })
+    })
+
+    it('a bosu and no mat moves the slot to the next exercise here, from its first stage (PROGRAM-QUESTIONS 73)', () => {
+      const p = balance({ lastSets: holds('balance-mat-bosu', 1), gym: gym(80, 'bosu') })
+      expect(p).toMatchObject({ exerciseId: 'single-leg-balance', stage: 0, repUnit: 'seconds', repsTarget: 30, basis: 'first' })
+      expect(p.note).toBe('Mats aren’t marked here, and the first stage is folded mat: Single-leg balance instead. First time: start at 30 seconds.')
+      // With the mats back, the slot runs its own ladder again.
+      expect(balance({ lastSets: holds('balance-mat-bosu', 1), gym: gym(80, 'bosu', 'mats') })).toMatchObject({ exerciseId: 'balance-mat-bosu', stage: 2 })
+    })
+  })
+})
