@@ -110,6 +110,22 @@ describe('the whole knee on the live seed (PROGRAM-QUESTIONS 6)', () => {
   it('a plan with no session date (the morning check’s next-time preview) is not the next lift', () => {
     expect(plan([phaseOne, phaseTwo])('p2c-5')).toMatchObject({ load: 100, basis: 'progress-reps' })
   })
+
+  it('an upper-body slot running lower-body work the Program screen added backs it off too (PROGRAM-QUESTIONS 129)', () => {
+    // The goblet squat added to the incline press's list, logged on that slot Dec 5 at 30 lb, clean, and swapped to again on Dec 12.
+    const edited: History = {
+      ...historyOf([phaseOne, phaseTwo], [...logs, ...sets('w2', 'p2c-4', 'goblet-squat-bench', { load: 30, loadUnit: 'lb', reps: 8, rpe: 7 })], checks),
+      programOverrides: [{ slotId: 'p2c-4', substitutionIds: ['chest-press-machine', 'smith-bench-press', 'goblet-squat-bench'], editedOn: '2026-12-01' }],
+    }
+    const plans = planSession({ template, week: 6, settings, history: edited, gym: home, before: '2026-12-12', chosenExercise: { 'p2c-4': 'goblet-squat-bench' } })
+    const press = plans.find((p) => p.slot.id === 'p2c-4')
+    expect(press?.exercise.id).toBe('goblet-squat-bench')
+    expect(press?.prescriptions[0]).toMatchObject({ exerciseId: 'goblet-squat-bench', load: 20, basis: 'back-off' })
+    expect(press?.prescriptions[0]?.note).toMatch(/^Whole knee: a morning check since the last lift read back off\./)
+    // Swapped back to its own incline press, the slot is upper-body work again and keeps its load.
+    const own = planSession({ template, week: 6, settings, history: edited, gym: home, before: '2026-12-12' }).find((p) => p.slot.id === 'p2c-4')
+    expect(own?.prescriptions[0]).toMatchObject({ exerciseId: 'incline-db-press', load: 40, basis: 'same' })
+  })
 })
 
 describe('planSession at a gym (M4b, design section 4)', () => {

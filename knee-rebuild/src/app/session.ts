@@ -83,7 +83,7 @@ export function planSession(input: {
       input.chosenExercise?.[slot.id],
       gym.available,
     )
-    const wholeKnee = wholeKneeFor({ morning, own, exerciseId: exercise.id, phase: template.phase, records })
+    const wholeKnee = wholeKneeFor({ morning, own, exercise, phase: template.phase, records })
     const prescriptions = prescribe({
       slot,
       exercise,
