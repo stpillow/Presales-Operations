@@ -93,6 +93,13 @@ describe('nameCheck', () => {
   it('counts what is typed', () => {
     expect(nameCountWords(' Marriott ')).toBe('8 of 60 characters')
   })
+
+  it('counts an emoji as one character, as the schema does, so the count and the refusal match what saves (M4b review)', () => {
+    expect(nameCountWords('🏨'.repeat(31))).toBe('31 of 60 characters')
+    expect(nameCheck('🏨'.repeat(60), gyms, null).ok).toBe(true)
+    expect(nameCountWords('🏨'.repeat(60))).toBe('60 of 60 characters')
+    expect(nameCheck('🏨'.repeat(61), gyms, null)).toEqual({ ok: false, message: 'That is 61 characters; a gym’s name fits in 60.' })
+  })
 })
 
 describe('start and rack choices', () => {

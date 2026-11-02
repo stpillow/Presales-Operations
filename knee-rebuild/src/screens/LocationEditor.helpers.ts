@@ -28,6 +28,14 @@ export const NAME_MAX = 60
 export type NameCheck = { ok: true; name: string } | { ok: false; message: string }
 
 /**
+ * Characters as the schema counts them (Zod's max length counts code points): an emoji is one, not
+ * the two UTF-16 units `length` gives, so the count under the field and a refusal match what saves.
+ */
+export function characterCount(text: string): number {
+  return [...text.trim()].length
+}
+
+/**
  * Whether a typed name can be saved: the schema's 1 to 60 characters (trimmed), and not the name
  * of another gym the lists offer (`nameTakenBy`), which Today's Change couldn't tell apart. The
  * refusal names that gym as stored, so the typed text's own punctuation never ends up mid-sentence.
@@ -35,7 +43,7 @@ export type NameCheck = { ok: true; name: string } | { ok: false; message: strin
 export function nameCheck(text: string, locations: readonly Pick<Location, 'id' | 'name' | 'archived'>[], exceptId: string | null): NameCheck {
   const name = text.trim()
   if (name.length === 0) return { ok: false, message: 'A gym needs a name: type the one you will look for on Today.' }
-  if (!Location.shape.name.safeParse(name).success) return { ok: false, message: `That is ${name.length} characters; a gym’s name fits in ${NAME_MAX}.` }
+  if (!Location.shape.name.safeParse(name).success) return { ok: false, message: `That is ${characterCount(name)} characters; a gym’s name fits in ${NAME_MAX}.` }
   const taken = nameTakenBy(locations, name, exceptId)
   if (taken) return { ok: false, message: `${taken.name} already has that name. Pick one Today can tell apart.` }
   return { ok: true, name }
@@ -43,7 +51,7 @@ export function nameCheck(text: string, locations: readonly Pick<Location, 'id' 
 
 /** "12 of 60 characters", under the name field. */
 export function nameCountWords(text: string): string {
-  return `${text.trim().length} of ${NAME_MAX} characters`
+  return `${characterCount(text)} of ${NAME_MAX} characters`
 }
 
 // --- Start and rack -----------------------------------------------------------
