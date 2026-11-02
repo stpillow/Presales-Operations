@@ -2,7 +2,7 @@
 
 The status page. Ticked when done, not when started. Questions about the program live in [PROGRAM-QUESTIONS.md](PROGRAM-QUESTIONS.md); the questions for Shawn before M1 are at the bottom.
 
-**Now:** M4 (running) built and in adversarial review; M4b (where you train) seed and rules being staged alongside; then M5, M6.
+**Now:** M4 (running) reviewed and merging; M4b (where you train) seed and engine rules built on a staging branch with Shawn's answers; then M5, M6.
 **Last updated:** Oct 31, 2026
 
 ## Milestones
@@ -66,7 +66,7 @@ Done when three logged runs show against the week's target and a hold reading ca
 - [x] Move limits in `src/rules/moves.ts`: logged days and finished weeks stay put; Undo only on the latest move (PROGRAM-QUESTIONS 59)
 - [x] The hold cap applied to next week's target
 - [x] Three logged runs show against the target; a hold reading caps the following week (browser drive, Nov 9 to 16: 10.5 of 11 miles, Friday's pain 4 reads hold, week 3 capped at 10.5)
-- [ ] Adversarial review
+- [x] Adversarial review: 22 findings, 20 survived three skeptics (11 defects), all fixed and re-verified in a browser drive (`docs/review-plan.md` 47 to 60)
 
 ### M4b · Where you train (added Nov 1 at Shawn's request)
 Done when Shawn can type a gym's name, mark what it has or lacks, add equipment it has that isn't on the list, switch to it on Today, and get a Session A that uses only what's there, with each change said in words.
