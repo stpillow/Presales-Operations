@@ -3,6 +3,7 @@ import programMd from '../../docs/program.md?raw'
 import raw from '../../data/program.json'
 import { program, templateFor } from '../program/program.ts'
 import { DELOAD_WEEKS } from '../rules/calendar.ts'
+import { phaseRunsExercise } from '../rules/session.ts'
 import { DEFAULT_KIT } from './log.ts'
 import { Equipment, Exercise, Program, Requirement } from './program.ts'
 
@@ -97,6 +98,15 @@ describe('data/program.json', () => {
       expect(exercise, `${item.id} prefill resolves`).toBeDefined()
       expect(exercise?.unilateral, `${item.id} prefill is two-sided`).toBe(true)
     }
+  })
+
+  it('gates: a load test’s prefill exercise is one its phase’s sessions can log, except gate 1’s (PROGRAM-QUESTIONS 114)', () => {
+    // Phase 1 runs only the two-legged leg press, so no Phase 1 session can log both sides of the
+    // single-leg press gate 1 tests: the Gates screen has to say so rather than wait for one.
+    const unreachable = program.gates.flatMap((g) =>
+      g.items.filter((i) => i.prefillExerciseId !== undefined && !phaseRunsExercise(program.templates, g.fromPhase, i.prefillExerciseId)).map((i) => i.id),
+    )
+    expect(unreachable).toEqual(['g1-sl-leg-press'])
   })
 
   it('carries the seven red flags and the start date', () => {

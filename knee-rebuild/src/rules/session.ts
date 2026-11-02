@@ -17,3 +17,13 @@ export function slotsForPhaseWeek(template: SessionTemplate, phaseWeek: number):
     return phaseWeek >= from && (to === null || phaseWeek <= to)
   })
 }
+
+/**
+ * Whether a phase's sessions can log an exercise: some slot of the phase's templates runs it, as
+ * its own exercise or one of its listed substitutions (a swap, the gym routing and the runner's
+ * Swap never leave that list). Gate 1's single-leg leg press test is the case it answers: Phase 1
+ * runs only the two-legged press, so no Phase 1 session can prefill it (PROGRAM-QUESTIONS 114).
+ */
+export function phaseRunsExercise(templates: readonly SessionTemplate[], phase: number, exerciseId: string): boolean {
+  return templates.some((t) => t.phase === phase && t.slots.some((s) => s.exerciseId === exerciseId || s.substitutionIds.includes(exerciseId)))
+}

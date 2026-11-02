@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { SessionTemplate, type Slot } from '../schema/index.ts'
-import { phaseWeekOf, slotsForPhaseWeek } from './session.ts'
+import { phaseRunsExercise, phaseWeekOf, slotsForPhaseWeek } from './session.ts'
 
 function slot(id: string, order: number, phaseWeeks?: [number, number | null]): Slot {
   return {
@@ -52,5 +52,20 @@ describe('phaseWeekOf', () => {
   })
   it('refuses a week before the phase began', () => {
     expect(() => phaseWeekOf(7, 8)).toThrow(RangeError)
+  })
+})
+
+describe('phaseRunsExercise (PROGRAM-QUESTIONS 114)', () => {
+  const p1 = SessionTemplate.parse({ id: 'fx-p1', phase: 1, letter: 'A', slots: [{ ...slot('p1-1', 1), substitutionIds: ['leg-press-45', 'goblet-squat-bench'] }] })
+  const p2 = SessionTemplate.parse({ id: 'fx-p2', phase: 2, letter: 'A', slots: [{ ...slot('p2-1', 1), exerciseId: 'single-leg-leg-press' }] })
+  it('is true for a slot’s own exercise or one of its substitutions in that phase', () => {
+    expect(phaseRunsExercise([p1, p2], 1, 'leg-press')).toBe(true)
+    expect(phaseRunsExercise([p1, p2], 1, 'goblet-squat-bench')).toBe(true)
+    expect(phaseRunsExercise([p1, p2], 2, 'single-leg-leg-press')).toBe(true)
+  })
+  it('is false for an exercise only another phase runs: no session of the phase can log it', () => {
+    expect(phaseRunsExercise([p1, p2], 1, 'single-leg-leg-press')).toBe(false)
+    expect(phaseRunsExercise([p1, p2], 2, 'goblet-squat-bench')).toBe(false)
+    expect(phaseRunsExercise([p1, p2], 4, 'leg-press')).toBe(false)
   })
 })
