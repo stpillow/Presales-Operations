@@ -1,6 +1,8 @@
 import type { History } from '../db/repo.ts'
 import { addDays, dayOf, isDeloadWeek, scheduledSession } from '../rules/calendar.ts'
+import { locationCoverage, suggestedRunSwap, type Available, type CoverageMove, type ExerciseLookup } from '../rules/equipment.ts'
 import { attachChecks, subjectReadings, workoutReading } from '../rules/history.ts'
+import { listedLocations, locationIdOf, locationOrHome } from '../rules/locations.ts'
 import { morningCheckApplies, morningReading, type Reading } from '../rules/reading.ts'
 import { phaseWeekOf } from '../rules/session.ts'
 import { runsInWeek, suggestRun, targetForWeek, type RunSuggestion } from '../rules/weekPlan.ts'
@@ -10,10 +12,14 @@ import type {
   Run,
   Day,
   DaySession,
+  Equipment,
+  EquipmentId,
   IsoDate,
+  Location,
   Phase,
   Program,
   ReadingResult,
+  Requirement,
   RunType,
   SessionLetter,
   SessionTemplate,
@@ -54,6 +60,12 @@ function monthAndDay(date: IsoDate): { month: string; day: number } {
 export function dateWords(date: IsoDate): string {
   const { month, day } = monthAndDay(date)
   return `${WEEKDAY[dayOf(date)]}, ${month} ${day}`
+}
+
+/** "Nov 10": the form a mark-off's date takes. */
+export function monthDayWords(date: IsoDate): string {
+  const { month, day } = monthAndDay(date)
+  return `${month.slice(0, 3)} ${day}`
 }
 
 /** "Monday Nov 2": the form the start line uses. */
@@ -208,6 +220,8 @@ export type TodayBody =
       letter: SessionLetter
       label: string
       week: number
+      /** The week of the phase (what `locationCoverage` and the plan read the banded slots by). */
+      phaseWeek: number
       isDeload: boolean
       /** Null when the phase has no session written (Phase 4). */
       template: SessionTemplate | null
@@ -223,6 +237,8 @@ export type TodayBody =
       note: string | null
       /** The engine's suggestion for today's run (miles under the week's ceiling, strides, tempo, a swap). */
       suggestion: RunSuggestion | null
+      /** This morning's reading, from today's check; null with no check yet. */
+      morning: ReadingResult | null
       /** This week's miles so far and the week's target (null outside the plan), with why when capped. */
       weekMiles: number
       target: number | null
@@ -298,13 +314,14 @@ export function todayView(input: { today: IsoDate; settings: Settings; history: 
   }
 
   const session = scheduled.session
+  const phaseWeek = phaseWeekOf(Math.max(week, settings.phaseEnteredWeek), settings.phaseEnteredWeek)
   if (letter) {
     const [record] = workout && workout.status === 'finished' ? attachChecks([workout], history.setLogs, history.morningChecks) : []
     const reading = record ? workoutReading(record, settings.injuredSide) : null
     const checkDone = record?.morningCheck !== undefined
     return {
       ...base,
-      body: { kind: 'lift', letter, label: sessionLabel(session), week, isDeload: isDeloadWeek(week), template, workout, reading, checkDone },
+      body: { kind: 'lift', letter, label: sessionLabel(session), week, phaseWeek, isDeload: isDeloadWeek(week), template, workout, reading, checkDone },
     }
   }
   if (session === 'off') return { ...base, body: { kind: 'off', label: sessionLabel(session, program.weeklyTemplateRows) } }
@@ -314,14 +331,15 @@ export function todayView(input: { today: IsoDate; settings: Settings; history: 
   const before = runsInWeek(history.runs, settings.startDate, week).filter((r) => r.date < today)
   const todays = history.runs.filter((r) => r.date === today)
   const check = history.morningChecks.find((c) => c.date === today)
+  const morning = check ? morningReading(check).result : null
   const suggestion = suggestRun({
     session,
     week,
     target: target.target,
     milesSoFar: weekMiles(before),
     currentPhase: settings.currentPhase,
-    phaseWeek: phaseWeekOf(Math.max(week, settings.phaseEnteredWeek), settings.phaseEnteredWeek),
-    morning: check ? morningReading(check).result : null,
+    phaseWeek,
+    morning,
   })
   return {
     ...base,
@@ -330,6 +348,7 @@ export function todayView(input: { today: IsoDate; settings: Settings; history: 
       label: sessionLabel(session),
       note: sessionNote(session, program.weeklyTemplateRows),
       suggestion,
+      morning,
       weekMiles: weekMiles([...before, ...todays]),
       target: target.target,
       capped: target.capped,
@@ -337,4 +356,131 @@ export function todayView(input: { today: IsoDate; settings: Settings; history: 
       loggedToday: todays,
     },
   }
+}
+
+// ---- Where you train (M4b, design section 5): the gym line, Change, what moves, mark-offs ----
+
+/** Where Change's "New location" goes: the location editor, started new (`#/location/new`, the brief's route). */
+export const NEW_LOCATION_HASH = '#/location/new'
+
+/** "At Planet Fitness": the gym Today plans for, under the date. */
+export function atGymWords(location: Pick<Location, 'name'>): string {
+  return `At ${location.name}`
+}
+
+export interface GymRow {
+  id: string
+  name: string
+  active: boolean
+  /** "✓ Active" on the active gym; "Use here" on the others, which is what a tap does. */
+  mark: string
+}
+
+/** Change's rows: every gym a list offers (`listedLocations`: archived ones leave it), Planet Fitness first, the active one marked in words. */
+export function gymRows(locations: readonly Location[], activeId: string): GymRow[] {
+  return listedLocations(locations).map((l) => ({ id: l.id, name: l.name, active: l.id === activeId, mark: l.id === activeId ? '✓ Active' : 'Use here' }))
+}
+
+/**
+ * The gym the day's lift runs at: a session already started (open or left early) stays at the gym
+ * it was stamped with at Start (`locationIdOf`: none means Planet Fitness), archived or not; one
+ * still to start, or finished, is the active gym's.
+ */
+export function liftGym(workout: Pick<Workout, 'status' | 'locationId'> | null, active: Location, locations: readonly Location[]): Location {
+  if (workout && (workout.status === 'in-progress' || workout.status === 'abandoned')) return locationOrHome(locations, locationIdOf(workout)) ?? active
+  return active
+}
+
+/** "Start Session A", "Resume Session A", and "Resume Session A at Marriott Downtown" when the session's gym is not the active one. */
+export function startWords(label: string, workout: Pick<Workout, 'status'> | null, gym: Pick<Location, 'id' | 'name'>, active: Pick<Location, 'id'>): string {
+  if (workout?.status !== 'in-progress' && workout?.status !== 'abandoned') return `Start ${label}`
+  return gym.id === active.id ? `Resume ${label}` : `Resume ${label} at ${gym.name}`
+}
+
+export type ItemLike = Pick<Equipment, 'id' | 'name' | 'carried'>
+
+/** A list name inside a sentence: "seated leg press", but "Smith machine", which program.md capitalizes. */
+export function itemWords(name: string): string {
+  return /^Smith\b/.test(name) ? name : `${name.charAt(0).toLowerCase()}${name.slice(1)}`
+}
+
+function itemName(id: EquipmentId, items: readonly ItemLike[]): { name: string; carried: boolean } {
+  const item = items.find((i) => i.id === id)
+  return item ? { name: item.name, carried: item.carried } : { name: id.replace(/-/g, ' '), carried: false }
+}
+
+/**
+ * What a gym lacks, in words: "no Smith machine", "no cable ankle strap in your bag" for an item
+ * carried to every gym (`Settings.kit`), and each item of an either-or ("no step platforms, no stair").
+ */
+export function lackWords(missing: readonly Requirement[], items: readonly ItemLike[]): string {
+  return missing
+    .flatMap((r) => (typeof r === 'string' ? [r] : r.anyOf))
+    .map((id) => {
+      const { name, carried } = itemName(id, items)
+      return carried ? `no ${itemWords(name)} in your bag` : `no ${itemWords(name)}`
+    })
+    .join(', ')
+}
+
+/**
+ * One of `locationCoverage`'s moves: "Cable hip abduction, ankle strap → Lateral band walk (no cable
+ * ankle strap in your bag)", or for a slot with nothing on its list here, "Nothing here for
+ * Step-off landing … (no step platforms)". The words in brackets are what the own exercise lacks.
+ */
+export function moveWords(move: CoverageMove, byId: ExerciseLookup, items: readonly ItemLike[]): string {
+  const name = (id: string) => byId.get(id)?.name ?? id
+  const lack = move.missing.length > 0 ? ` (${lackWords(move.missing, items)})` : ''
+  return move.kind === 'none' ? `Nothing here for ${name(move.from)}${lack}` : `${name(move.from)} → ${name(move.to)}${lack}`
+}
+
+/** What moves at this gym for today's lift, in session order, from `locationCoverage`; empty when every slot runs its own exercise. */
+export function liftMoves(input: { template: SessionTemplate; phaseWeek: number; byId: ExerciseLookup; available: Available; items: readonly ItemLike[] }): string[] {
+  const [coverage] = locationCoverage([input.template], input.phaseWeek, input.byId, input.available)
+  return (coverage?.moves ?? []).map((move) => moveWords(move, input.byId, input.items))
+}
+
+/** The line over the moves: "3 slots of Session A move at Marriott Downtown:", or "Nothing in Session A moves at Planet Fitness." */
+export function movesHeading(gymName: string, label: string, count: number): string {
+  if (count === 0) return `Nothing in ${label} moves at ${gymName}.`
+  return `${count} ${count === 1 ? 'slot' : 'slots'} of ${label} ${count === 1 ? 'moves' : 'move'} at ${gymName}:`
+}
+
+export interface MarkOffLine {
+  itemId: EquipmentId
+  /** "Seated leg press marked not here since Nov 10"; the screen puts "It's back" after it. */
+  words: string
+}
+
+/** Each item marked not here at a gym (from the runner or Today), in the order marked, with the day. */
+export function markOffLines(location: Pick<Location, 'markedOff'>, items: readonly ItemLike[]): MarkOffLine[] {
+  return location.markedOff.map((m) => ({ itemId: m.id, words: `${itemName(m.id, items).name} marked not here since ${monthDayWords(m.on)}` }))
+}
+
+/** A Hold run day at a gym with neither swap machine (Shawn's Nov 1 answer 7). */
+export function noSwapMachineWords(gymName: string): string {
+  return `No elliptical or rower at ${gymName}`
+}
+
+const MORNING_WORDS: Record<ReadingResult, string> = { clean: 'clean', hold: 'hold', 'back-off': 'back off' }
+
+/** Why nothing is suggested at a gym with neither machine: he picks. */
+export function noSwapSuggestedWords(morning: ReadingResult | null): string {
+  const read = morning ? `This morning read ${MORNING_WORDS[morning]}` : 'This morning calls for a swap'
+  return `${read}, and program.md names no swap but those two, so nothing is suggested: pick what you did.`
+}
+
+/**
+ * Today's run suggestion at the active gym: the engine's words (`suggestionWords`), unless it calls
+ * for a swap and neither machine is here (`suggestedRunSwap`), when nothing is suggested and the
+ * line says neither is here.
+ */
+export function runSuggestionAtGym(
+  suggestion: Pick<RunSuggestion, 'headline' | 'reasons' | 'swapSuggested'>,
+  at: { available: Available; gymName: string; morning: ReadingResult | null },
+): { headline: string; reasons: string[] } {
+  if (suggestion.swapSuggested && suggestedRunSwap(at.available) === null) {
+    return { headline: noSwapMachineWords(at.gymName), reasons: [noSwapSuggestedWords(at.morning)] }
+  }
+  return suggestionWords(suggestion)
 }

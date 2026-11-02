@@ -1,18 +1,38 @@
 import { useState } from 'react'
 import { navigate } from '../app/router.ts'
-import { PROGRAM } from '../app/session.ts'
+import { PROGRAM, availableAt } from '../app/session.ts'
 import { useToday } from '../app/today.ts'
 import { Button } from '../components/Button.tsx'
 import { ReadingWord, readingSentence } from '../components/ReadingWord.tsx'
 import { Screen } from '../components/Screen.tsx'
-import { useActiveLocation, useHistory, useSettings } from '../db/hooks.ts'
-import { putWorkout, reopenWorkout } from '../db/repo.ts'
-import type { IsoDate, Location, Settings } from '../schema/index.ts'
-import { newWorkout, newWorkoutId, runLabel, runWeekWords, suggestionWords, todayView, type OpenWorkout, type TodayBody, type TodayView, type YesterdayLine } from './Today.helpers.ts'
+import { useActiveLocation, useHistory, useLocations, useSettings } from '../db/hooks.ts'
+import { clearMarkOff, putWorkout, reopenWorkout, setActiveLocation } from '../db/repo.ts'
+import type { EquipmentId, IsoDate, Location, Settings } from '../schema/index.ts'
+import {
+  NEW_LOCATION_HASH,
+  atGymWords,
+  gymRows,
+  liftGym,
+  liftMoves,
+  markOffLines,
+  movesHeading,
+  newWorkout,
+  newWorkoutId,
+  runLabel,
+  runSuggestionAtGym,
+  runWeekWords,
+  startWords,
+  todayView,
+  type OpenWorkout,
+  type TodayBody,
+  type TodayView,
+  type YesterdayLine,
+} from './Today.helpers.ts'
 
 const LABEL = 'font-mono text-small uppercase tracking-[0.22em] text-on-dark-muted'
 const SECTION = 'flex flex-col gap-4'
 const HEADING = 'font-sans text-h3 font-medium text-on-dark'
+const BY_ID = new Map(PROGRAM.exercises.map((e) => [e.id, e]))
 
 type Lift = Extract<TodayBody, { kind: 'lift' }>
 
@@ -25,8 +45,9 @@ export function Today() {
   const settings = useSettings()
   const history = useHistory()
   const activeLocation = useActiveLocation()
+  const locations = useLocations()
 
-  if (settings === undefined || history === undefined || activeLocation === undefined || (settings !== null && activeLocation === null)) {
+  if (settings === undefined || history === undefined || activeLocation === undefined || locations === undefined || (settings !== null && activeLocation === null)) {
     return (
       <Screen title="Today" lead="Opening storage…">
         <p className="text-body text-on-dark-dim">Reading what is logged on this phone.</p>
@@ -55,13 +76,14 @@ export function Today() {
 
   return (
     <Screen title="Today" lead={view.dateWords}>
+      <GymBlock active={activeLocation} locations={locations} />
       <PhaseLine view={view} />
       {view.body.kind === 'before-start' ? (
         <BeforeStartBlock line={view.body.line} />
       ) : view.body.kind === 'lift' ? (
-        <LiftBlock body={view.body} settings={settings} location={activeLocation} today={today} takenIds={history.workouts.map((w) => w.id)} />
+        <LiftBlock body={view.body} settings={settings} active={activeLocation} locations={locations} today={today} takenIds={history.workouts.map((w) => w.id)} />
       ) : view.body.kind === 'run' ? (
-        <RunBlock body={view.body} />
+        <RunBlock body={view.body} gym={activeLocation} kit={settings.kit} />
       ) : (
         <OffBlock label={view.body.label} />
       )}
@@ -87,6 +109,106 @@ function StopBlock({ headline, items }: { headline: string; items: string[] }) {
       <Button wide onClick={() => navigate({ name: 'settings' })}>
         Settings
       </Button>
+    </section>
+  )
+}
+
+/**
+ * "At Planet Fitness · Change" under the date. Change opens an inline list (no modal): each gym a
+ * list offers, "✓ Active" on the active one, a tap on another makes it active, and "New location"
+ * at the end opens the editor. The active gym's mark-offs follow, each with "It's back".
+ */
+function GymBlock({ active, locations }: { active: Location; locations: Location[] }) {
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const rows = gymRows(locations, active.id)
+  const marks = markOffLines(active, PROGRAM.equipment)
+
+  const use = async (id: string) => {
+    if (id === active.id) {
+      setOpen(false)
+      return
+    }
+    setBusy(true)
+    setError(null)
+    try {
+      await setActiveLocation(id)
+      setOpen(false)
+    } catch (e: unknown) {
+      setError(`Could not switch gyms (${e instanceof Error ? e.message : String(e)}). Today still plans at ${active.name}.`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const back = async (itemId: EquipmentId) => {
+    setBusy(true)
+    setError(null)
+    try {
+      await clearMarkOff(active.id, itemId)
+    } catch (e: unknown) {
+      setError(`Could not clear the mark (${e instanceof Error ? e.message : String(e)}). It still counts as not here.`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section aria-label="Where you train" className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-x-2">
+        <span className="text-body text-on-dark">{atGymWords(active)}</span>
+        <span aria-hidden="true" className="text-body text-on-dark-muted">
+          ·
+        </span>
+        <Button variant="quiet" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+          {open ? 'Close' : 'Change'}
+        </Button>
+      </div>
+      {open ? (
+        <ul aria-label="Gyms" className="flex flex-col gap-2">
+          {rows.map((row) => (
+            <li key={row.id}>
+              <button
+                type="button"
+                aria-pressed={row.active}
+                disabled={busy}
+                onClick={() => void use(row.id)}
+                className={`tap flex w-full items-center justify-between gap-4 rounded-sm border px-4 py-3 text-left text-body disabled:opacity-50 ${
+                  row.active ? 'border-paper bg-navy-lift text-on-dark' : 'border-on-dark-faint bg-transparent text-on-dark-dim'
+                }`}
+              >
+                <span>{row.name}</span>
+                <span className="font-mono text-small uppercase tracking-[0.22em]">{row.mark}</span>
+              </button>
+            </li>
+          ))}
+          <li>
+            <a href={NEW_LOCATION_HASH} className="tap flex w-full items-center justify-between gap-4 rounded-sm border border-on-dark-faint px-4 py-3 text-body text-on-dark">
+              <span>New location</span>
+              <span aria-hidden="true" className="font-mono text-small">
+                +
+              </span>
+            </a>
+          </li>
+        </ul>
+      ) : null}
+      {marks.map((m) => (
+        <div key={m.itemId} className="flex flex-wrap items-center gap-x-2">
+          <span className="text-body text-on-dark-dim">{m.words}</span>
+          <span aria-hidden="true" className="text-body text-on-dark-muted">
+            ·
+          </span>
+          <Button variant="quiet" disabled={busy} onClick={() => void back(m.itemId)}>
+            It’s back
+          </Button>
+        </div>
+      ))}
+      {error ? (
+        <p role="alert" className="text-body text-on-dark">
+          {error}
+        </p>
+      ) : null}
     </section>
   )
 }
@@ -123,10 +245,26 @@ function BeforeStartBlock({ line }: { line: string }) {
   )
 }
 
-function LiftBlock({ body, settings, location, today, takenIds }: { body: Lift; settings: Settings; location: Location; today: IsoDate; takenIds: string[] }) {
+function LiftBlock({
+  body,
+  settings,
+  active,
+  locations,
+  today,
+  takenIds,
+}: {
+  body: Lift
+  settings: Settings
+  active: Location
+  locations: Location[]
+  today: IsoDate
+  takenIds: string[]
+}) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const { template, workout, label, letter } = body
+  // A session already started stays at its own gym; one still to start runs at the active gym.
+  const gym = liftGym(workout, active, locations)
 
   const start = async () => {
     if (!template) return
@@ -161,7 +299,7 @@ function LiftBlock({ body, settings, location, today, takenIds }: { body: Lift; 
           week: body.week,
           isDeload: body.isDeload,
           startedAt: new Date().toISOString(),
-          locationId: location.id,
+          locationId: active.id,
         }),
       )
       navigate({ name: 'session', workoutId: id })
@@ -195,8 +333,9 @@ function LiftBlock({ body, settings, location, today, takenIds }: { body: Lift; 
           ) : workout?.status === 'abandoned' ? (
             <p className="text-body text-on-dark-dim">{label} was left early today; what was logged is kept. Resume to carry on in the same session.</p>
           ) : null}
+          <MovesBlock template={template} phaseWeek={body.phaseWeek} label={label} gym={gym} kit={settings.kit} />
           <Button variant="primary" wide disabled={busy} onClick={() => void start()}>
-            {busy ? 'Saving…' : workout?.status === 'in-progress' || workout?.status === 'abandoned' ? `Resume ${label}` : `Start ${label}`}
+            {busy ? 'Saving…' : startWords(label, workout, gym, active)}
           </Button>
           {error ? (
             <p role="alert" className="text-body text-on-dark">
@@ -206,6 +345,25 @@ function LiftBlock({ body, settings, location, today, takenIds }: { body: Lift; 
         </>
       )}
     </section>
+  )
+}
+
+/** What moves at the session's gym, from `locationCoverage`: each slot that doesn't run its own exercise there, in words. */
+function MovesBlock({ template, phaseWeek, label, gym, kit }: { template: NonNullable<Lift['template']>; phaseWeek: number; label: string; gym: Location; kit: readonly EquipmentId[] }) {
+  const moves = liftMoves({ template, phaseWeek, byId: BY_ID, available: availableAt({ location: gym, kit }), items: PROGRAM.equipment })
+  return (
+    <div className="flex flex-col gap-2">
+      <p className={moves.length === 0 ? 'text-small text-on-dark-muted' : 'text-body text-on-dark'}>{movesHeading(gym.name, label, moves.length)}</p>
+      {moves.length > 0 ? (
+        <ul className="flex list-disc flex-col gap-1 pl-6">
+          {moves.map((move, i) => (
+            <li key={`${i}:${move}`} className="text-body text-on-dark-dim">
+              {move}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
   )
 }
 
@@ -227,8 +385,9 @@ function FinishedBlock({ body }: { body: Lift }) {
   )
 }
 
-function RunBlock({ body }: { body: Extract<TodayBody, { kind: 'run' }> }) {
-  const s = body.suggestion ? suggestionWords(body.suggestion) : null
+function RunBlock({ body, gym, kit }: { body: Extract<TodayBody, { kind: 'run' }>; gym: Location; kit: readonly EquipmentId[] }) {
+  // A swap is done at the active gym: with neither machine there, nothing is suggested (Shawn's Nov 1 answer 7).
+  const s = body.suggestion ? runSuggestionAtGym(body.suggestion, { available: availableAt({ location: gym, kit }), gymName: gym.name, morning: body.morning }) : null
   return (
     <section aria-label="Scheduled session" className={SECTION}>
       <h2 className={HEADING}>{body.label}</h2>

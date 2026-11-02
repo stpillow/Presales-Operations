@@ -1,7 +1,24 @@
 import { describe, expect, it } from 'vitest'
-import type { MorningCheck, Run, SessionTemplate, SetLog, Settings, Workout } from '../schema/index.ts'
+import { program } from '../program/program.ts'
+import { availableEquipment } from '../rules/equipment.ts'
+import type { RunSuggestion } from '../rules/weekPlan.ts'
+import type { Location, MorningCheck, Run, SessionTemplate, SetLog, Settings, Workout } from '../schema/index.ts'
 import {
+  NEW_LOCATION_HASH,
+  atGymWords,
   dateWords,
+  gymRows,
+  itemWords,
+  lackWords,
+  liftGym,
+  liftMoves,
+  markOffLines,
+  monthDayWords,
+  movesHeading,
+  noSwapMachineWords,
+  noSwapSuggestedWords,
+  runSuggestionAtGym,
+  startWords,
   newWorkout,
   newWorkoutId,
   openWorkouts,
@@ -381,5 +398,174 @@ describe('run days', () => {
     expect(suggestionWords(late.body.suggestion).reasons).toContain('Carry a 2 × 5 min comfortably-hard segment with 3 min easy between.')
     // ...and the headline over that tempo does not say easy.
     expect(suggestionWords(late.body.suggestion).headline).toBe('Suggested: distance by feel')
+  })
+})
+
+// ---- Where you train, on Today (M4b Part C) ----
+
+const gym = (id: string, name: string, over: Partial<Location> = {}): Location => ({
+  id,
+  name,
+  present: [],
+  dumbbellMaxLb: 0,
+  startedFrom: 'empty',
+  listVersion: 1,
+  extras: [],
+  markedOff: [],
+  createdOn: '2026-11-02',
+  archived: false,
+  ...over,
+})
+const HOME = gym('planet-fitness', 'Planet Fitness', { startedFrom: 'planet-fitness', dumbbellMaxLb: 80, createdOn: '2026-11-01' })
+const MARRIOTT = gym('loc-1', 'Marriott Downtown', { dumbbellMaxLb: 25, createdOn: '2026-11-09' })
+const OLD_HOTEL = gym('loc-2', 'Old hotel', { createdOn: '2026-11-03', archived: true })
+const ITEMS = [
+  { id: 'smith-machine', name: 'Smith machine', carried: false },
+  { id: 'seated-leg-press', name: 'Seated leg press', carried: false },
+  { id: 'leg-press-45', name: '45° leg press', carried: false },
+  { id: 'step-platforms', name: 'Step platforms', carried: false },
+  { id: 'stair', name: 'Stair', carried: false },
+  { id: 'bosu', name: 'Bosu or balance pad', carried: false },
+  { id: 'ankle-strap', name: 'Cable ankle strap', carried: true },
+]
+
+describe('the gym line and Change', () => {
+  it('names the gym Today plans for', () => {
+    expect(atGymWords(HOME)).toBe('At Planet Fitness')
+    expect(atGymWords(MARRIOTT)).toBe('At Marriott Downtown')
+  })
+  it('lists every gym that is not archived, Planet Fitness first, with the active one marked', () => {
+    expect(gymRows([MARRIOTT, OLD_HOTEL, HOME], 'loc-1')).toEqual([
+      { id: 'planet-fitness', name: 'Planet Fitness', active: false, mark: 'Use here' },
+      { id: 'loc-1', name: 'Marriott Downtown', active: true, mark: '✓ Active' },
+    ])
+    expect(gymRows([HOME], 'planet-fitness')).toEqual([{ id: 'planet-fitness', name: 'Planet Fitness', active: true, mark: '✓ Active' }])
+  })
+  it('ends with New location, which opens the editor on a new gym', () => {
+    expect(NEW_LOCATION_HASH).toBe('#/location/new')
+  })
+})
+
+describe('the gym a lift runs at', () => {
+  const at = (status: Workout['status'], locationId?: string): Workout => ({ ...workout('w', '2026-11-03', status), ...(locationId ? { locationId } : {}) })
+  it('an open or abandoned session keeps the gym it was started at', () => {
+    expect(liftGym(at('in-progress', 'loc-1'), HOME, [HOME, MARRIOTT]).id).toBe('loc-1')
+    expect(liftGym(at('abandoned', 'loc-1'), HOME, [HOME, MARRIOTT]).id).toBe('loc-1')
+    // Archived since: the session still ran there.
+    expect(liftGym(at('in-progress', 'loc-2'), HOME, [HOME, OLD_HOTEL]).id).toBe('loc-2')
+  })
+  it('a session stamped with no gym ran at Planet Fitness', () => {
+    expect(liftGym(at('in-progress'), MARRIOTT, [HOME, MARRIOTT]).id).toBe('planet-fitness')
+  })
+  it('a session still to start, or one finished, plans at the active gym', () => {
+    expect(liftGym(null, MARRIOTT, [HOME, MARRIOTT]).id).toBe('loc-1')
+    expect(liftGym(at('finished', 'planet-fitness'), MARRIOTT, [HOME, MARRIOTT]).id).toBe('loc-1')
+  })
+  it('Start names the session; Resume names the gym only when it is not the active one', () => {
+    expect(startWords('Session A', null, HOME, HOME)).toBe('Start Session A')
+    expect(startWords('Session A', { status: 'in-progress' }, HOME, HOME)).toBe('Resume Session A')
+    expect(startWords('Session A', { status: 'in-progress' }, MARRIOTT, HOME)).toBe('Resume Session A at Marriott Downtown')
+    expect(startWords('Session A', { status: 'abandoned' }, MARRIOTT, HOME)).toBe('Resume Session A at Marriott Downtown')
+  })
+})
+
+describe('equipment in words', () => {
+  it('lowercases a list name inside a sentence, but not the Smith machine', () => {
+    expect(itemWords('Seated leg press')).toBe('seated leg press')
+    expect(itemWords('Smith machine')).toBe('Smith machine')
+    expect(itemWords('45° leg press')).toBe('45° leg press')
+  })
+  it('says what is missing, with carried items as not in the bag', () => {
+    expect(lackWords(['smith-machine'], ITEMS)).toBe('no Smith machine')
+    expect(lackWords(['ankle-strap'], ITEMS)).toBe('no cable ankle strap in your bag')
+    expect(lackWords([{ anyOf: ['step-platforms', 'stair'] }], ITEMS)).toBe('no step platforms, no stair')
+    expect(lackWords(['seated-leg-press', 'leg-press-45'], ITEMS)).toBe('no seated leg press, no 45° leg press')
+  })
+  it('names an item the list does not carry from its id', () => {
+    expect(lackWords(['kettlebell-rack'], ITEMS)).toBe('no kettlebell rack')
+  })
+  it('a mark-off says since when', () => {
+    expect(monthDayWords('2026-11-10')).toBe('Nov 10')
+    expect(monthDayWords('2027-01-04')).toBe('Jan 4')
+    const marked = { ...MARRIOTT, markedOff: [{ id: 'seated-leg-press', on: '2026-11-10' }, { id: 'smith-machine', on: '2026-11-12' }] }
+    expect(markOffLines(marked, ITEMS)).toEqual([
+      { itemId: 'seated-leg-press', words: 'Seated leg press marked not here since Nov 10' },
+      { itemId: 'smith-machine', words: 'Smith machine marked not here since Nov 12' },
+    ])
+    expect(markOffLines(HOME, ITEMS)).toEqual([])
+  })
+})
+
+describe('what moves at a gym (live seed)', () => {
+  const byId = new Map(program.exercises.map((e) => [e.id, e]))
+  const at = (location: Location, kit: readonly string[] = ['ankle-strap', 'mini-band']) => availableEquipment(location, program.equipment, program.planetFitness, kit)
+  const template = (id: string) => {
+    const t = program.templates.find((x) => x.id === id)
+    if (!t) throw new Error(`no template ${id}`)
+    return t
+  }
+  const home = { ...HOME, present: [...program.planetFitness, 'leg-press-45', 'rower'] }
+  it('nothing moves at the home gym', () => {
+    for (const t of program.templates) {
+      expect(liftMoves({ template: t, phaseWeek: 1, byId, available: at(home), items: program.equipment }), t.id).toEqual([])
+    }
+  })
+  it('a slot moves for want of a carried item, said as not in the bag', () => {
+    const moves = liftMoves({ template: template('p1-c'), phaseWeek: 1, byId, available: at(home, ['mini-band']), items: program.equipment })
+    expect(moves).toEqual(['Cable hip abduction, ankle strap → Lateral band walk (no cable ankle strap in your bag)'])
+  })
+  it('a gym with a few things moves each slot to the first one there, saying what the own exercise lacks', () => {
+    const hotel = { ...MARRIOTT, present: ['flat-bench', 'cable-station', 'mats'] }
+    const moves = liftMoves({ template: template('p1-a'), phaseWeek: 1, byId, available: at(hotel), items: program.equipment })
+    expect(moves).toContain('Leg press, both legs → Goblet squat to a bench (no seated leg press)')
+    expect(moves).toContain('Hip abductor machine → Cable hip abduction, ankle strap (no hip abductor machine)')
+    expect(moves).toContain('Lat pulldown → Single-arm cable pulldown (no lat pulldown)')
+  })
+  it('a slot with nothing on its list here says so', () => {
+    const bare = { ...MARRIOTT, present: [] }
+    const moves = liftMoves({ template: template('p3-a'), phaseWeek: 1, byId, available: at(bare), items: program.equipment })
+    expect(moves).toContain('Nothing here for Step-off landing from a 6–8 in. step, stuck for 2 s (no step platforms)')
+  })
+  it('a mark-off moves the slot like a missing item', () => {
+    const marked = { ...home, markedOff: [{ id: 'seated-leg-press', on: '2026-11-10' }] }
+    const moves = liftMoves({ template: template('p1-a'), phaseWeek: 1, byId, available: at(marked), items: program.equipment })
+    expect(moves).toEqual(['Leg press, both legs → 45° leg press (no seated leg press)'])
+  })
+  it('says how many slots move, or that none does', () => {
+    expect(movesHeading('Marriott Downtown', 'Session A', 3)).toBe('3 slots of Session A move at Marriott Downtown:')
+    expect(movesHeading('Marriott Downtown', 'Session A', 1)).toBe('1 slot of Session A moves at Marriott Downtown:')
+    expect(movesHeading('Planet Fitness', 'Session A', 0)).toBe('Nothing in Session A moves at Planet Fitness.')
+  })
+})
+
+describe('a Hold run day at a gym', () => {
+  const swapDay: Pick<RunSuggestion, 'headline' | 'reasons' | 'swapSuggested'> = {
+    headline: 'a 30 to 40 minute elliptical or rower swap',
+    reasons: ['this morning read hold: an elliptical or rower swap at the same effort is the call'],
+    swapSuggested: true,
+  }
+  it('with a swap machine here, prints the engine’s suggestion', () => {
+    expect(runSuggestionAtGym(swapDay, { available: new Set(['rower']), gymName: 'Marriott Downtown', morning: 'hold' })).toEqual(suggestionWords(swapDay))
+  })
+  it('with neither machine here, suggests nothing and says neither is here (Shawn’s Nov 1 answer 7)', () => {
+    expect(noSwapMachineWords('Marriott Downtown')).toBe('No elliptical or rower at Marriott Downtown')
+    expect(runSuggestionAtGym(swapDay, { available: new Set(['treadmill']), gymName: 'Marriott Downtown', morning: 'hold' })).toEqual({
+      headline: 'No elliptical or rower at Marriott Downtown',
+      reasons: ['This morning read hold, and program.md names no swap but those two, so nothing is suggested: pick what you did.'],
+    })
+    expect(noSwapSuggestedWords('back-off')).toBe('This morning read back off, and program.md names no swap but those two, so nothing is suggested: pick what you did.')
+  })
+  it('a run with no swap called is the engine’s run, whatever the gym has', () => {
+    const run = { headline: '4 miles', reasons: [], swapSuggested: false }
+    expect(runSuggestionAtGym(run, { available: new Set(), gymName: 'Marriott Downtown', morning: 'clean' })).toEqual(suggestionWords(run))
+  })
+  it('todayView carries the morning’s reading on a run day, and the phase week on a lift day', () => {
+    const hold = check('2026-11-04', { worseThanYesterday: true })
+    const runDay = todayView({ today: '2026-11-04', settings: settings(), history: history({ morningChecks: [hold] }), program: PROGRAM })
+    expect(runDay.body).toMatchObject({ kind: 'run', morning: 'hold' })
+    const noCheck = todayView({ today: '2026-11-02', settings: settings(), history: history(), program: PROGRAM })
+    expect(noCheck.body).toMatchObject({ kind: 'run', morning: null })
+    const lift = todayView({ today: '2026-11-24', settings: settings({ currentPhase: 2, phaseEnteredWeek: 4 }), history: history(), program: PROGRAM })
+    expect(lift.body).toMatchObject({ kind: 'lift', week: 4, phaseWeek: 1 })
   })
 })
