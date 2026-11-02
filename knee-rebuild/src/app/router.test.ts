@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseHash, routeHash } from './router.ts'
+import { parseHash, routeHash, type Route } from './router.ts'
 
 describe('parseHash', () => {
   it('reads routes and session ids', () => {
@@ -14,5 +14,30 @@ describe('parseHash', () => {
   })
   it('round-trips a session route', () => {
     expect(parseHash(routeHash({ name: 'session', workoutId: 'a b/c' }))).toEqual({ name: 'session', workoutId: 'a b/c' })
+  })
+})
+
+describe('Where you train routes (M4b)', () => {
+  it('reads the gym list, the editor for a stored gym, the editor for a new one and the next-update list', () => {
+    expect(parseHash('#/locations')).toEqual({ name: 'locations' })
+    expect(parseHash('#/location/loc-1')).toEqual({ name: 'location', locationId: 'loc-1' })
+    expect(parseHash('#/location/planet-fitness')).toEqual({ name: 'location', locationId: 'planet-fitness' })
+    expect(parseHash('#/location/new')).toEqual({ name: 'new-location' })
+    expect(parseHash('#/next-update')).toEqual({ name: 'next-update' })
+  })
+  it("writes the hash Today's New location already links to", () => {
+    expect(routeHash({ name: 'new-location' })).toBe('#/location/new')
+    expect(routeHash({ name: 'locations' })).toBe('#/locations')
+    expect(routeHash({ name: 'location', locationId: 'loc-2' })).toBe('#/location/loc-2')
+    expect(routeHash({ name: 'next-update' })).toBe('#/next-update')
+  })
+  it('lands on the gym list for an editor link with no gym or a malformed one', () => {
+    expect(parseHash('#/location')).toEqual({ name: 'locations' })
+    expect(parseHash('#/location/')).toEqual({ name: 'locations' })
+    expect(parseHash('#/location/%E0%A4%A')).toEqual({ name: 'locations' })
+  })
+  it('round-trips every new route', () => {
+    const routes: Route[] = [{ name: 'locations' }, { name: 'new-location' }, { name: 'location', locationId: 'loc 3/x' }, { name: 'next-update' }]
+    for (const route of routes) expect(parseHash(routeHash(route))).toEqual(route)
   })
 })
