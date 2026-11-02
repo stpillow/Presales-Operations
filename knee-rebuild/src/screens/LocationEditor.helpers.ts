@@ -3,7 +3,7 @@ import { weekOf } from '../rules/calendar.ts'
 import { forNextProgramUpdate, type Available, type ChecklistGroup, type ChecklistItem, type CoverageMove, type ExerciseLookup, type RunSwapType } from '../rules/equipment.ts'
 import { phaseWeekOf } from '../rules/session.ts'
 import { RACK_MAX_LB, RACK_STEP_LB, rackValue } from '../rules/locations.ts'
-import { ifNotHere, nameTakenBy, newOnList, phaseCoverage, type SubstitutionRow, type TypedOutcome } from '../rules/whereYouTrain.ts'
+import { ifNotHere, nameShows, nameTakenBy, newOnList, phaseCoverage, type SubstitutionRow, type TypedOutcome } from '../rules/whereYouTrain.ts'
 import { Location, type Equipment, type EquipmentId, type Exercise, type IsoDate, type Requirement, type SessionTemplate, type Settings } from '../schema/index.ts'
 
 /*
@@ -36,13 +36,15 @@ export function characterCount(text: string): number {
 }
 
 /**
- * Whether a typed name can be saved: the schema's 1 to 60 characters (trimmed), and not the name
+ * Whether a typed name can be saved: something that shows (`nameShows`: not zero-width spaces or
+ * fillers alone), the schema's 1 to 60 characters (trimmed), and not the name
  * of another gym the lists offer (`nameTakenBy`), which Today's Change couldn't tell apart. The
  * refusal names that gym as stored, so the typed text's own punctuation never ends up mid-sentence.
  */
 export function nameCheck(text: string, locations: readonly Pick<Location, 'id' | 'name' | 'archived'>[], exceptId: string | null): NameCheck {
   const name = text.trim()
   if (name.length === 0) return { ok: false, message: 'A gym needs a name: type the one you will look for on Today.' }
+  if (!nameShows(name)) return { ok: false, message: 'A name made only of invisible characters shows as a blank row on Today: type a letter, a digit or a symbol.' }
   if (!Location.shape.name.safeParse(name).success) return { ok: false, message: `That is ${characterCount(name)} characters; a gym’s name fits in ${NAME_MAX}.` }
   const taken = nameTakenBy(locations, name, exceptId)
   if (taken) return { ok: false, message: `${taken.name} already has that name. Pick one Today can tell apart.` }

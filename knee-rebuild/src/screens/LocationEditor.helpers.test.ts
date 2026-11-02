@@ -94,6 +94,13 @@ describe('nameCheck', () => {
     expect(nameCountWords(' Marriott ')).toBe('8 of 60 characters')
   })
 
+  it('refuses a name that shows nothing, in a sentence of its own; an emoji name shows (M4b review)', () => {
+    const blank = 'A name made only of invisible characters shows as a blank row on Today: type a letter, a digit or a symbol.'
+    expect(nameCheck('\u200B', gyms, null)).toEqual({ ok: false, message: blank })
+    expect(nameCheck('\u200B\u3164\u2800', gyms, null)).toEqual({ ok: false, message: blank })
+    expect(nameCheck('🏨', gyms, null)).toEqual({ ok: true, name: '🏨' })
+  })
+
   it('counts an emoji as one character, as the schema does, so the count and the refusal match what saves (M4b review)', () => {
     expect(nameCountWords('🏨'.repeat(31))).toBe('31 of 60 characters')
     expect(nameCheck('🏨'.repeat(60), gyms, null).ok).toBe(true)
