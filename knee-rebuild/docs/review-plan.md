@@ -160,3 +160,26 @@ Method: the same five-angle workflow (data integrity; rule fidelity and placemen
 
 Not fixed, logged: names that differ only by spacing count as different (question 92); the swap-gym note's wording after a tap. Not driven in a browser: Phase 2 and 3 card lines (covered by a live-seed helper test); WebKit (only Chromium is installed).
 
+## Findings, M5 (Nov 2, 2026)
+
+Method: the same five-angle workflow (gate and phase writes; rule fidelity in gates, symmetry and progress series; the Gates and Progress screens against the M5 brief and its chart rules; robustness of numeric entry and chart values; edge cases across phase advances, gyms and dates), three skeptics per finding, two confirmations to survive. A usage limit stopped the first run; it resumed from cache. 28 reported, 23 survived, then a rules fixer, a screens fixer and an independent verifier who confirmed all 23, fixed one regression, and drove Gates and Progress on the build with M4b at 390 and 375 px (68 of 68, plus the earlier drives adapted).
+
+| # | Finding | Fix |
+|---|---|---|
+| 80 | Confirming a gate after the week's last lift made a finished week phase week 1, so every week band, plyo step and tempo came a week early | `phaseEntryWeek`: the phase is entered the week its first new-phase session can run |
+| 81 | After a load test saved, the form went back to the session prefill with Save live, so a second tap wrote the prefill over the test (and, once the screen was left and reopened, the same) | The form reopens on the last saved test with Save waiting (PROGRAM-QUESTIONS 118) |
+| 82 | The load prefill took rack-capped or bodyweight sessions at another gym, opening at a symmetry no test lifted | Only uncapped, loaded sessions prefill |
+| 83 | The symmetry chart read 100% for rack-capped sessions, a 0 lb side against a load, a bodyweight side against a load, or different step heights | Those sessions are left out and the screen says which and why (PROGRAM-QUESTIONS 111, 112) |
+| 84 | meetsSymmetry compared the rounded percent, so 89.96% passed a 90% line | Words and verdict use the same tenths rounded down (PROGRAM-QUESTIONS 110) |
+| 85 | Advancing on a lift day hid that day's session (Today offered Start again); an open old-phase session would be planned on the new phase's bands | Advance waits while a session is open; Today keeps the day's own session |
+| 86 | Gates said a reading "read hold" the morning after a session while Progress said there was none | One wording for a session awaiting its check |
+| 87 | Gate 1's prefill exercise is never logged in Phase 1, yet the line said "yet" | Says the phase doesn't run it |
+| 88 | The same-day tie-break for the latest gate test lived in a screen helper | `inWriteOrder` in the gate rule |
+| 89 | Load-test fields showed 0 while the form said nothing was entered; a 0 lb prefill showed a percent but refused to save | Not entered reads as words; the two agree |
+| 90 | Chart labels struck through by gridlines and lines; gate-line labels collided above 100% | Labels placed clear of marks and each other |
+| 91 | A scroll starting on a chart changed its selected date; focusing the miles chart jumped to week 12 | Scrolls don't select; focus starts on this week |
+| 92 | After "Yes, advance" focus fell to the page; hop-trial controls didn't name the side | Focus lands on the new phase's line; every control names its side |
+| 93 | (after the review) The morning check's "Next Session C" after an advance planned the old phase's template | `nextTemplateFor`: the current phase's version of the letter |
+
+Not fixed, logged: a session from an earlier phase still counts its phase weeks from the current phase's entered week (closed off by refusing an advance while a session is open; the full fix stores the phase week on the workout); Today's phase line above a session done in the old phase on the day of an advance (cosmetic).
+
