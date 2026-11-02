@@ -89,12 +89,16 @@ export function rackNote(lb: number): string {
 
 const SWAP_WORDS: Record<RunSwapType, string> = { 'elliptical-swap': 'the Hold-day elliptical swap', 'rower-swap': 'the Hold-day rower swap' }
 
-/** "Used by: Smith machine box squat, Smith machine hip thrust", plus a run swap or the lift warm-up where the item is one. */
+/**
+ * "Used by: Smith machine box squat; Smith machine hip thrust", plus a run swap or the lift warm-up
+ * where the item is one. Semicolons, since program.md's names carry their own commas ("Leg press,
+ * both legs"; "Copenhagen plank, short lever").
+ */
 export function usedByWords(entry: Pick<ChecklistItem, 'exerciseIds' | 'runSwap' | 'warmUp'>, byId: ExerciseLookup): string {
   const names = [...new Set(entry.exerciseIds.map((id) => byId.get(id)?.name ?? id))]
   if (entry.runSwap) names.push(SWAP_WORDS[entry.runSwap])
   if (entry.warmUp) names.push('the lift warm-up')
-  return `Used by: ${names.join(', ')}`
+  return `Used by: ${names.join('; ')}`
 }
 
 export interface ChecklistRow {

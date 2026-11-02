@@ -149,7 +149,7 @@ describe('checklistSections', () => {
       here: true,
       notes: [usedByWords(checklist.flatMap((g) => g.items).find((e) => e.item.id === 'seated-leg-press')!, byId), 'If not here: Smith box squat, then goblet squat to a bench'],
     })
-    expect(section(sections(home), 'stair')?.notes).toEqual(['Used by: Step-up on the lowest stair in the club, Single-leg calf raise on a step'])
+    expect(section(sections(home), 'stair')?.notes).toEqual(['Used by: Step-up on the lowest stair in the club; Single-leg calf raise on a step'])
   })
 
   it("hedges the bosu with program.md's words", () => {
@@ -175,10 +175,14 @@ describe('usedByWords', () => {
   const entry = (id: string) => checklist.flatMap((g) => g.items).find((e) => e.item.id === id)!
 
   it('names the exercises, the run swap and the warm-up that use an item', () => {
-    expect(usedByWords(entry('elliptical'), byId)).toBe('Used by: Elliptical, easy, the Hold-day elliptical swap')
+    expect(usedByWords(entry('elliptical'), byId)).toBe('Used by: Elliptical, easy; the Hold-day elliptical swap')
     expect(usedByWords(entry('rower'), byId)).toBe('Used by: the Hold-day rower swap')
     expect(usedByWords(entry('upright-bike'), byId)).toBe('Used by: the lift warm-up')
     expect(usedByWords(entry('bosu'), byId)).toBe('Used by: Balance on a folded mat or bosu')
+  })
+
+  it('keeps names that carry their own commas apart: "Leg press, both legs" is one exercise', () => {
+    expect(usedByWords(entry('seated-leg-press'), byId)).toBe('Used by: Leg press, both legs; Single-leg leg press; Standing calf raise on the leg press or Smith')
   })
 })
 
