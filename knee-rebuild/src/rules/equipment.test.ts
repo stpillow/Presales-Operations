@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Equipment, EquipmentId, Exercise, Location, Requirement, SessionTemplate, Slot } from '../schema/index.ts'
 import {
   availableEquipment,
+  equipmentChecklist,
   fallbacksAfter,
   forNextProgramUpdate,
   locationCoverage,
@@ -13,6 +14,7 @@ import {
   slotOrder,
   stageCeiling,
   suggestedRunSwap,
+  usedEquipment,
 } from './equipment.ts'
 
 // Inline fixtures shaped like the seed (design section 3); the live seed is checked in src/program/equipment.seed.test.ts.
@@ -45,6 +47,7 @@ const vocabulary: Equipment[] = [
   item('elliptical', 'Elliptical', ['elliptical trainer']),
   item('rower', 'Rower', ['erg', 'rowing ergometer']),
   item('treadmill', 'Treadmill'),
+  item('upright-bike', 'Upright bike', ['bike']),
   item('ankle-strap', 'Cable ankle strap', ['ankle strap'], { carried: true, group: 'Bring' }),
   item('mini-band', 'Mini loop band', ['mini band', 'band'], { carried: true, group: 'Bring' }),
 ]
@@ -432,17 +435,18 @@ describe('locationCoverage', () => {
 
 describe('forNextProgramUpdate', () => {
   it('keeps typed extras with gym and date, then list items a gym has that no exercise uses', () => {
-    const hotel = location(['treadmill', 'mats', 'rower', 'bosu', 'smith-machine'], {
+    const hotel = location(['treadmill', 'mats', 'rower', 'bosu', 'smith-machine', 'shoulder-press-machine'], {
       name: 'Marriott Downtown',
       extras: [{ id: 'x1', text: 'kettlebells', addedOn: '2026-11-10' }],
     })
-    const oldGym = location(['elliptical', 'treadmill'], { name: 'Old gym', archived: true, markedOff: [{ id: 'treadmill', on: '2026-11-12' }] })
-    expect(forNextProgramUpdate([hotel, oldGym], vocabulary, [...exercises, ex('elliptical-easy', ['elliptical'])])).toEqual([
+    const oldGym = location(['elliptical', 'treadmill', 'chest-press-machine'], { name: 'Old gym', archived: true, markedOff: [{ id: 'treadmill', on: '2026-11-12' }] })
+    expect(forNextProgramUpdate([hotel, oldGym], vocabulary, exercises)).toEqual([
       { text: 'kettlebells', locationName: 'Marriott Downtown', addedOn: '2026-11-10' },
-      // List order; the bosu is used by a stage and an anyOf, mats and the Smith by requires.
-      { text: 'Rower', locationName: 'Marriott Downtown' },
+      // List order; the bosu is used by a stage and an anyOf, mats and the Smith by requires, the rower by a run swap.
+      { text: 'Shoulder press machine', locationName: 'Marriott Downtown' },
       { text: 'Treadmill', locationName: 'Marriott Downtown' },
-      // An archived gym's notes stay; a marked-off item is not there to note.
+      // An archived gym's notes stay; a marked-off item is not there to note; the elliptical is a run swap.
+      { text: 'Chest press machine', locationName: 'Old gym' },
     ])
     expect(forNextProgramUpdate([location([], { name: 'Old gym', archived: true, extras: [{ id: 'x2', text: 'sled', addedOn: '2026-11-03' }] })], vocabulary, exercises)).toEqual([
       { text: 'sled', locationName: 'Old gym', addedOn: '2026-11-03' },
@@ -451,9 +455,61 @@ describe('forNextProgramUpdate', () => {
 
   it('an item counts as used through anyOf and stageRequires, not only plain requires', () => {
     const onlyStages = [ex('ladder', [], { stages: ['a', 'b'], stageRequires: [[], ['bosu']] })]
-    const onlyAnyOf = [ex('either', [{ anyOf: ['rower', 'treadmill'] }])]
-    const gym = location(['bosu', 'rower', 'treadmill'])
-    expect(forNextProgramUpdate([gym], vocabulary, onlyStages).map((n) => n.text)).toEqual(['Rower', 'Treadmill'])
+    const onlyAnyOf = [ex('either', [{ anyOf: ['seated-row', 'treadmill'] }])]
+    const gym = location(['bosu', 'seated-row', 'treadmill'])
+    expect(forNextProgramUpdate([gym], vocabulary, onlyStages).map((n) => n.text)).toEqual(['Seated row', 'Treadmill'])
     expect(forNextProgramUpdate([gym], vocabulary, onlyAnyOf).map((n) => n.text)).toEqual(['Bosu or balance pad'])
+  })
+
+  it('the run swaps\' elliptical and rower and the warm-up\'s upright bike count as used, though no exercise requires them', () => {
+    const gym = location(['elliptical', 'rower', 'upright-bike', 'treadmill'])
+    expect(forNextProgramUpdate([gym], vocabulary, []).map((n) => n.text)).toEqual(['Treadmill'])
+  })
+})
+
+describe('usedEquipment and the editor checklist', () => {
+  it('is what exercises require or stage on, plus both run-swap machines and the warm-up bike', () => {
+    const used = usedEquipment([ex('a', ['flat-bench', { anyOf: ['mats', 'bosu'] }]), ex('b', [], { stages: ['x', 'y'], stageRequires: [[], ['stair']] })])
+    expect([...used].sort()).toEqual(['bosu', 'elliptical', 'flat-bench', 'mats', 'rower', 'stair', 'upright-bike'])
+  })
+
+  it('lists the used items by program.md\'s rows, in the list\'s order, without dumbbells (the max decides) or the bag', () => {
+    const grouped: Equipment[] = [
+      item('dumbbells', 'Dumbbells', [], { group: 'Squat pattern' }),
+      item('seated-leg-press', 'Seated leg press', [], { group: 'Squat pattern' }),
+      item('leg-press-45', '45° leg press', [], { group: 'Squat pattern' }),
+      item('mats', 'Mats', [], { group: 'Balance and plyos' }),
+      item('floor-tape', 'Floor tape', [], { group: 'Balance and plyos' }),
+      item('upright-bike', 'Upright bike', [], { group: 'Cardio' }),
+      item('treadmill', 'Treadmill', [], { group: 'Cardio' }),
+      item('elliptical', 'Elliptical', [], { group: 'Cardio' }),
+      item('rower', 'Rower', [], { group: 'Cardio' }),
+      item('mini-band', 'Mini loop band', [], { group: 'Bring', carried: true }),
+    ]
+    const used = [
+      ex('leg-press', ['seated-leg-press']),
+      ex('goblet', ['dumbbells', 'mats']),
+      ex('band-walk', ['mini-band']),
+      ex('calf', [{ anyOf: ['seated-leg-press', 'leg-press-45'] }]),
+      ex('elliptical-easy', ['elliptical']),
+    ]
+    expect(equipmentChecklist(grouped, used)).toEqual([
+      {
+        group: 'Squat pattern',
+        items: [
+          { item: grouped[1], exerciseIds: ['leg-press', 'calf'], warmUp: false },
+          { item: grouped[2], exerciseIds: ['calf'], warmUp: false },
+        ],
+      },
+      { group: 'Balance and plyos', items: [{ item: grouped[3], exerciseIds: ['goblet'], warmUp: false }] },
+      {
+        group: 'Cardio',
+        items: [
+          { item: grouped[5], exerciseIds: [], warmUp: true },
+          { item: grouped[7], exerciseIds: ['elliptical-easy'], runSwap: 'elliptical-swap', warmUp: false },
+          { item: grouped[8], exerciseIds: [], runSwap: 'rower-swap', warmUp: false },
+        ],
+      },
+    ])
   })
 })

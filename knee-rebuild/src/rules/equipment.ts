@@ -249,6 +249,65 @@ export function locationCoverage(templates: readonly SessionTemplate[], phaseWee
   }))
 }
 
+/** The machine the lift's warm-up is written on: "5 minutes on the upright bike" (program.md's warm-up). */
+export const WARM_UP_BIKE: EquipmentId = 'upright-bike'
+
+function requirementIds(exercise: Pick<Exercise, 'requires' | 'stageRequires'>): EquipmentId[] {
+  return [...exercise.requires, ...(exercise.stageRequires ?? []).flat()].flatMap((r) => (typeof r === 'string' ? [r] : r.anyOf))
+}
+
+/**
+ * What the program uses: every item an exercise requires or stages on (each item of an `anyOf`),
+ * both run-swap machines (Hold-day runs, design section 7) and the warm-up's upright bike. Every
+ * other item on the list is there for typed matching and the next program update only
+ * (PROGRAM-QUESTIONS 63 and 78).
+ */
+export function usedEquipment(exercises: readonly Pick<Exercise, 'requires' | 'stageRequires'>[]): ReadonlySet<EquipmentId> {
+  return new Set([...exercises.flatMap(requirementIds), ...Object.values(RUN_SWAP_MACHINE), WARM_UP_BIKE])
+}
+
+export interface ChecklistItem {
+  item: Equipment
+  /** The exercises that require it or stage on it, in the program's exercise order. */
+  exerciseIds: string[]
+  /** The run swap it is the machine for, when it is one. */
+  runSwap?: RunSwapType
+  /** The lift's warm-up is written on it. */
+  warmUp: boolean
+}
+
+export interface ChecklistGroup {
+  /** program.md's "Program slot" row. */
+  group: string
+  items: ChecklistItem[]
+}
+
+/**
+ * The location editor's checklist: the items the program uses (`usedEquipment`), grouped by
+ * program.md's "Program slot" rows in the list's order, each with what uses it. Dumbbells are left
+ * off (the gym's dumbbell max decides them, PROGRAM-QUESTIONS 75), and so is the kit, which is in the
+ * bag at every gym.
+ */
+export function equipmentChecklist(vocabulary: readonly Equipment[], exercises: readonly Pick<Exercise, 'id' | 'requires' | 'stageRequires'>[]): ChecklistGroup[] {
+  const used = usedEquipment(exercises)
+  const swapFor = new Map(Object.entries(RUN_SWAP_MACHINE).map(([type, id]) => [id, type as RunSwapType]))
+  const groups: ChecklistGroup[] = []
+  for (const item of vocabulary) {
+    if (item.carried || item.id === DUMBBELLS || !used.has(item.id)) continue
+    const runSwap = swapFor.get(item.id)
+    const entry: ChecklistItem = {
+      item,
+      exerciseIds: exercises.filter((e) => requirementIds(e).includes(item.id)).map((e) => e.id),
+      ...(runSwap ? { runSwap } : {}),
+      warmUp: item.id === WARM_UP_BIKE,
+    }
+    const group = groups.find((g) => g.group === item.group)
+    if (group) group.items.push(entry)
+    else groups.push({ group: item.group, items: [entry] })
+  }
+  return groups
+}
+
 export interface ProgramUpdateNote {
   text: string
   locationName: string
@@ -258,7 +317,8 @@ export interface ProgramUpdateNote {
 
 /**
  * Kept for the next program.md update: each gym's typed extras (with the date), then the items on
- * the program's list a gym has that no exercise requires or stages on, in the list's order.
+ * the program's list a gym has that the program doesn't use (`usedEquipment`: no exercise requires
+ * or stages on it, and it is neither a run-swap machine nor the warm-up bike), in the list's order.
  * Archived gyms are included: what was typed there was promised to be kept (PROGRAM-QUESTIONS 78).
  */
 export function forNextProgramUpdate(
@@ -266,9 +326,7 @@ export function forNextProgramUpdate(
   vocabulary: readonly Pick<Equipment, 'id' | 'name'>[],
   exercises: readonly Pick<Exercise, 'requires' | 'stageRequires'>[],
 ): ProgramUpdateNote[] {
-  const used = new Set(
-    exercises.flatMap((e) => [...e.requires, ...(e.stageRequires ?? []).flat()]).flatMap((r) => (typeof r === 'string' ? [r] : r.anyOf)),
-  )
+  const used = usedEquipment(exercises)
   return locations.flatMap((location) => {
     const markedOff = new Set(location.markedOff.map((m) => m.id))
     const present = new Set(location.present)
