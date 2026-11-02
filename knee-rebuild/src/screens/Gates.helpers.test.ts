@@ -29,6 +29,7 @@ import {
   orderedTests,
   passCountWords,
   prefillWords,
+  sameForm,
   setValue,
   sideNames,
   stateWords,
@@ -301,6 +302,35 @@ describe('symmetry forms: load tests', () => {
     expect(symmetryLine({ injured: null, other: null }, 0.8)).toBe('Enter both sides to see the symmetry.')
     expect(symmetryLine({ injured: 70, other: 100 }, 0.8)).toBe('70% · the line is 80%: not yet')
     expect(openForm(null, { date: '2026-12-01', injured: 80, other: 100 })).toEqual({ injured: [80], other: [100] })
+  })
+
+  it('save, then the form and its blocker: the form keeps what was saved, and Save waits until a value changes', () => {
+    const bulgarian = gateNumber(2).items.find((i) => i.id === 'g2-bulgarian')
+    if (!bulgarian) throw new Error('no Bulgarian item in the seed')
+    // The prefill read 40 lb right and 50 lb left; the test lifted 47.5 on the right.
+    const form = setValue(openForm(null, { date: '2026-12-08', injured: 40, other: 50 }), 'injured', 0, 47.5)
+    const draft = buildTest({ gate: gateNumber(2), item: bulgarian, form, today: '2026-12-12', id: 'gate-test-a' })
+    if (!draft.ok) throw new Error(draft.blocker)
+    expect(draft.test).toMatchObject({ valueInjured: 47.5, valueOther: 50, pass: true })
+
+    // Once saved, the form is the saved one: a second tap would write the same test again.
+    const saved = form
+    expect(sameForm(saved, { injured: [47.5], other: [50] })).toBe(true)
+    expect(formBlocker(form, null, saved)).toBe('Saved; change a value to save another')
+    expect(buildTest({ gate: gateNumber(2), item: bulgarian, form, today: '2026-12-12', id: 'gate-test-b', lastSaved: saved })).toEqual({ ok: false, blocker: 'Saved; change a value to save another' })
+    expect(symmetryLine(formBest(form), 0.9)).toBe('95% · the line is 90%: passes')
+
+    // A changed value is a new test; changing it back to what was saved waits again.
+    const changed = setValue(form, 'other', 0, 55)
+    expect(sameForm(changed, saved)).toBe(false)
+    expect(formBlocker(changed, null, saved)).toBeNull()
+    expect(formBlocker(setValue(changed, 'other', 0, 50), null, saved)).toBe('Saved; change a value to save another')
+
+    // A hop test the same way: its trials stay as saved, and Save waits.
+    const hop = setValue(setValue(openForm(3, null), 'injured', 0, 56), 'other', 0, 62)
+    expect(formBlocker(hop, 3, hop)).toBe('Saved; change a value to save another')
+    expect(formBlocker(setValue(hop, 'injured', 1, 57), 3, hop)).toBeNull()
+    expect(sameForm(setValue(hop, 'injured', 1, 0), hop)).toBe(false)
   })
 
   it('an item without a test key cannot save', () => {

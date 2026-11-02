@@ -84,6 +84,12 @@ function GateScreen({ today, settings, history }: { today: IsoDate; settings: Se
   const [errors, setErrors] = useState<Record<string, string>>({})
   /** The last saved test's line, by gate item id, until its form is touched again. */
   const [saved, setSaved] = useState<Record<string, string>>({})
+  /**
+   * The form each item last saved, by gate item id. A saved form stays on screen as its draft, never
+   * back to the session prefill, and Save waits until a value changes (formBlocker), so a double tap
+   * can't write the prefill as a newer test that wins.
+   */
+  const [lastSaved, setLastSaved] = useState<Record<string, SymmetryForm>>({})
   const [confirming, setConfirming] = useState(false)
   const [advanced, setAdvanced] = useState<string | null>(null)
 
@@ -142,14 +148,16 @@ function GateScreen({ today, settings, history }: { today: IsoDate; settings: Se
   async function saveTest(item: GateItem, entry: SymmetryEntry) {
     if (pending) return
     const form = formFor(item.id, entry)
-    const draft = buildTest({ gate, item, form, today, id: newGateTestId(new Date().toISOString(), entry.key ?? item.id, takenIds) })
+    const draft = buildTest({ gate, item, form, today, id: newGateTestId(new Date().toISOString(), entry.key ?? item.id, takenIds), lastSaved: lastSaved[item.id] ?? null })
     if (!draft.ok) return
     setPending({ kind: 'test', itemId: item.id })
     setError(item.id, null)
     setConfirming(false)
     try {
       await addGateTest(draft.test)
-      setDrafts((all) => withoutKey(all, item.id))
+      // The fields keep what was saved, and Save waits on them, until a value changes.
+      setDrafts((all) => ({ ...all, [item.id]: form }))
+      setLastSaved((all) => ({ ...all, [item.id]: form }))
       setSaved((all) => ({ ...all, [item.id]: `Saved. ${symmetryLine(formBest(form), entry.threshold)}` }))
     } catch (e: unknown) {
       setError(item.id, testErrorSentence(e))
@@ -169,6 +177,7 @@ function GateScreen({ today, settings, history }: { today: IsoDate; settings: Se
       await saveSettings(next)
       setConfirming(false)
       setDrafts({})
+      setLastSaved({})
       setSaved({})
       setAdvanced(advancedWords(next, PROGRAM.phases))
     } catch (e: unknown) {
@@ -214,6 +223,7 @@ function GateScreen({ today, settings, history }: { today: IsoDate; settings: Se
               error={errors[row.item.id] ?? null}
               saved={saved[row.item.id] ?? null}
               form={row.kind === 'symmetry' ? formFor(row.item.id, row.entry) : null}
+              lastSaved={lastSaved[row.item.id] ?? null}
               onTick={(value) => void tick(row.item, value)}
               onEdit={(side, index, value) => {
                 if (row.kind === 'symmetry') edit(row.item.id, row.entry, side, index, value)
@@ -249,6 +259,7 @@ function ItemRow({
   error,
   saved,
   form,
+  lastSaved,
   onTick,
   onEdit,
   onSave,
@@ -258,6 +269,7 @@ function ItemRow({
   error: string | null
   saved: string | null
   form: SymmetryForm | null
+  lastSaved: SymmetryForm | null
   onTick: (value: boolean) => void
   onEdit: (side: Side, index: number, value: Trial) => void
   onSave: () => void
@@ -286,7 +298,7 @@ function ItemRow({
         </p>
       ) : null}
       {row.kind === 'symmetry' && form ? (
-        <SymmetryBlock entry={row.entry} form={form} saving={pending?.kind === 'test' && pending.itemId === row.item.id} busy={pending !== null} saved={saved} onEdit={onEdit} onSave={onSave} />
+        <SymmetryBlock entry={row.entry} form={form} lastSaved={lastSaved} saving={pending?.kind === 'test' && pending.itemId === row.item.id} busy={pending !== null} saved={saved} onEdit={onEdit} onSave={onSave} />
       ) : null}
     </li>
   )
@@ -296,6 +308,7 @@ function ItemRow({
 function SymmetryBlock({
   entry,
   form,
+  lastSaved,
   saving,
   busy,
   saved,
@@ -304,6 +317,7 @@ function SymmetryBlock({
 }: {
   entry: SymmetryEntry
   form: SymmetryForm
+  lastSaved: SymmetryForm | null
   saving: boolean
   busy: boolean
   saved: string | null
@@ -311,7 +325,7 @@ function SymmetryBlock({
   onSave: () => void
 }) {
   const best = formBest(form)
-  const blocker = entry.key === null ? 'This item has no test key in the program data' : formBlocker(form, entry.trials)
+  const blocker = entry.key === null ? 'This item has no test key in the program data' : formBlocker(form, entry.trials, lastSaved)
   return (
     <div className="flex flex-col gap-4 border-l-2 border-on-dark-faint pl-3">
       <p className="text-small text-on-dark-muted">

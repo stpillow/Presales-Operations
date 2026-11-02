@@ -207,12 +207,24 @@ export function symmetryLine(best: FormBest, threshold: number): string {
   return `${pct}% · the line is ${lineWords(threshold)}: ${meetsSymmetry(injured, other, threshold) ? 'passes' : 'not yet'}`
 }
 
+/** Two forms hold the same values, side by side and trial by trial (not entered included). */
+export function sameForm(a: SymmetryForm, b: SymmetryForm): boolean {
+  const same = (x: readonly Trial[], y: readonly Trial[]) => x.length === y.length && x.every((v, i) => v === y[i])
+  return same(a.injured, b.injured) && same(a.other, b.other)
+}
+
+/** Why Save waits right after a save: the form still holds the test just written. */
+export const SAVED_BLOCKER = 'Saved; change a value to save another'
+
 /**
  * Why the form can't be saved yet, in words, or null when it can. A hop test saves with at least
  * one trial entered on each side, a 0 included (Shawn, Nov 2), but not when the other side's best
- * is 0: that is no percent. A load test needs a load on each side.
+ * is 0: that is no percent. A load test needs a load on each side. Right after a save the form
+ * keeps what was saved (`lastSaved`), and Save waits until a value changes, so a second tap never
+ * writes the same test twice, or a prefill no test lifted.
  */
-export function formBlocker(form: SymmetryForm, trials: number | null): string | null {
+export function formBlocker(form: SymmetryForm, trials: number | null, lastSaved: SymmetryForm | null = null): string | null {
+  if (lastSaved && sameForm(form, lastSaved)) return SAVED_BLOCKER
   const best = formBest(form)
   if (trials !== null) {
     if (best.injured === null || best.other === null) return 'Enter at least one trial on each side to save'
@@ -230,11 +242,11 @@ export type TestDraft = { ok: true; test: GateTest } | { ok: false; blocker: str
  * the item has trials (a trial not entered isn't stored), and the pass from meetsSymmetry against
  * the item's line. Never manual.
  */
-export function buildTest(input: { gate: Pick<Gate, 'number'>; item: GateItem; form: SymmetryForm; today: IsoDate; id: string }): TestDraft {
+export function buildTest(input: { gate: Pick<Gate, 'number'>; item: GateItem; form: SymmetryForm; today: IsoDate; id: string; lastSaved?: SymmetryForm | null }): TestDraft {
   const { gate, item, form, today, id } = input
   if (!item.testItem) return { ok: false, blocker: 'This item has no test key in the program data' }
   const trials = item.trials ?? null
-  const blocker = formBlocker(form, trials)
+  const blocker = formBlocker(form, trials, input.lastSaved ?? null)
   if (blocker) return { ok: false, blocker }
   const { injured, other } = formBest(form)
   // formBlocker has already said no to a side with nothing entered; this only narrows the types.
