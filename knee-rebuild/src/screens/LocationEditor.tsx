@@ -31,7 +31,9 @@ import {
   nameCountWords,
   outcomeWords,
   rackChoiceWords,
+  rackGridNote,
   rackNote,
+  rackSaved,
   startWords,
   startedFromWords,
 } from './LocationEditor.helpers.ts'
@@ -417,8 +419,9 @@ function RackDraft({ stored, onSave }: { stored: number; onSave: (lb: number) =>
   return <RackPicker value={value} onChange={(lb) => void change(lb)} />
 }
 
-/** None, 25, 50, 60, 75, 80, or any rack by 5 lb on the stepper. */
-function RackPicker({ value, onChange }: { value: number; onChange: (lb: number) => void }) {
+/** None, 25, 50, 60, 75, 80, or any rack by 5 lb on the stepper; a weight typed in between saves as the 5 lb below it (`rackValue`). */
+function RackPicker({ value, onChange: save }: { value: number; onChange: (lb: number) => void }) {
+  const onChange = (lb: number) => save(rackSaved(lb))
   return (
     <>
       <div role="radiogroup" aria-label="Heaviest dumbbell" className="grid grid-cols-3 gap-2">
@@ -436,6 +439,7 @@ function RackPicker({ value, onChange }: { value: number; onChange: (lb: number)
       </div>
       <Stepper label="Heaviest dumbbell" unit="lb" value={value} step={RACK_STEP} min={RACK_MIN} max={RACK_MAX} onChange={onChange} />
       <Note>{rackNote(value)}</Note>
+      <Note>{rackGridNote}</Note>
     </>
   )
 }

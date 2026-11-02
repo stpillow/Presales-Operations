@@ -8,8 +8,11 @@ import type { Location, Settings } from '../schema/index.ts'
 import {
   DEFAULT_START,
   KEEP_AS_TYPED,
+  RACK_MAX,
   RACK_PRESETS,
   RACK_STEP,
+  rackGridNote,
+  rackSaved,
   START_CHOICES,
   changeWords,
   changesView,
@@ -108,6 +111,14 @@ describe('start and rack choices', () => {
     expect(RACK_PRESETS.map(rackChoiceWords)).toEqual(['None', '25 lb', '50 lb', '60 lb', '75 lb', '80 lb'])
     expect(rackNote(0)).toBe('No dumbbells: slots that need them move to the next exercise on their list that runs here.')
     expect(rackNote(25)).toBe('The heaviest dumbbell is 25 lb. A load past it moves the slot, or with nothing to move to, is rack-capped and won’t count as clean.')
+  })
+
+  it('a typed rack saves on the 5 lb grid, and the note says how (M4b review)', () => {
+    // The stepper's field takes any whole number; a typed 47 saves as the 45 lb dumbbell.
+    expect(rackSaved(47)).toBe(45)
+    expect(rackSaved(80)).toBe(80)
+    expect(RACK_MAX).toBe(200)
+    expect(rackGridNote).toBe('Racks go by 5 lb: a weight typed in between saves as the 5 lb below it.')
   })
 })
 

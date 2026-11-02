@@ -2,6 +2,7 @@ import { currentTemplate } from '../app/session.ts'
 import { weekOf } from '../rules/calendar.ts'
 import { forNextProgramUpdate, type Available, type ChecklistGroup, type ChecklistItem, type CoverageMove, type ExerciseLookup, type RunSwapType } from '../rules/equipment.ts'
 import { phaseWeekOf } from '../rules/session.ts'
+import { RACK_MAX_LB, RACK_STEP_LB, rackValue } from '../rules/locations.ts'
 import { ifNotHere, nameTakenBy, newOnList, phaseCoverage, type SubstitutionRow, type TypedOutcome } from '../rules/whereYouTrain.ts'
 import { Location, type Equipment, type EquipmentId, type Exercise, type IsoDate, type Requirement, type SessionTemplate, type Settings } from '../schema/index.ts'
 
@@ -69,9 +70,17 @@ export function startedFromWords(startedFrom: Location['startedFrom']): string {
 
 /** The rack presets (design section 5): none, then the racks a hotel or a club tends to have. */
 export const RACK_PRESETS: readonly number[] = [0, 25, 50, 60, 75, 80]
-export const RACK_STEP = 5
+export const RACK_STEP = RACK_STEP_LB
 export const RACK_MIN = 0
-export const RACK_MAX = 200
+export const RACK_MAX = RACK_MAX_LB
+
+/** What a rack picked or typed saves as (`rackValue`): the 5 lb at or below it. */
+export function rackSaved(lb: number): number {
+  return rackValue(lb)
+}
+
+/** Under the rack's stepper: its field takes any whole number, and the grid is said in words. */
+export const rackGridNote = 'Racks go by 5 lb: a weight typed in between saves as the 5 lb below it.'
 
 /** A preset's label: "None" for no dumbbells, otherwise the pounds. */
 export function rackChoiceWords(lb: number): string {

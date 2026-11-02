@@ -11,6 +11,9 @@ import {
   locationOrHome,
   newLocation,
   nextLocationId,
+  RACK_MAX_LB,
+  RACK_STEP_LB,
+  rackValue,
   withExtra,
   withMarkOff,
   withoutExtra,
@@ -135,6 +138,22 @@ describe('something else here', () => {
     expect(extraTooLong('Kettlebells')).toBe(false)
     expect(extraTooLong(` ${'x'.repeat(80)} `)).toBe(false)
     expect(extraTooLong('x'.repeat(81))).toBe(true)
+  })
+})
+
+describe('a gym’s rack (M4b review)', () => {
+  it('goes by 5 lb: a weight in between is the 5 lb below it, since no rack has a 47 lb dumbbell', () => {
+    expect(RACK_STEP_LB).toBe(5)
+    expect(rackValue(47)).toBe(45)
+    expect(rackValue(45)).toBe(45)
+    expect(rackValue(4)).toBe(0)
+    expect(rackValue(52.5)).toBe(50)
+  })
+  it('stays between none and the stepper’s top', () => {
+    expect(RACK_MAX_LB).toBe(200)
+    expect(rackValue(-5)).toBe(0)
+    expect(rackValue(999)).toBe(200)
+    expect(rackValue(Number.NaN)).toBe(0)
   })
 })
 

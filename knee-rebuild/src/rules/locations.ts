@@ -126,6 +126,20 @@ export function extraTooLong(text: string): boolean {
   return text.trim().length > EXTRA_TEXT_MAX
 }
 
+/** A rack goes by 5 lb (design section 5's stepper), from none up to 200 lb. */
+export const RACK_STEP_LB = 5
+export const RACK_MAX_LB = 200
+
+/**
+ * The rack a typed weight saves as (M4b review): the 5 lb at or below it, from none to the top. A
+ * typed 47 is the 45 lb dumbbell, never a 47 lb one no rack has, so a rack-capped session never
+ * prescribes or logs a weight off the grid; the lower one is the lighter choice for the knee.
+ */
+export function rackValue(lb: number): number {
+  if (!Number.isFinite(lb)) return 0
+  return Math.min(RACK_MAX_LB, Math.max(0, Math.floor(lb / RACK_STEP_LB) * RACK_STEP_LB))
+}
+
 /** Archiving the active gym returns to Planet Fitness (design section 5); archiving another leaves the active one. */
 export function activeAfterArchive(activeId: string, archivedId: string): string {
   return activeId === archivedId ? PLANET_FITNESS_LOCATION_ID : activeId
