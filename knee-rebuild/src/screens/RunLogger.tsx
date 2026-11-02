@@ -7,9 +7,9 @@ import { PAIN_SCALE, ScalePicker } from '../components/ScalePicker.tsx'
 import { Screen } from '../components/Screen.tsx'
 import { Stepper } from '../components/Stepper.tsx'
 import { Tap } from '../components/Tap.tsx'
-import { useHistory, useSettings } from '../db/hooks.ts'
+import { useActiveLocation, useHistory, useSettings } from '../db/hooks.ts'
 import { addRun, deleteRun, type History } from '../db/repo.ts'
-import type { IsoDate, Run, RunType, Settings } from '../schema/index.ts'
+import type { IsoDate, Location, Run, RunType, Settings } from '../schema/index.ts'
 import { runLabel } from './Today.helpers.ts'
 import {
   EFFORTS,
@@ -61,25 +61,27 @@ export function RunLogger() {
   const today = useToday()
   const settings = useSettings()
   const history = useHistory()
+  // A swap is logged at the gym Today plans for (M4b).
+  const activeLocation = useActiveLocation()
 
-  if (settings === undefined || history === undefined) {
+  if (settings === undefined || history === undefined || activeLocation === undefined || (settings !== null && activeLocation === null)) {
     return (
       <Screen title={TITLE} lead="Opening storage…">
         <p className="text-body text-on-dark-dim">This week’s runs and the mileage plan load from the phone.</p>
       </Screen>
     )
   }
-  if (settings === null) {
+  if (settings === null || activeLocation === null) {
     return (
       <Screen title={TITLE} lead="No settings yet.">
         <p className="text-body text-on-dark-dim">Open the app from Today once so it can seed its settings, then come back.</p>
       </Screen>
     )
   }
-  return <Logger today={today} settings={settings} history={history} />
+  return <Logger today={today} settings={settings} history={history} location={activeLocation} />
 }
 
-function Logger({ today, settings, history }: { today: IsoDate; settings: Settings; history: History }) {
+function Logger({ today, settings, history, location }: { today: IsoDate; settings: Settings; history: History; location: Location }) {
   // The date is pinned when the logger opens: useToday() moves at midnight, and the form must not move with it.
   const [form, setForm] = useState<RunForm>(() => openForm(today))
   const [saved, setSaved] = useState<Run | null>(null)
@@ -134,7 +136,7 @@ function Logger({ today, settings, history }: { today: IsoDate; settings: Settin
   }
 
   const resolved = resolveForm(form, view)
-  const draft = toRun(resolved, newRunId(resolved.date, history.runs.map((r) => r.id)))
+  const draft = toRun(resolved, newRunId(resolved.date, history.runs.map((r) => r.id)), location.id)
   const set = (patch: Partial<RunForm>) => setForm((f) => ({ ...f, ...patch }))
 
   async function save() {

@@ -35,6 +35,8 @@ import {
 } from './RunLogger.helpers.ts'
 
 const START = '2026-11-02'
+/** The gym a swap is logged at: the active one. */
+const GYM = 'loc-1'
 
 /** Inline fixtures, not the live seed: these tests pin the screen's wiring, not the program's content. */
 const PROGRAM: ProgramLike = {
@@ -177,7 +179,7 @@ describe('loggerView', () => {
     const form = { ...openForm('2026-11-06'), type: 'long' as const, miles: 4, maxPain: 2 }
     const view = formView({ ...base, today: '2026-11-07', picked: { date: form.date, type: form.type } })
     expect(view).toMatchObject({ date: '2026-11-06', scheduled: 'run:long', dateLost: null })
-    const draft = toRun(resolveForm(form, view), 'r')
+    const draft = toRun(resolveForm(form, view), 'r', GYM)
     expect(draft.ok && draft.run).toMatchObject({ date: '2026-11-06', type: 'long', miles: 4 })
   })
   it('a date pinned on Sunday is still Sunday on Monday', () => {
@@ -188,18 +190,18 @@ describe('loggerView', () => {
     const form = { ...openForm('2026-11-07'), type: 'easy' as const, miles: 3, maxPain: 1 }
     const view = formView({ ...base, today: '2026-11-09', picked: { date: form.date, type: form.type } })
     expect(view).toMatchObject({ dateLost: '2026-11-07', dates: ['2026-11-08', '2026-11-09'] })
-    expect(toRun(resolveForm(form, view), 'r')).toEqual({ ok: false, blocker: 'Pick the day first' })
+    expect(toRun(resolveForm(form, view), 'r', GYM)).toEqual({ ok: false, blocker: 'Pick the day first' })
     expect(leadWords(view)).toBe('Pick the day this run happened')
     const repicked = formView({ ...base, today: '2026-11-09', picked: { date: '2026-11-09', type: form.type } })
     expect(repicked.dateLost).toBeNull()
-    expect(toRun(resolveForm({ ...form, date: '2026-11-09' }, repicked), 'r').ok).toBe(true)
+    expect(toRun(resolveForm({ ...form, date: '2026-11-09' }, repicked), 'r', GYM).ok).toBe(true)
   })
   it('on Monday, a run picked for Sunday logs into the week it happened', () => {
     // Fri long and Sun off swapped in week 1; the long run happened Sunday, at a pain that reads hold.
     const moves = [{ id: 'm', week: 1, dayA: 'fri' as const, dayB: 'sun' as const }]
     const view = formView({ ...base, today: '2026-11-09', history: history({ sessionMoves: moves }), picked: { date: '2026-11-08', type: null } })
     expect(view).toMatchObject({ date: '2026-11-08', week: 1, scheduled: 'run:long', preselected: 'long' })
-    const draft = toRun(resolveForm({ ...emptyForm(), miles: 4, maxPain: 5 }, view), 'run-2026-11-08')
+    const draft = toRun(resolveForm({ ...emptyForm(), miles: 4, maxPain: 5 }, view), 'run-2026-11-08', GYM)
     expect(draft.ok && draft.run).toMatchObject({ date: '2026-11-08', type: 'long', miles: 4 })
     // Saved, it reads hold in week 1, so week 2 is capped at week 1's miles.
     const runs = [run('2026-11-02', 3, 'mbr'), run('2026-11-04', 3), ...(draft.ok ? [draft.run] : [])]
@@ -358,41 +360,49 @@ describe('stravaProblem', () => {
 describe('toRun', () => {
   const ready: ResolvedForm = { date: '2026-11-04', dateLost: null, type: 'easy', swap: false, miles: 3.25, minutes: 32, effort: 'easy', maxPain: 2, strides: true, tempo: false, stravaUrl: '', notes: '' }
   it('keeps Save disabled with words until max pain is rated and a type is picked', () => {
-    expect(toRun({ ...ready, maxPain: null }, 'r')).toEqual({ ok: false, blocker: 'Rate max pain first' })
-    expect(toRun({ ...ready, type: null }, 'r')).toEqual({ ok: false, blocker: 'Pick the type first' })
-    expect(toRun({ ...ready, type: null, maxPain: null }, 'r')).toEqual({ ok: false, blocker: 'Pick the type and rate max pain first' })
+    expect(toRun({ ...ready, maxPain: null }, 'r', GYM)).toEqual({ ok: false, blocker: 'Rate max pain first' })
+    expect(toRun({ ...ready, type: null }, 'r', GYM)).toEqual({ ok: false, blocker: 'Pick the type first' })
+    expect(toRun({ ...ready, type: null, maxPain: null }, 'r', GYM)).toEqual({ ok: false, blocker: 'Pick the type and rate max pain first' })
   })
   it('a lost date blocks Save before anything else', () => {
-    expect(toRun({ ...ready, dateLost: '2026-11-01', maxPain: null }, 'r')).toEqual({ ok: false, blocker: 'Pick the day first' })
+    expect(toRun({ ...ready, dateLost: '2026-11-01', maxPain: null }, 'r', GYM)).toEqual({ ok: false, blocker: 'Pick the day first' })
   })
   it('a rated 0 is a rating, not a missing one', () => {
-    expect(toRun({ ...ready, maxPain: 0 }, 'r').ok).toBe(true)
+    expect(toRun({ ...ready, maxPain: 0 }, 'r', GYM).ok).toBe(true)
   })
   it('refuses to save a refused Strava link', () => {
-    expect(toRun({ ...ready, stravaUrl: 'http://strava.com/x' }, 'r')).toEqual({ ok: false, blocker: 'Fix or clear the Strava link first' })
+    expect(toRun({ ...ready, stravaUrl: 'http://strava.com/x' }, 'r', GYM)).toEqual({ ok: false, blocker: 'Fix or clear the Strava link first' })
   })
   it('builds a run the schema accepts, leaving blank optional fields off', () => {
-    const draft = toRun(ready, 'run-2026-11-04')
+    const draft = toRun(ready, 'run-2026-11-04', GYM)
     expect(draft).toEqual({ ok: true, run: { id: 'run-2026-11-04', date: '2026-11-04', type: 'easy', miles: 3.25, minutes: 32, effort: 'easy', maxPain: 2, strides: true, tempo: false } })
     if (draft.ok) expect(Run.parse(draft.run)).toEqual(draft.run)
   })
   it('trims the link and the note', () => {
-    const draft = toRun({ ...ready, stravaUrl: ' https://www.strava.com/activities/9 ', notes: '  windy  ' }, 'r')
+    const draft = toRun({ ...ready, stravaUrl: ' https://www.strava.com/activities/9 ', notes: '  windy  ' }, 'r', GYM)
     expect(draft.ok && draft.run).toMatchObject({ stravaUrl: 'https://www.strava.com/activities/9', notes: 'windy' })
     if (draft.ok) expect(() => Run.parse(draft.run)).not.toThrow()
   })
   it('a swap logs 0 miles', () => {
-    const draft = toRun({ ...ready, type: 'elliptical-swap', swap: true, miles: 0, strides: false }, 'r')
+    const draft = toRun({ ...ready, type: 'elliptical-swap', swap: true, miles: 0, strides: false }, 'r', GYM)
     expect(draft.ok && draft.run).toMatchObject({ type: 'elliptical-swap', miles: 0, strides: false, tempo: false })
+  })
+  it('a swap stores the gym it was done at; a run outside stores none (M4b)', () => {
+    const swap = toRun({ ...ready, type: 'rower-swap', swap: true, miles: 0, strides: false }, 'r', GYM)
+    expect(swap.ok && swap.run.locationId).toBe(GYM)
+    if (swap.ok) expect(Run.parse(swap.run)).toEqual(swap.run)
+    expect(toRun({ ...ready, type: 'elliptical-swap', swap: true, miles: 0 }, 'r', 'planet-fitness')).toMatchObject({ ok: true, run: { locationId: 'planet-fitness' } })
+    const outside = toRun(ready, 'r', GYM)
+    expect(outside.ok && 'locationId' in outside.run).toBe(false)
   })
   it('a swap’s only measure is its minutes, so Save waits on them instead of storing 0', () => {
     const swap: ResolvedForm = { ...ready, type: 'rower-swap', swap: true, miles: 0, minutes: 0, strides: false }
-    expect(toRun(swap, 'r')).toEqual({ ok: false, blocker: 'Set the minutes first' })
-    expect(toRun({ ...swap, maxPain: null }, 'r')).toEqual({ ok: false, blocker: 'Rate max pain first' })
-    expect(toRun({ ...swap, minutes: 35 }, 'r').ok).toBe(true)
+    expect(toRun(swap, 'r', GYM)).toEqual({ ok: false, blocker: 'Set the minutes first' })
+    expect(toRun({ ...swap, maxPain: null }, 'r', GYM)).toEqual({ ok: false, blocker: 'Rate max pain first' })
+    expect(toRun({ ...swap, minutes: 35 }, 'r', GYM).ok).toBe(true)
   })
   it('a run keeps its miles as the measure, so untouched minutes still save', () => {
-    expect(toRun({ ...ready, minutes: 0 }, 'r').ok).toBe(true)
+    expect(toRun({ ...ready, minutes: 0 }, 'r', GYM).ok).toBe(true)
   })
 })
 

@@ -315,8 +315,12 @@ export function stravaProblem(text: string): string | null {
 
 export type RunDraft = { ok: true; run: Run } | { ok: false; blocker: string }
 
-/** The Run that Save logs, or the words on the disabled Save button saying what is missing. */
-export function toRun(form: ResolvedForm, id: string): RunDraft {
+/**
+ * The Run that Save logs, or the words on the disabled Save button saying what is missing. A swap
+ * (elliptical or rower) is done at a gym, so it stores `locationId`, the active gym's id (M4b); a
+ * run outside stores none.
+ */
+export function toRun(form: ResolvedForm, id: string, locationId: string): RunDraft {
   const { type, maxPain } = form
   if (form.dateLost !== null) return { ok: false, blocker: 'Pick the day first' }
   if (type === null && maxPain === null) return { ok: false, blocker: 'Pick the type and rate max pain first' }
@@ -341,6 +345,7 @@ export function toRun(form: ResolvedForm, id: string): RunDraft {
       tempo: form.swap ? false : form.tempo,
       ...(link.length > 0 ? { stravaUrl: link } : {}),
       ...(notes.length > 0 ? { notes } : {}),
+      ...(form.swap ? { locationId } : {}),
     },
   }
 }
