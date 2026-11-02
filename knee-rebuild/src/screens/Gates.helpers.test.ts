@@ -15,6 +15,8 @@ import {
   currentGate,
   detailWords,
   earlierTests,
+  enterStart,
+  enterWords,
   errorWords,
   formBest,
   formBlocker,
@@ -330,6 +332,18 @@ describe('symmetry forms: load tests', () => {
     expect(formBlocker(hop, 3, hop)).toBe('Saved; change a value to save another')
     expect(formBlocker(setValue(hop, 'injured', 1, 57), 3, hop)).toBeNull()
     expect(sameForm(setValue(hop, 'injured', 1, 0), hop)).toBe(false)
+  })
+
+  it('a load not entered shows in words, and Enter starts it at the exercise’s first step, not at 0 (a hop starts at 0)', () => {
+    const view = gatesView({ today: TODAY, settings: settings(), history: loggedPhase1(), program: PROGRAM })
+    const legPress = byId(view, 'g1-sl-leg-press')
+    if (legPress.kind !== 'symmetry') throw new Error('expected a symmetry item')
+    expect(openForm(legPress.entry.trials, legPress.entry.prefill)).toEqual({ injured: [null], other: [null] })
+    expect(enterStart(legPress.entry)).toBe(5)
+    expect(enterWords(legPress.entry.sides.injured, enterStart(legPress.entry), legPress.entry.unit)).toBe('Enter right · injured, starting at 5 lb')
+    const hop = { trials: 3, step: 1 }
+    expect(enterStart(hop)).toBe(0)
+    expect(enterWords('Trial 1', 0, 'in')).toBe('Enter trial 1, starting at 0 in')
   })
 
   it('an item without a test key cannot save', () => {

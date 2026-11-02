@@ -169,6 +169,20 @@ export function formBest(form: SymmetryForm): FormBest {
   return { injured: bestEntered(form.injured), other: bestEntered(form.other) }
 }
 
+/**
+ * Where Enter puts a value that isn't entered yet: a hop trial at 0, since 0 is a trial (a hop he
+ * couldn't do, PROGRAM-QUESTIONS 108); a load at the exercise's first step, since a load test needs
+ * a load on each side and 0 lb can't be saved.
+ */
+export function enterStart(entry: { trials: number | null; step: number }): number {
+  return entry.trials !== null ? 0 : entry.step
+}
+
+/** The Enter button's name: "Enter right · injured, starting at 5 lb", "Enter trial 1, starting at 0 in". */
+export function enterWords(label: string, start: number, unit: string): string {
+  return `Enter ${label.toLowerCase()}, starting at ${start} ${unit}`
+}
+
 /** A side's best, kept and shown: "Best 56 in" ("Best 0 in" when he couldn't hop), or that nothing is entered yet. */
 export function bestWords(best: number | null, unit: string): string {
   return best === null ? 'Best: nothing entered yet' : `Best ${best} ${unit}`
