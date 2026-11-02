@@ -1,10 +1,11 @@
 import { defineConfig } from '@playwright/test'
 
 /**
- * The smoke test and the offline check (`npm run e2e`): a fresh build served by `vite preview`, the
- * way the phone gets it (service worker and manifest included), never the dev server. Not part of
- * `npm run check`: it needs a browser. @playwright/test is pinned to the Playwright whose Chromium is
- * installed (`npx playwright install chromium` on a machine that has none).
+ * `npm run e2e`: the smoke test (e2e/session.spec.ts) and the PWA checklist (e2e/pwa.spec.ts, which
+ * serves the same dist/ itself so it can stop the server and change sw.js), on a fresh build served
+ * by `vite preview`, the way the phone gets it (service worker and manifest included), never the dev
+ * server. Not part of `npm run check`: it needs a browser. @playwright/test is pinned to the
+ * Playwright whose Chromium is installed (`npx playwright install chromium` on a machine that has none).
  */
 const PORT = 4180
 const BASE_URL = `http://127.0.0.1:${PORT}`
