@@ -14,6 +14,7 @@ import {
   daysSinceExport,
   exportDay,
   exportNudge,
+  importStamp,
   loggedRange,
   lostOnImport,
   migrateForward,
@@ -441,6 +442,20 @@ describe('the export reminder', () => {
     expect(exportNudge(at, '2026-11-17', '2026-11-02')).toBeNull()
     expect(exportNudge(at, '2026-11-18', '2026-11-02')).toEqual({ kind: 'since-export', days: 8 })
     expect(exportNudge(at, '2026-11-19', null)).toEqual({ kind: 'since-export', days: 9 })
+  })
+
+  it('an import records the file’s stamp, or the import’s own moment when the file says it was written later (a clock set ahead, or a hand edit)', () => {
+    const now = '2026-12-20T15:00:00.000Z'
+    expect(importStamp('2026-11-21T14:05:00.000Z', now)).toBe('2026-11-21T14:05:00.000Z')
+    expect(importStamp('2099-01-01T00:00:00Z', now)).toBe(now)
+    expect(importStamp('2026-12-20T15:00:00.001Z', now)).toBe(now)
+    expect(importStamp('2026-12-20T09:59:00-05:00', now)).toBe('2026-12-20T09:59:00-05:00')
+    // So a file stamped decades ahead can't keep the reminder quiet: it shows once the import is a week old.
+    expect(exportNudge(importStamp('2099-01-01T00:00:00Z', now), '2026-12-28', '2026-11-02')).toEqual({ kind: 'since-export', days: 8 })
+  })
+
+  it('an old stamp counts its days right, whatever its year', () => {
+    expect(daysSinceExport('0001-01-01T12:00:00Z', '2026-11-02')).toBe(739_921)
   })
 
   it('never exported: counts from the first thing logged, and says nothing with nothing logged', () => {

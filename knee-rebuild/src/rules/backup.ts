@@ -459,6 +459,15 @@ export function exportDay(at: IsoDateTime): IsoDate {
   return todayIn(new Date(at))
 }
 
+/**
+ * The stamp an import records as the last export (PROGRAM-QUESTIONS 121): the file's `exportedAt`,
+ * or, when the file says it was written after the import's own moment `now` (a clock set ahead, a
+ * hand edit), `now`, so no file can keep Today's reminder quiet past a week from the import.
+ */
+export function importStamp(exportedAt: IsoDateTime, now: IsoDateTime): IsoDateTime {
+  return Date.parse(exportedAt) > Date.parse(now) ? now : exportedAt
+}
+
 /** Whole days from the last export's day to today (0 the same day); null when this phone has never exported. */
 export function daysSinceExport(lastExportedAt: IsoDateTime | undefined, today: IsoDate): number | null {
   if (lastExportedAt === undefined) return null

@@ -21,7 +21,10 @@ function dayNumber(date: IsoDate): number {
   if (y === undefined || m === undefined || d === undefined || Number.isNaN(y + m + d)) {
     throw new RangeError(`not a YYYY-MM-DD date: ${date}`)
   }
-  return Date.UTC(y, m - 1, d) / MS_PER_DAY
+  // setUTCFullYear, not Date.UTC, which reads years 0 to 99 as 1900 to 1999.
+  const day = new Date(0)
+  day.setUTCFullYear(y, m - 1, d)
+  return day.getTime() / MS_PER_DAY
 }
 
 function fromDayNumber(n: number): IsoDate {
@@ -63,7 +66,8 @@ export function todayIn(now: Date, timeZone: string = NEW_YORK): IsoDate {
   const m = part('month')
   const d = part('day')
   if (!y || !m || !d) throw new Error(`could not format a date for ${timeZone}`)
-  return `${y}-${m}-${d}`
+  // Intl writes year 1 as "1"; a date here is always YYYY-MM-DD.
+  return `${y.padStart(4, '0')}-${m}-${d}`
 }
 
 /** The seven days of a program week with the template's sessions, after any moves. A move swaps two days. */

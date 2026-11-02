@@ -1,6 +1,6 @@
 import { db, type SettingsRow } from './db.ts'
 import { ensureLocations, forgetSwaps, getSettings, saveSettings, SETTINGS_ID, type HomeLists } from './repo.ts'
-import { BACKUP_TABLES, backupFrom, buildBackup, redFlagOnImport, type Backup, type ExportResult, type StoredContents } from '../rules/backup.ts'
+import { BACKUP_TABLES, backupFrom, buildBackup, importStamp, redFlagOnImport, type Backup, type ExportResult, type StoredContents } from '../rules/backup.ts'
 import { Settings, type IsoDate, type IsoDateTime } from '../schema/index.ts'
 
 /**
@@ -60,12 +60,13 @@ export async function markExported(exportedAt: IsoDateTime): Promise<void> {
  * read through the rules once more before the transaction opens, then every table is cleared and
  * written in one transaction, so a refusal or a failed write leaves the phone as it was. The
  * settings come from the file with `lastExportedAt` set to the file's `exportedAt` (the phone now
- * holds what that file holds), except a red flag the phone has on, which stays on until Settings
+ * holds what that file holds), or to `now`, the import's own moment, when the file's is later
+ * (`importStamp`); except a red flag the phone has on, which stays on until Settings
  * clears it with a note (`redFlagOnImport`, PROGRAM-QUESTIONS 128); a file with no home gym gets
  * one through `ensureLocations`, the launch path, from its own settings. The runner's stored swaps
  * go, as on Reset.
  */
-export async function replaceAll(backup: Backup, lists: HomeLists, createdOn: IsoDate): Promise<void> {
+export async function replaceAll(backup: Backup, lists: HomeLists, createdOn: IsoDate, now: IsoDateTime = new Date().toISOString()): Promise<void> {
   checkCovered()
   const read = backupFrom(backup)
   if (!read.ok) throw new Error(read.refusal)
@@ -74,7 +75,7 @@ export async function replaceAll(backup: Backup, lists: HomeLists, createdOn: Is
     // The phone's red flag, read as stored: a settings row that no longer reads whole still gives its flag, and never blocks a restore.
     const flag = Settings.shape.redFlag.safeParse((await db.settings.get(SETTINGS_ID))?.redFlag)
     const redFlag = redFlagOnImport(flag.success ? flag.data : undefined, file.settings.redFlag)
-    const settings: SettingsRow = { ...Settings.parse({ ...file.settings, redFlag, lastExportedAt: file.exportedAt }), id: SETTINGS_ID }
+    const settings: SettingsRow = { ...Settings.parse({ ...file.settings, redFlag, lastExportedAt: importStamp(file.exportedAt, now) }), id: SETTINGS_ID }
     for (const table of db.tables) await table.clear()
     await db.settings.put(settings)
     for (const name of BACKUP_TABLES) await db.table(name).bulkAdd(file[name])

@@ -311,7 +311,7 @@ describe('export, reset, import, export again', () => {
     const read = parseBackup(text1)
     if (!read.ok) throw new Error(read.refusal)
     expect(read.migratedFrom).toBeNull()
-    await replaceAll(read.backup, program, TODAY)
+    await replaceAll(read.backup, program, TODAY, T2)
     // Every row as it was stored, the settings' lastExportedAt included: the phone now holds that file.
     expect(await rawDump()).toEqual(stamped)
 
@@ -374,6 +374,22 @@ describe('an import and the red flag (PROGRAM-QUESTIONS 128)', () => {
   })
 })
 
+describe('the stamp an import records (PROGRAM-QUESTIONS 121)', () => {
+  it('a file stamped after the import’s own moment records the import’s moment, so Today’s reminder still comes', async () => {
+    await ensureSettings(defaultSettings(program))
+    await ensureLocations(program, START)
+    const { backup } = await exportBackup(T1)
+    const ahead = parseBackup(backupText({ ...backup, exportedAt: '2099-01-01T00:00:00Z' }))
+    if (!ahead.ok) throw new Error(ahead.refusal)
+    await replaceAll(ahead.backup, program, TODAY, T2)
+    expect((await getSettings())?.lastExportedAt).toBe(T2)
+    const behind = parseBackup(backupText(backup))
+    if (!behind.ok) throw new Error(behind.refusal)
+    await replaceAll(behind.backup, program, TODAY, T2)
+    expect((await getSettings())?.lastExportedAt).toBe(T1)
+  })
+})
+
 describe('importing an older file, or one with no home gym', () => {
   it('a version 2 file gets the home gym from its own settings through the launch path, and the M4b defaults', async () => {
     await seedHistory()
@@ -392,7 +408,7 @@ describe('importing an older file, or one with no home gym', () => {
     const read = parseBackup(JSON.stringify(v2))
     if (!read.ok) throw new Error(read.refusal)
     expect(read.migratedFrom).toBe(2)
-    await replaceAll(read.backup, program, TODAY)
+    await replaceAll(read.backup, program, TODAY, T2)
     expect(await getSettings()).toMatchObject({ injuredSide: 'left', activeLocationId: PLANET_FITNESS_LOCATION_ID, kit: ['ankle-strap', 'mini-band'], lastExportedAt: '2026-11-08T23:10:00-05:00' })
     expect(await db.locations.toArray()).toEqual([homeLocation(60, program.planetFitness, TODAY, program.equipmentListVersion)])
     expect(await db.workouts.count()).toBe(1)

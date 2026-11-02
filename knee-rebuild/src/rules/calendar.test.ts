@@ -66,6 +66,22 @@ describe('todayIn (America/New_York)', () => {
     expect(todayIn(new Date('2026-11-01T05:30:00Z'))).toBe('2026-11-01')
     expect(todayIn(new Date('2026-11-01T06:30:00Z'))).toBe('2026-11-01')
   })
+  it('writes a year before 1000 in four digits, so it reads back as that year (an imported file’s odd stamp)', () => {
+    expect(todayIn(new Date('0001-06-01T12:00:00Z'))).toBe('0001-06-01')
+    expect(todayIn(new Date('0999-06-01T12:00:00Z'))).toBe('0999-06-01')
+  })
+})
+
+describe('day arithmetic in any year', () => {
+  it('reads years 0 to 99 as themselves, not as 1900 to 1999', () => {
+    expect(daysBetween('0001-01-01', '0001-01-02')).toBe(1)
+    expect(daysBetween('0001-01-01', '0002-01-01')).toBe(365)
+    expect(daysBetween('0099-12-31', '0100-01-01')).toBe(1)
+    expect(daysBetween('1901-01-01', '2026-11-02')).toBe(45_961)
+    expect(daysBetween('0001-01-01', '2026-11-02')).toBe(739_921)
+    expect(addDays('0001-12-31', 1)).toBe('0002-01-01')
+    expect(dayOf('0001-01-01')).toBe('mon')
+  })
 })
 
 describe('schedule', () => {
