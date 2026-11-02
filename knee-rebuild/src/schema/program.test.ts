@@ -79,6 +79,26 @@ describe('data/program.json', () => {
     expect(program.gates.find((g) => g.number === 3)?.items.filter((i) => i.trials === 3)).toHaveLength(3)
   })
 
+  it('gates: every load test names the two-sided exercise whose latest session prefills it; hop tests name none', () => {
+    const byId = new Map(program.exercises.map((e) => [e.id, e]))
+    const items = program.gates.flatMap((g) => g.items)
+    const prefills = Object.fromEntries(items.filter((i) => i.prefillExerciseId !== undefined).map((i) => [i.id, i.prefillExerciseId]))
+    expect(prefills).toEqual({
+      'g1-sl-leg-press': 'single-leg-leg-press',
+      'g2-sl-leg-press': 'single-leg-leg-press',
+      'g2-bulgarian': 'bulgarian-split-squat',
+      'g3-sl-leg-press-8rm': 'single-leg-leg-press',
+    })
+    for (const item of items) {
+      const loadTest = item.evaluator === 'symmetry' && item.trials === undefined
+      expect(item.prefillExerciseId !== undefined, `${item.id} names a prefill exercise only if it is a load test`).toBe(loadTest)
+      if (item.prefillExerciseId === undefined) continue
+      const exercise = byId.get(item.prefillExerciseId)
+      expect(exercise, `${item.id} prefill resolves`).toBeDefined()
+      expect(exercise?.unilateral, `${item.id} prefill is two-sided`).toBe(true)
+    }
+  })
+
   it('carries the seven red flags and the start date', () => {
     expect(program.redFlags).toHaveLength(7)
     expect(program.startDate).toBe('2026-11-02')

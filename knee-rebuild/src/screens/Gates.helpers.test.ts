@@ -7,7 +7,6 @@ import { advancePhase } from '../rules/progress.ts'
 import { Settings, type Gate, type GateTest, type IsoDate, type MorningCheck, type Run, type SetLog, type Workout } from '../schema/index.ts'
 import {
   CALF_RAISE_EXERCISE_IDS,
-  TEST_EXERCISE,
   advanceQuestion,
   advanceState,
   advancedWords,
@@ -434,10 +433,27 @@ describe('the seed’s gates fit the screen', () => {
       expect(item.threshold, item.id).toBeDefined()
       expect(item.testItem, item.id).toBeDefined()
       if (item.trials !== undefined) continue
-      const exerciseId = item.testItem ? TEST_EXERCISE[item.testItem] : undefined
-      const exercise = program.exercises.find((e) => e.id === exerciseId)
+      const exercise = program.exercises.find((e) => e.id === item.prefillExerciseId)
       expect(exercise?.unilateral, item.id).toBe(true)
     }
     expect(CALF_RAISE_EXERCISE_IDS.every((id) => program.exercises.some((e) => e.id === id))).toBe(true)
+  })
+
+  it('the prefill comes from the gate item’s prefillExerciseId in the program data, not from the test key', () => {
+    const item = { id: 'g2-x', text: 'loads within 10%', evaluator: 'symmetry' as const, threshold: 0.9, testItem: 'sl-leg-press-load', prefillExerciseId: 'bulgarian-split-squat' }
+    const gate: Gate = { number: 2, fromPhase: 2, toPhase: 3, title: 'Gate 2, to leave Phase 2', items: [item] }
+    const bss = workout('2026-12-08', { id: 'w-bss', templateId: 'p2-b', phase: 2 })
+    const sets = [set('w-bss', 'bulgarian-split-squat', 'right', 1, 30), set('w-bss', 'bulgarian-split-squat', 'left', 1, 35), set('w-bss', 'single-leg-leg-press', 'right', 2, 90), set('w-bss', 'single-leg-leg-press', 'left', 2, 100)]
+    const history: HistoryLike = { workouts: [bss], setLogs: sets, morningChecks: [], runs: [], gateTests: [] }
+    const phase2 = settings({ currentPhase: 2, phaseEnteredWeek: 4 })
+    const read = (g: Gate) => {
+      const row = byId(gatesView({ today: '2026-12-09', settings: phase2, history, program: { ...PROGRAM, gates: [g] } }), 'g2-x')
+      if (row.kind !== 'symmetry') throw new Error('expected a symmetry item')
+      return row.entry
+    }
+    expect(read(gate)).toMatchObject({ unit: 'lb', step: 5, prefill: { date: '2026-12-08', injured: 30, other: 35 } })
+    expect(read(gate).prefillLine).toContain('Bulgarian split squat, 30 lb right and 35 lb left')
+    const bare = { id: item.id, text: item.text, evaluator: item.evaluator, threshold: item.threshold, testItem: item.testItem }
+    expect(read({ ...gate, items: [bare] })).toMatchObject({ prefill: null, prefillLine: 'Nothing to prefill from: enter the values from the test.' })
   })
 })

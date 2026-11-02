@@ -22,18 +22,6 @@ export type ProgramLike = Pick<Program, 'gates' | 'phases' | 'exercises' | 'redF
 /** Which catalog exercises count as the single-leg calf raise for gate 2 (the M5 brief). */
 export const CALF_RAISE_EXERCISE_IDS: readonly string[] = ['single-leg-calf-raise-step']
 
-/**
- * The exercise whose logged sets prefill a one-value-per-side symmetry test, by the gate item's
- * `testItem` (PROGRAM-QUESTIONS 25: "prefilled from the latest SetLogs per side"). Hop tests have
- * no logged exercise to start from; they start empty.
- */
-export const TEST_EXERCISE: Readonly<Record<string, string>> = {
-  'sl-leg-press-10rm': 'single-leg-leg-press',
-  'sl-leg-press-load': 'single-leg-leg-press',
-  'bulgarian-load': 'bulgarian-split-squat',
-  'sl-leg-press-8rm': 'single-leg-leg-press',
-}
-
 /** The line a symmetry item reads against, as evaluateGate reads it (every seeded item states its own). */
 export function lineOf(item: Pick<GateItem, 'threshold'>): number {
   return item.threshold ?? 0.9
@@ -428,7 +416,9 @@ function symmetryEntry(item: GateItem, gate: Gate, history: HistoryLike, records
   if (trials !== null) {
     return { key, threshold, trials, unit: 'in', step: 1, prefill: null, prefillLine: null, earlier: key ? earlierTests(history.gateTests, gate.number, key, threshold, 'in') : [], sides }
   }
-  const exerciseId = key ? TEST_EXERCISE[key] : undefined
+  // The program data names the exercise whose sets prefill a load test (PROGRAM-QUESTIONS 25: "prefilled
+  // from the latest SetLogs per side"); hop tests have no logged exercise to start from.
+  const exerciseId = item.prefillExerciseId
   const exercise = exerciseId ? (exercises.find((e) => e.id === exerciseId) ?? null) : null
   const prefill = exercise ? loadPrefill(records, exercise.id, injuredSide) : null
   const unit = exercise && exercise.loadUnit !== 'none' ? exercise.loadUnit : 'lb'

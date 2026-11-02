@@ -175,6 +175,12 @@ export const GateItem = z.strictObject({
   testItem: kebab.optional(),
   /** symmetry: hop tests store this many trials per side and keep the best. */
   trials: z.number().int().positive().optional(),
+  /**
+   * symmetry load tests: the two-sided exercise whose latest session that logged both sides
+   * prefills the form (PROGRAM-QUESTIONS 25). Hop tests have none; their trials start not entered.
+   * A seed test checks every one resolves and is two-sided.
+   */
+  prefillExerciseId: kebab.optional(),
   /** clean-weeks, no-swelling: the lookback in days. */
   windowDays: z.number().int().positive().optional(),
   /** run-no-reaction: the run has to be at least this long. */
