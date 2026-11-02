@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import type { Equipment, EquipmentId, Location } from '../schema/index.ts'
+import type { Equipment, EquipmentId, Exercise, Location, Requirement, SessionTemplate, Slot } from '../schema/index.ts'
 import { availableEquipment, type ChecklistGroup } from './equipment.ts'
-import { checklistNotHere, ifNotHere, itemOutcome, nameTaken, newOnList, notHereWrite, rowItems, typedOutcome } from './whereYouTrain.ts'
+import { checklistNotHere, ifNotHere, itemOutcome, nameTaken, newOnList, notHereWrite, phaseCoverage, rowItems, typedOutcome } from './whereYouTrain.ts'
 
 // Inline fixtures shaped like the seed; the live seed's rows are checked in src/screens/LocationEditor.helpers.test.ts.
 
@@ -187,5 +187,87 @@ describe('nameTaken', () => {
     expect(nameTaken(gyms, 'Marriott Downtown', 'loc-1')).toBe(false)
     expect(nameTaken(gyms, 'Hotel gym', null)).toBe(false)
     expect(nameTaken(gyms, 'Hilton', null)).toBe(false)
+  })
+})
+
+describe('phaseCoverage: what moves for the rest of the phase', () => {
+  function ex(id: string, requires: Requirement[]): Exercise {
+    return { id, name: id, pattern: 'plyo', equipment: 'fixture', loadType: 'bodyweight', loadUnit: 'none', increment: 0, loadDirection: 'up', unilateral: false, requires }
+  }
+  function slot(id: string, order: number, exerciseId: string, substitutionIds: string[] = [], phaseWeeks?: [number, number | null]): Slot {
+    return {
+      id,
+      order,
+      label: String(order),
+      exerciseId,
+      sets: 2,
+      repsMin: 5,
+      repsMax: 5,
+      repUnit: 'reps',
+      unilateral: false,
+      injuredOnly: false,
+      prescriptionText: '2 × 5',
+      cues: [],
+      progressionRule: 'fixed',
+      substitutionIds,
+      optional: false,
+      ...(phaseWeeks ? { phaseWeeks } : {}),
+    }
+  }
+  const exercises = [
+    ex('pogo-hops', []),
+    ex('step-off-landing', ['step-platforms']),
+    ex('jump-onto-step', ['step-platforms']),
+    ex('repeat-hops', []),
+    ex('drop-off-step', ['step-platforms']),
+    ex('leg-press', ['seated-leg-press']),
+    ex('split-squat', []),
+  ]
+  const byId = new Map(exercises.map((e) => [e.id, e]))
+  // Shaped like Phase 3 A: plyo blocks in weeks 1–2, 3–4 and from 5 on, then the strength work every week.
+  const template: SessionTemplate = {
+    id: 'p3-a',
+    phase: 3,
+    letter: 'A',
+    slots: [
+      slot('plyo-1', 1, 'pogo-hops', [], [1, 2]),
+      slot('plyo-2', 2, 'step-off-landing', [], [1, 2]),
+      slot('plyo-3', 3, 'jump-onto-step', [], [3, 4]),
+      slot('plyo-4', 4, 'repeat-hops', [], [5, null]),
+      slot('plyo-5', 5, 'drop-off-step', [], [5, null]),
+      slot('a-1', 6, 'leg-press', ['split-squat']),
+    ],
+  }
+  const nothing = new Set<EquipmentId>()
+
+  it("lists this week's moves, then each later block's from the week it starts", () => {
+    expect(phaseCoverage([template], 1, byId, nothing)).toEqual([
+      {
+        templateId: 'p3-a',
+        moves: [
+          { slotId: 'plyo-2', from: 'step-off-landing', to: 'step-off-landing', kind: 'none', missing: ['step-platforms'], fromPhaseWeek: null },
+          { slotId: 'a-1', from: 'leg-press', to: 'split-squat', kind: 'moved', missing: ['seated-leg-press'], fromPhaseWeek: null },
+          { slotId: 'plyo-3', from: 'jump-onto-step', to: 'jump-onto-step', kind: 'none', missing: ['step-platforms'], fromPhaseWeek: 3 },
+          { slotId: 'plyo-5', from: 'drop-off-step', to: 'drop-off-step', kind: 'none', missing: ['step-platforms'], fromPhaseWeek: 5 },
+        ],
+      },
+    ])
+  })
+
+  it('leaves out blocks whose weeks have passed, and reads a block running now as this week', () => {
+    const moves = phaseCoverage([template], 3, byId, nothing)[0]?.moves ?? []
+    expect(moves.map((m) => [m.slotId, m.fromPhaseWeek])).toEqual([
+      ['plyo-3', null],
+      ['a-1', null],
+      ['plyo-5', 5],
+    ])
+    expect((phaseCoverage([template], 6, byId, nothing)[0]?.moves ?? []).map((m) => [m.slotId, m.fromPhaseWeek])).toEqual([
+      ['plyo-5', null],
+      ['a-1', null],
+    ])
+  })
+
+  it('lists nothing where every slot left in the phase runs its own exercise', () => {
+    expect(phaseCoverage([template], 1, byId, new Set(['step-platforms', 'seated-leg-press']))).toEqual([{ templateId: 'p3-a', moves: [] }])
   })
 })

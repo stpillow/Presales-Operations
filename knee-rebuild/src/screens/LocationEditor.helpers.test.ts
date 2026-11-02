@@ -244,12 +244,13 @@ describe('What this changes', () => {
     expect(currentTemplates(settings({ currentPhase: 4 }))).toEqual([])
   })
 
-  const view = (location: Location, over: Partial<Settings> = {}) => {
+  const view = (location: Location, over: Partial<Settings> = {}, phaseWeek = 1) => {
     const s = settings(over)
     return changesView({
       templates: currentTemplates(s),
       phase: s.currentPhase,
-      phaseWeek: 1,
+      phaseWeek,
+      phaseEnteredWeek: s.phaseEnteredWeek,
       byId,
       available: availableOf(location),
       items: program.equipment,
@@ -263,7 +264,7 @@ describe('What this changes', () => {
 
   it("lists each session's moves at a gym started empty, in words", () => {
     const { heading, sessions } = view(marriott)
-    expect(heading).toBe('What moves at Marriott Downtown in Phase 1 this week:')
+    expect(heading).toBe('What moves at Marriott Downtown for the rest of Phase 1:')
     expect(sessions.map((s) => s.label)).toEqual(['Session A', 'Session B', 'Session C'])
     expect(sessions[0]?.lines).toEqual([
       'Leg press, both legs → Smith machine box squat (no seated leg press)',
@@ -272,6 +273,18 @@ describe('What this changes', () => {
       'Nothing here for Elliptical, easy (no elliptical)',
     ])
     expect(sessions[2]?.lines).toContain('Incline dumbbell press → Smith bench press (no adjustable bench)')
+  })
+
+  it('lists the blocks that start later in the phase, from the program week they start (Phase 3 entered in week 9)', () => {
+    const phase3 = { currentPhase: 3, phaseEnteredWeek: 9 }
+    const [a] = view(marriott, phase3).sessions
+    expect(a?.lines).toContain('Nothing here for Step-off landing from a 6–8 in. step, stuck for 2 s (no step platforms)')
+    expect(a?.lines).toContain('From week 11: Nothing here for Jump onto the circuit step and step down (no step platforms)')
+    expect(a?.lines.findIndex((l) => l.startsWith('From week 11'))).toBeGreaterThan(a?.lines.findIndex((l) => l.startsWith('Nothing here for Step-off')) ?? 0)
+    // In the phase's third week the first block has passed and the second runs now.
+    const [later] = view(marriott, phase3, 3).sessions
+    expect(later?.lines).toContain('Nothing here for Jump onto the circuit step and step down (no step platforms)')
+    expect(later?.lines.some((l) => l.includes('Step-off landing'))).toBe(false)
   })
 
   it('says Phase 4 has no sessions to move', () => {

@@ -1,17 +1,8 @@
 import { currentTemplate } from '../app/session.ts'
 import { weekOf } from '../rules/calendar.ts'
-import {
-  forNextProgramUpdate,
-  locationCoverage,
-  type Available,
-  type ChecklistGroup,
-  type ChecklistItem,
-  type CoverageMove,
-  type ExerciseLookup,
-  type RunSwapType,
-} from '../rules/equipment.ts'
+import { forNextProgramUpdate, type Available, type ChecklistGroup, type ChecklistItem, type CoverageMove, type ExerciseLookup, type RunSwapType } from '../rules/equipment.ts'
 import { phaseWeekOf } from '../rules/session.ts'
-import { ifNotHere, nameTaken, newOnList, type SubstitutionRow, type TypedOutcome } from '../rules/whereYouTrain.ts'
+import { ifNotHere, nameTaken, newOnList, phaseCoverage, type SubstitutionRow, type TypedOutcome } from '../rules/whereYouTrain.ts'
 import { Location, type Equipment, type EquipmentId, type Exercise, type IsoDate, type Requirement, type SessionTemplate, type Settings } from '../schema/index.ts'
 
 /*
@@ -256,27 +247,35 @@ export interface ChangesView {
 }
 
 /**
- * "What this changes": `locationCoverage`'s moves for the current phase's sessions in this week of
- * the phase, each in words; the heading says when nothing moves, and that Phase 4 has no sessions yet.
+ * "What this changes": what moves at the gym for the rest of the current phase (`phaseCoverage`),
+ * each session's moves in words, this week's first, then each later block's prefixed with the
+ * program week it starts ("From week 11: …"); the heading says when nothing moves, and that Phase 4
+ * has no sessions yet.
  */
 export function changesView(input: {
   templates: readonly SessionTemplate[]
   phase: number
+  /** This week of the phase (`coverageWeek`). */
   phaseWeek: number
+  /** The program week the phase was entered, to name a later block's start as a program week. */
+  phaseEnteredWeek: number
   byId: ExerciseLookup
   available: Available
   items: readonly ItemLike[]
   gymName: string
 }): ChangesView {
   if (input.templates.length === 0) return { heading: `Phase ${input.phase}’s sessions aren’t written yet, so nothing moves at ${input.gymName} yet.`, sessions: [] }
-  const sessions = locationCoverage(input.templates, input.phaseWeek, input.byId, input.available)
+  const sessions = phaseCoverage(input.templates, input.phaseWeek, input.byId, input.available)
     .map((coverage) => ({
       label: `Session ${input.templates.find((t) => t.id === coverage.templateId)?.letter ?? coverage.templateId}`,
-      lines: coverage.moves.map((move) => changeWords(move, input.byId, input.items)),
+      lines: coverage.moves.map((move) => {
+        const words = changeWords(move, input.byId, input.items)
+        return move.fromPhaseWeek === null ? words : `From week ${input.phaseEnteredWeek + move.fromPhaseWeek - 1}: ${words}`
+      }),
     }))
     .filter((session) => session.lines.length > 0)
   if (sessions.length === 0) return { heading: `Every slot of Phase ${input.phase}’s sessions runs its own exercise at ${input.gymName}.`, sessions: [] }
-  return { heading: `What moves at ${input.gymName} in Phase ${input.phase} this week:`, sessions }
+  return { heading: `What moves at ${input.gymName} for the rest of Phase ${input.phase}:`, sessions }
 }
 
 // --- Kept for the next program update ----------------------------------------

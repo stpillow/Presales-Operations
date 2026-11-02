@@ -214,6 +214,7 @@ function EditLocation({ location, locations, settings, activeId }: { location: L
     templates: currentTemplates(settings),
     phase: settings.currentPhase,
     phaseWeek: coverageWeek(settings, today),
+    phaseEnteredWeek: settings.phaseEnteredWeek,
     byId: BY_ID,
     available,
     items: PROGRAM.equipment,

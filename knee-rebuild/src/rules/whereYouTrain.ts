@@ -1,5 +1,15 @@
-import type { Equipment, EquipmentId, Location, Program } from '../schema/index.ts'
-import { DUMBBELLS, availableEquipment, matchTyped, normalizeTyped, type Available, type ChecklistGroup } from './equipment.ts'
+import type { Equipment, EquipmentId, Location, Program, SessionTemplate } from '../schema/index.ts'
+import {
+  DUMBBELLS,
+  availableEquipment,
+  locationCoverage,
+  matchTyped,
+  normalizeTyped,
+  type Available,
+  type ChecklistGroup,
+  type CoverageMove,
+  type ExerciseLookup,
+} from './equipment.ts'
 import { withPresent } from './locations.ts'
 
 /*
@@ -137,4 +147,40 @@ export function typedOutcome(
 export function nameTaken(locations: readonly Pick<Location, 'id' | 'name' | 'archived'>[], name: string, exceptId: string | null): boolean {
   const wanted = normalizeTyped(name)
   return locations.some((l) => !l.archived && l.id !== exceptId && normalizeTyped(l.name) === wanted)
+}
+
+export interface PhaseMove extends CoverageMove {
+  /** The week of the phase a later block starts in (snap-downs, plyo blocks); null for a slot that runs this week. */
+  fromPhaseWeek: number | null
+}
+
+export interface PhaseCoverage {
+  templateId: string
+  moves: PhaseMove[]
+}
+
+/**
+ * "What this changes" (design section 5, the brief's "for the current phase"): `locationCoverage`
+ * for the rest of the phase, not just this week, since a gym is set up ahead of the weeks it is used.
+ * This week's moves come first, in session order; then each banded slot that starts later in the
+ * phase, from the week it starts. A banded slot whose weeks have passed is left out: it doesn't run
+ * again in this phase.
+ */
+export function phaseCoverage(templates: readonly SessionTemplate[], phaseWeek: number, byId: ExerciseLookup, available: Available): PhaseCoverage[] {
+  const laterStarts = templates.flatMap((t) => t.slots.flatMap((slot) => (slot.phaseWeeks && slot.phaseWeeks[0] > phaseWeek ? [slot.phaseWeeks[0]] : [])))
+  const weeks = [phaseWeek, ...[...new Set(laterStarts)].sort((a, b) => a - b)]
+  return templates.map((template) => {
+    const seen = new Set<string>()
+    const moves: PhaseMove[] = []
+    for (const week of weeks) {
+      for (const coverage of locationCoverage([template], week, byId, available)) {
+        for (const move of coverage.moves) {
+          if (seen.has(move.slotId)) continue
+          seen.add(move.slotId)
+          moves.push({ ...move, fromPhaseWeek: week === phaseWeek ? null : week })
+        }
+      }
+    }
+    return { templateId: template.id, moves }
+  })
 }
