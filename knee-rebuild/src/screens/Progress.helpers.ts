@@ -158,6 +158,21 @@ export function nearestIndex(positions: readonly number[], x: number): number | 
   return best
 }
 
+/** How far a touch may wander and still be a tap, in px. */
+export const TAP_SLOP = 10
+
+/**
+ * What a touch on a chart is so far, from where it went down to where it is: a tap while it stays
+ * within the slop; past it, a drag along the dates when it went more sideways than up or down,
+ * else a scroll of the page. A scroll that starts on a chart picks no date.
+ */
+export function gestureAt(start: { x: number; y: number }, now: { x: number; y: number }, slop = TAP_SLOP): 'tap' | 'drag' | 'scroll' {
+  const dx = Math.abs(now.x - start.x)
+  const dy = Math.abs(now.y - start.y)
+  if (dx <= slop && dy <= slop) return 'tap'
+  return dx > dy ? 'drag' : 'scroll'
+}
+
 /**
  * The date focus selects: the one already picked, else the chart's opening point (`initial`: this
  * week on the miles chart), else the latest. Null with no dates.

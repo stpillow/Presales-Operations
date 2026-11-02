@@ -1,6 +1,6 @@
 import { useId, useLayoutEffect, useRef, useState, type Dispatch, type ReactNode, type RefObject, type SetStateAction } from 'react'
 import { Button } from '../../components/Button.tsx'
-import { focusIndex, nearestIndex, stepIndex, type MarkKind, type NumbersTable, type Readout } from '../Progress.helpers.ts'
+import { focusIndex, gestureAt, nearestIndex, stepIndex, type MarkKind, type NumbersTable, type Readout } from '../Progress.helpers.ts'
 
 /** The chart's width before it is measured: a 375 px phone less the 16 px gutters. */
 export const PHONE_WIDTH = 343
@@ -33,8 +33,8 @@ export const DATE_LABEL_DY = 21
 
 /**
  * A chart's frame: the readout line above it, the SVG (role img, one-sentence name), and the
- * "Show the numbers" table twin. A tap, a drag or a hover anywhere on the chart selects the nearest
- * date, never only the dot; focus selects the date the readout opened on (`initial`, else the
+ * "Show the numbers" table twin. A tap, a sideways drag or a hover anywhere on the chart selects the
+ * nearest date, never only the dot; a touch that turns into a page scroll selects nothing (gestureAt); focus selects the date the readout opened on (`initial`, else the
  * latest), and the arrow keys step through the dates from there.
  */
 export function ChartFrame({
@@ -63,6 +63,8 @@ export function ChartFrame({
   children: ReactNode
 }) {
   const svgRef = useRef<SVGSVGElement | null>(null)
+  /** A touch or pen still down on the chart: where it went down, and whether it has turned into a drag or a scroll. */
+  const touch = useRef<{ x: number; y: number; mode: 'pending' | 'drag' | 'scroll' } | null>(null)
   const [open, setOpen] = useState(false)
   const tableId = useId()
   const readoutId = useId()
@@ -101,9 +103,36 @@ export function ChartFrame({
           height={height}
           viewBox={`0 0 ${width} ${height}`}
           className="block touch-pan-y select-none"
-          onPointerDown={(e) => pick(e.clientX)}
+          onPointerDown={(e) => {
+            if (e.pointerType === 'mouse') {
+              pick(e.clientX)
+              return
+            }
+            // A finger going down may be a tap or the start of a scroll: wait to see which.
+            touch.current = { x: e.clientX, y: e.clientY, mode: 'pending' }
+          }}
           onPointerMove={(e) => {
-            if (e.pointerType === 'mouse' || e.buttons > 0) pick(e.clientX)
+            if (e.pointerType === 'mouse') {
+              pick(e.clientX)
+              return
+            }
+            const t = touch.current
+            if (!t || t.mode === 'scroll') return
+            if (t.mode === 'pending') {
+              const gesture = gestureAt(t, { x: e.clientX, y: e.clientY })
+              if (gesture === 'tap') return
+              t.mode = gesture
+            }
+            if (t.mode === 'drag') pick(e.clientX)
+          }}
+          onPointerUp={(e) => {
+            const t = touch.current
+            touch.current = null
+            if (t && t.mode === 'pending' && gestureAt(t, { x: e.clientX, y: e.clientY }) === 'tap') pick(e.clientX)
+          }}
+          onPointerCancel={() => {
+            // The browser took the touch for a page scroll: nothing is selected.
+            touch.current = null
           }}
         >
           <rect x={0} y={0} width={width} height={height} fill="transparent" />

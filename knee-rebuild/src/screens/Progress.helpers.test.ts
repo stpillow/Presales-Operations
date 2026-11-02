@@ -18,6 +18,7 @@ import {
   fmt,
   focusIndex,
   gatesWords,
+  gestureAt,
   labelledPoints,
   leftOutLines,
   lineChartGeometry,
@@ -177,6 +178,19 @@ describe('positions and hit testing', () => {
     expect(stepIndex(0, 'End', 4)).toBe(3)
     expect(stepIndex(1, 'Enter', 4)).toBeNull()
     expect(stepIndex(null, 'ArrowRight', 0)).toBeNull()
+  })
+
+  it('a touch is a tap only while it stays within 10 px; past that it is a drag along the dates or a scroll of the page', () => {
+    const start = { x: 100, y: 200 }
+    expect(gestureAt(start, { x: 100, y: 200 })).toBe('tap')
+    expect(gestureAt(start, { x: 108, y: 194 })).toBe('tap')
+    // A vertical swipe that starts on the chart scrolls the page and picks nothing.
+    expect(gestureAt(start, { x: 100, y: 180 })).toBe('scroll')
+    expect(gestureAt(start, { x: 112, y: 160 })).toBe('scroll')
+    // Sideways past the slop is a scrub along the dates.
+    expect(gestureAt(start, { x: 130, y: 205 })).toBe('drag')
+    expect(gestureAt(start, { x: 70, y: 190 })).toBe('drag')
+    expect(gestureAt(start, { x: 104, y: 200 }, 3)).toBe('drag')
   })
 
   it('focus opens on the chart’s own opening point: this week on the miles chart, not the plan’s last week', () => {
