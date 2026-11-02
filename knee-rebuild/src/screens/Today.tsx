@@ -18,6 +18,7 @@ import {
   movesHeading,
   newWorkout,
   newWorkoutId,
+  openWorkoutWords,
   runLabel,
   runSuggestionAtGym,
   runWeekWords,
@@ -87,7 +88,7 @@ export function Today() {
       ) : (
         <OffBlock label={view.body.label} />
       )}
-      <OpenWorkoutsBlock open={view.open} />
+      <OpenWorkoutsBlock open={view.open} active={activeLocation} locations={locations} />
       <YesterdayBlock lines={view.yesterday} />
     </Screen>
   )
@@ -423,16 +424,17 @@ function OffBlock({ label }: { label: string }) {
   )
 }
 
-/** A session started and never closed cannot be read, whatever day it carries; say so and offer the way back in. */
-function OpenWorkoutsBlock({ open }: { open: OpenWorkout[] }) {
+/**
+ * A session started and never closed cannot be read, whatever day it carries; say so, naming its gym
+ * when that is not the active one, and offer the way back in.
+ */
+function OpenWorkoutsBlock({ open, active, locations }: { open: OpenWorkout[]; active: Location; locations: Location[] }) {
   if (open.length === 0) return null
   return (
     <section aria-label="Unfinished sessions" className="flex flex-col gap-3">
       {open.map((w) => (
         <div key={w.workoutId} className="flex items-center justify-between gap-4">
-          <p className="text-body text-on-dark-dim">
-            {w.label} from {w.dateWords} is still open.
-          </p>
+          <p className="text-body text-on-dark-dim">{openWorkoutWords(w, active, locations)}</p>
           <Button onClick={() => navigate({ name: 'session', workoutId: w.workoutId })}>Open</Button>
         </div>
       ))}

@@ -20,6 +20,7 @@ import {
   startWords,
   newWorkout,
   newWorkoutId,
+  openWorkoutWords,
   openWorkouts,
   phaseName,
   runLabel,
@@ -452,6 +453,28 @@ describe('the Start button at a gym', () => {
     expect(startWords('Session A', { status: 'in-progress' }, HOME, HOME)).toBe('Resume Session A')
     expect(startWords('Session A', { status: 'in-progress' }, MARRIOTT, HOME)).toBe('Resume Session A at Marriott Downtown')
     expect(startWords('Session A', { status: 'abandoned' }, MARRIOTT, HOME)).toBe('Resume Session A at Marriott Downtown')
+  })
+})
+
+describe('an open session from another day at a gym', () => {
+  it('carries the gym stamped at Start, none for a session stamped with none', () => {
+    const away = { ...workout('w0', '2026-11-02', 'in-progress', 'p1-c'), locationId: 'loc-1' }
+    expect(openWorkouts([away, workout('w1', '2026-11-03', 'in-progress')], PROGRAM.templates)).toEqual([
+      { workoutId: 'w0', label: 'Session C', dateWords: 'Monday, November 2', locationId: 'loc-1' },
+      { workoutId: 'w1', label: 'Session A', dateWords: 'Tuesday, November 3' },
+    ])
+  })
+  it('names the gym it runs at only when that is not the active one, as Resume does', () => {
+    const open = { workoutId: 'w0', label: 'Session C', dateWords: 'Monday, November 2', locationId: 'loc-1' }
+    expect(openWorkoutWords(open, HOME, [HOME, MARRIOTT])).toBe('Session C from Monday, November 2 is still open at Marriott Downtown.')
+    expect(openWorkoutWords(open, MARRIOTT, [HOME, MARRIOTT])).toBe('Session C from Monday, November 2 is still open.')
+    // Stamped with no gym: it ran at Planet Fitness.
+    const unstamped = { workoutId: 'w1', label: 'Session A', dateWords: 'Tuesday, November 3' }
+    expect(openWorkoutWords(unstamped, MARRIOTT, [HOME, MARRIOTT])).toBe('Session A from Tuesday, November 3 is still open at Planet Fitness.')
+    expect(openWorkoutWords(unstamped, HOME, [HOME, MARRIOTT])).toBe('Session A from Tuesday, November 3 is still open.')
+    // Archived since: the session still runs there.
+    const archived = { ...open, locationId: 'loc-2' }
+    expect(openWorkoutWords(archived, HOME, [HOME, OLD_HOTEL])).toBe('Session C from Monday, November 2 is still open at Old hotel.')
   })
 })
 

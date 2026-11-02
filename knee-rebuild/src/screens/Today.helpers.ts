@@ -1,7 +1,7 @@
 import type { History } from '../db/repo.ts'
 import { addDays, dayOf, isDeloadWeek, scheduledSession } from '../rules/calendar.ts'
 import { locationCoverage, type Available, type CoverageMove, type ExerciseLookup, type RunSwapType } from '../rules/equipment.ts'
-import { swapCallAt } from '../rules/gymDay.ts'
+import { liftGym, swapCallAt } from '../rules/gymDay.ts'
 import { attachChecks, subjectReadings, workoutReading } from '../rules/history.ts'
 import { listedLocations } from '../rules/locations.ts'
 import { morningCheckApplies, morningReading, type Reading } from '../rules/reading.ts'
@@ -200,6 +200,8 @@ export interface OpenWorkout {
   workoutId: string
   label: string
   dateWords: string
+  /** The gym stamped at Start; absent on a session stamped with none, which ran at Planet Fitness. */
+  locationId?: string
 }
 
 /**
@@ -210,7 +212,18 @@ export function openWorkouts(workouts: readonly Workout[], templates: readonly S
   return workouts
     .filter((w) => w.status === 'in-progress' && w.id !== resumingId)
     .sort((a, b) => a.date.localeCompare(b.date) || (a.startedAt ?? '').localeCompare(b.startedAt ?? ''))
-    .map((w) => ({ workoutId: w.id, label: workoutLabel(w, templates), dateWords: dateWords(w.date) }))
+    .map((w) => ({ workoutId: w.id, label: workoutLabel(w, templates), dateWords: dateWords(w.date), ...(w.locationId ? { locationId: w.locationId } : {}) }))
+}
+
+/**
+ * "Session A from Monday, November 2 is still open.", and when the gym it runs at (`liftGym`: the
+ * one stamped at Start) is not the active one, "… is still open at Marriott Downtown.", as Resume
+ * names it: Open carries on there, not at the gym Today plans for.
+ */
+export function openWorkoutWords(open: OpenWorkout, active: Location, locations: readonly Location[]): string {
+  const gym = liftGym({ status: 'in-progress', ...(open.locationId ? { locationId: open.locationId } : {}) }, active, locations)
+  const line = `${open.label} from ${open.dateWords} is still open`
+  return gym.id === active.id ? `${line}.` : `${line} at ${gym.name}.`
 }
 
 export type TodayBody =
