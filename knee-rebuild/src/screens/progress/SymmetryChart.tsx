@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { SymmetryPoint } from '../../rules/progress.ts'
 import type { Side } from '../../schema/index.ts'
-import { fmt, lineChartGeometry, symmetryAria, symmetryAxis, symmetryReadout, symmetryTable, type CountUnit, type SymmetryRef } from '../Progress.helpers.ts'
+import { EXTREME_ABOVE_DY, EXTREME_BELOW_DY, fmt, lineChartGeometry, symmetryAria, symmetryAxis, symmetryReadout, symmetryTable, type CountUnit, type SymmetryRef } from '../Progress.helpers.ts'
 import { ChartFrame, Crosshair, DATE_LABEL_DY, GRID, LABEL_TEXT, Marker, TICK_TEXT, YAxis, useWidth } from './ChartFrame.tsx'
 
 const HEIGHT = 200
@@ -60,7 +60,7 @@ export function SymmetryChart({ points, name, injuredSide, countUnit, refs }: { 
               <Marker key={i} x={d.x} y={d.y} kind="dot" />
             ))}
             {line.extreme ? (
-              <text x={line.extreme.x} y={line.extreme.y - 11} textAnchor="middle" strokeWidth={3} strokeLinejoin="round" style={{ paintOrder: 'stroke' }} className={`${LABEL_TEXT} stroke-navy`}>
+              <text x={line.extreme.x} y={line.extreme.y + (line.extremeBelow ? EXTREME_BELOW_DY : EXTREME_ABOVE_DY)} textAnchor="middle" strokeWidth={3} strokeLinejoin="round" style={{ paintOrder: 'stroke' }} className={`${LABEL_TEXT} stroke-navy`}>
                 {fmt(line.extreme.value)}%
               </text>
             ) : null}
@@ -69,7 +69,7 @@ export function SymmetryChart({ points, name, injuredSide, countUnit, refs }: { 
         {geo.ends.map((end) => (
           <g key={end.keys.join('+')}>
             {end.leader ? <line x1={end.dotX + 6} y1={end.dotY} x2={end.x - 3} y2={end.y} strokeWidth={1} className={GRID} /> : null}
-            <text x={end.x} y={end.y} dy="0.32em" className={LABEL_TEXT}>
+            <text x={end.x} y={end.y} dy="0.32em" strokeWidth={3} strokeLinejoin="round" style={{ paintOrder: 'stroke' }} className={`${LABEL_TEXT} stroke-navy`}>
               {fmt(end.value)}%
             </text>
           </g>

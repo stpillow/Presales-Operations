@@ -325,6 +325,56 @@ describe('lineChartGeometry', () => {
   })
 })
 
+describe('end and extreme labels keep off the gridlines and the other line', () => {
+  const margin = { top: 24, right: 80, bottom: 28, left: 40 }
+
+  it('one date: the end labels sit in the right margin, past the gridlines, with leaders to the dots', () => {
+    const geo = lineChartGeometry({
+      width: 343,
+      height: 216,
+      margin,
+      dates: ['2026-11-03'],
+      lines: [
+        { key: 'right', points: [{ date: '2026-11-03', value: 55 }] },
+        { key: 'left', points: [{ date: '2026-11-03', value: 75 }] },
+      ],
+      axis: niceAxis(55, 75, 4, 0, 1),
+      extremeFor: 'right',
+    })
+    expect(geo.xs).toEqual([151.5])
+    for (const end of geo.ends) {
+      expect(end.x).toBeGreaterThanOrEqual(geo.plot.right)
+      expect(end.leader).toBe(true)
+    }
+  })
+
+  it('the extreme’s label goes under its dot when the other line crowds the space above it', () => {
+    const dates = ['2026-11-03', '2026-11-10', '2026-11-17', '2026-11-24', '2026-12-01']
+    const line = (key: string, values: number[]) => ({ key, points: values.map((value, i) => ({ date: dates[i] ?? '', value })) })
+    const crowded = lineChartGeometry({
+      width: 343,
+      height: 216,
+      margin,
+      dates,
+      lines: [line('right', [50, 70, 95, 75, 80]), line('left', [90, 95, 100, 100, 100])],
+      axis: niceAxis(50, 100, 4, 0, 1),
+      extremeFor: 'right',
+    })
+    expect(crowded.lines[0]?.extreme?.value).toBe(95)
+    expect(crowded.lines[0]?.extremeBelow).toBe(true)
+    const clear = lineChartGeometry({
+      width: 343,
+      height: 216,
+      margin,
+      dates,
+      lines: [line('right', [50, 70, 95, 75, 80]), line('left', [55, 60, 70, 75, 80])],
+      axis: niceAxis(50, 100, 4, 0, 1),
+      extremeFor: 'right',
+    })
+    expect(clear.lines[0]?.extremeBelow).toBe(false)
+  })
+})
+
 describe('reference labels keep clear of the data', () => {
   it('reads where a line crosses x, and nothing where it does not reach', () => {
     const dots = [{ x: 0, y: 100 }, { x: 10, y: 50 }, { x: 20, y: 50 }]

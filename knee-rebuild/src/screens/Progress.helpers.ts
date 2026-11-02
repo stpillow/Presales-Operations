@@ -292,7 +292,13 @@ export interface LineGeometry {
   dots: Dot[]
   /** The extreme's label, above its dot; only on the line the chart is about. */
   extreme: Dot | null
+  /** The extreme's label goes under its dot: the lines crowd the space above it more than below. */
+  extremeBelow: boolean
 }
+
+/** Where the extreme's label sits from its dot: its baseline 11 px above, or 20 px below. */
+export const EXTREME_ABOVE_DY = -11
+export const EXTREME_BELOW_DY = 20
 
 /** A label at a line's end, in the right margin; `keys` holds both lines when they end on the same point. */
 export interface EndLabel {
@@ -352,11 +358,23 @@ export function lineChartGeometry(input: {
   const xOf = new Map(dates.map((d, i) => [d, xs[i] ?? plot.left]))
   const lastX = xs.at(-1) ?? plot.right
 
-  const lines: LineGeometry[] = input.lines.map((line) => {
+  const drawn = input.lines.map((line) => {
     const dots = line.points.map((p) => ({ x: xOf.get(p.date) ?? plot.left, y: round2(y(p.value)), value: p.value }))
     const marks = labelledPoints(line.points.map((p) => p.value))
     const extreme = line.key === input.extremeFor && marks.extreme !== null ? (dots[marks.extreme] ?? null) : null
     return { key: line.key, path: linePath(dots), dots, extreme }
+  })
+  // The extreme's label is checked against every line, the other side's rings included: it goes
+  // under its dot when the lines run through less there, and the space fits above the axis.
+  const allDots = drawn.map((l) => l.dots)
+  const lines: LineGeometry[] = drawn.map((line) => {
+    const e = line.extreme
+    if (!e) return { ...line, extremeBelow: false }
+    const half = textWidth(`${fmt(e.value)}%`) / 2
+    const box = (dy: number) => ({ x0: e.x - half, x1: e.x + half, y0: e.y + dy - 9, y1: e.y + dy + 1 })
+    const below = box(EXTREME_BELOW_DY)
+    const fits = below.y1 <= plot.bottom
+    return { ...line, extremeBelow: fits && crossings(allDots, below) < crossings(allDots, box(EXTREME_ABOVE_DY)) }
   })
 
   // End labels: one per line, one shared label when two lines end on the same point.
@@ -376,14 +394,16 @@ export function lineChartGeometry(input: {
   )
   const ends: EndLabel[] = raw.map((r, i) => {
     const labelY = labelYs[i] ?? r.dot.y
+    // Always in the right margin, past the gridlines' end, so no hairline strikes through it: with one
+    // date the dot sits mid-plot, and the label gets a leader across to it.
     return {
       keys: r.keys,
       value: r.dot.value,
-      x: round2(lastX + 10),
+      x: round2(plot.right + 2),
       y: labelY,
       dotX: r.dot.x,
       dotY: r.dot.y,
-      leader: Math.abs(labelY - r.dot.y) > 2 || r.dot.x < lastX - 0.5,
+      leader: Math.abs(labelY - r.dot.y) > 2 || r.dot.x < plot.right - LINE_INSET - 0.5,
     }
   })
 

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { fmt, lineChartGeometry, loadAria, loadReadout, loadTable, niceAxis, type ChartLine, type EndLabel, type LoadChart as LoadChartModel } from '../Progress.helpers.ts'
+import { EXTREME_ABOVE_DY, EXTREME_BELOW_DY, fmt, lineChartGeometry, loadAria, loadReadout, loadTable, niceAxis, type ChartLine, type EndLabel, type LoadChart as LoadChartModel } from '../Progress.helpers.ts'
 import { ChartFrame, Crosshair, DATE_LABEL_DY, GRID, LABEL_TEXT, Legend, Marker, TICK_TEXT, YAxis, useWidth } from './ChartFrame.tsx'
 
 const HEIGHT = 216
@@ -60,7 +60,7 @@ export function LoadChart({ chart, name }: { chart: LoadChartModel; name: string
         })}
         {geo.lines.map((g) =>
           g.extreme ? (
-            <text key={`${g.key}-extreme`} x={g.extreme.x} y={g.extreme.y - 11} textAnchor="middle" strokeWidth={3} strokeLinejoin="round" style={{ paintOrder: 'stroke' }} className={`${LABEL_TEXT} stroke-navy`}>
+            <text key={`${g.key}-extreme`} x={g.extreme.x} y={g.extreme.y + (g.extremeBelow ? EXTREME_BELOW_DY : EXTREME_ABOVE_DY)} textAnchor="middle" strokeWidth={3} strokeLinejoin="round" style={{ paintOrder: 'stroke' }} className={`${LABEL_TEXT} stroke-navy`}>
               {fmt(g.extreme.value)}
             </text>
           ) : null,
@@ -85,7 +85,8 @@ function EndText({ end, lines }: { end: EndLabel; lines: Map<string, ChartLine> 
   return (
     <g>
       {end.leader ? <line x1={end.dotX + 6} y1={end.dotY} x2={end.x - 3} y2={end.y} strokeWidth={1} className={GRID} /> : null}
-      <text x={end.x} y={end.y} dy="0.32em" className={LABEL_TEXT}>
+      {/* The navy halo keeps a leader or a gridline from striking through the words. */}
+      <text x={end.x} y={end.y} dy="0.32em" strokeWidth={3} strokeLinejoin="round" style={{ paintOrder: 'stroke' }} className={`${LABEL_TEXT} stroke-navy`}>
         {fmt(end.value)}
         {side ? <tspan className="fill-on-dark-dim font-sans">{` ${side}`}</tspan> : null}
       </text>
