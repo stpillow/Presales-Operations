@@ -602,7 +602,8 @@ function ExportSection({
     setNotice(null)
     setError(null)
     try {
-      await navigator.share({ files: [file.file], title: file.name })
+      // The file alone: with words beside it, some share targets keep the words and drop the file. Its name says what it is.
+      await navigator.share({ files: [file.file] })
       setReady(null)
       setNotice(`${file.name} went to the share sheet. Keep it off this phone: in Files on iCloud Drive, or on a Mac.`)
       await onExported(file.exportedAt)
