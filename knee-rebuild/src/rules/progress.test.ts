@@ -92,6 +92,13 @@ describe('consecutiveCleanDays', () => {
       expect(consecutiveCleanDays([...before, r('2026-11-10', 'back-off', 'run')], '2026-11-10', [...checks, check('2026-11-10', { kind: 'run', id: '2026-11-10' })])).toBe(0)
     })
 
+    it('a session that already reads back-off on its own pain breaks the count at once: no check can make it better', () => {
+      expect(awaitingMorningCheck(r('2026-11-09', 'back-off'), checks, '2026-11-10')).toBe(false)
+      // Nov 10 is the one day since the back-off on Nov 9.
+      expect(consecutiveCleanDays([...before, r('2026-11-09', 'back-off')], '2026-11-10', checks)).toBe(1)
+      expect(consecutiveCleanDays([...before, r('2026-11-10', 'back-off', 'run')], '2026-11-10', checks)).toBe(0)
+    })
+
     it('a session older than yesterday with no check still reads hold, as today, and breaks the run', () => {
       expect(awaitingMorningCheck(r('2026-11-08', 'hold'), checks, '2026-11-10')).toBe(false)
       expect(consecutiveCleanDays([...before, r('2026-11-08', 'hold')], '2026-11-10', checks)).toBe(2)

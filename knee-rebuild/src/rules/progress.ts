@@ -85,8 +85,11 @@ export function milesSeries(plan: readonly MileageWeek[], runs: readonly Run[], 
  * explicit link included). Older than that, a missing check is final: the reading is hold, as
  * everywhere else (rule 3).
  */
-export function awaitingMorningCheck(reading: Pick<SubjectReading, 'kind' | 'id' | 'date'>, checks: readonly MorningCheck[], today: IsoDate): boolean {
+export function awaitingMorningCheck(reading: Pick<SubjectReading, 'kind' | 'id' | 'date' | 'result'>, checks: readonly MorningCheck[], today: IsoDate): boolean {
   if (reading.date > today || reading.date < addDays(today, -1)) return false
+  // Without a check a reading is the session's own, held at hold or worse; back-off can only have
+  // come from the session's pain, and no check makes it better, so it breaks the count at once.
+  if (reading.result === 'back-off') return false
   return !checks.some((c) => morningCheckApplies(c, reading))
 }
 
