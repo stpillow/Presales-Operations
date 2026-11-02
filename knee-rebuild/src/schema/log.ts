@@ -55,6 +55,12 @@ export const Settings = z.strictObject({
   activeLocationId: id.default(PLANET_FITNESS_LOCATION_ID),
   /** What Shawn carries to every gym, as equipment ids. */
   kit: z.array(EquipmentId).refine(uniqueIds, 'kit lists each item once').default(() => [...DEFAULT_KIT]),
+  /**
+   * When this phone last wrote a backup file (M6): the export's `exportedAt`, or an imported file's.
+   * Absent means never. It belongs to the phone, not to the data, so a backup file leaves it out
+   * (src/rules/backup.ts), and Reset all data clears it.
+   */
+  lastExportedAt: IsoDateTime.optional(),
 })
 export type Settings = z.infer<typeof Settings>
 

@@ -1,0 +1,370 @@
+import { describe, expect, it } from 'vitest'
+import type { Location, Settings } from '../schema/index.ts'
+import {
+  BACKUP_MAX_BYTES,
+  BACKUP_SCHEMA_VERSION,
+  BACKUP_TABLES,
+  MIGRATIONS,
+  OLDEST_SCHEMA_VERSION,
+  backupFileName,
+  backupFrom,
+  backupText,
+  buildBackup,
+  daysSinceExport,
+  exportDay,
+  exportNudge,
+  loggedRange,
+  lostOnImport,
+  migrateForward,
+  parseBackup,
+  sizeProblem,
+  summarize,
+  type Backup,
+  type BackupTables,
+  type StoredContents,
+} from './backup.ts'
+
+/*
+ * Inline fixtures, not the live seed: these pin the file's shape and the import's checks, whatever
+ * program.md holds. Every field of every table is in use somewhere below, M4b's and M5's included.
+ */
+
+const settings: Settings = {
+  injuredSide: 'right',
+  startDate: '2026-11-02',
+  dumbbellMax: 75,
+  restTimerSeconds: 90,
+  painPerSet: true,
+  currentPhase: 2,
+  phaseEnteredWeek: 4,
+  redFlag: { active: false, items: [], clearedOn: '2026-11-20', clearNote: 'PT checked it Nov 19: no block' },
+  activeLocationId: 'loc-1',
+  kit: ['ankle-strap'],
+  lastExportedAt: '2026-11-20T23:00:00.000Z',
+}
+
+const home: Location = {
+  id: 'planet-fitness',
+  name: 'Planet Fitness',
+  present: ['seated-leg-press', 'rower'],
+  dumbbellMaxLb: 75,
+  startedFrom: 'planet-fitness',
+  listVersion: 1,
+  extras: [],
+  markedOff: [],
+  createdOn: '2026-11-02',
+  archived: false,
+}
+const hotel: Location = {
+  id: 'loc-1',
+  name: 'Marriott Downtown',
+  present: ['flat-bench'],
+  dumbbellMaxLb: 25,
+  startedFrom: 'empty',
+  listVersion: 1,
+  extras: [{ id: 'x-1', text: 'kettlebells to 35', addedOn: '2026-11-10' }],
+  markedOff: [{ id: 'flat-bench', on: '2026-11-12' }],
+  createdOn: '2026-11-09',
+  archived: false,
+}
+const oldHotel: Location = { ...hotel, id: 'loc-2', name: 'Airport Hilton', extras: [], markedOff: [], createdOn: '2026-11-11', archived: true }
+
+function tables(): BackupTables {
+  return {
+    workouts: [
+      { id: '2026-11-03-p1-a', date: '2026-11-03', templateId: 'p1-a', phase: 1, week: 1, isDeload: false, startedAt: '2026-11-03T11:00:00.000Z', finishedAt: '2026-11-03T12:00:00.000Z', maxPainDuring: 2, notes: 'Felt fine', status: 'finished' },
+      { id: '2026-11-10-p1-a', date: '2026-11-10', templateId: 'p1-a', phase: 1, week: 2, isDeload: false, startedAt: '2026-11-10T11:00:00.000Z', status: 'in-progress', locationId: 'loc-1' },
+    ],
+    setLogs: [
+      { id: '2026-11-03-p1-a:p1a-1:both:1', workoutId: '2026-11-03-p1-a', slotId: 'p1a-1', exerciseId: 'seated-leg-press', setNumber: 1, side: 'both', load: 90, loadUnit: 'lb', reps: 12, rpe: 7, painDuring: 2, stopped: false, loggedAt: '2026-11-03T11:10:00.000Z' },
+      { id: '2026-11-03-p1-a:p1a-2:right:1', workoutId: '2026-11-03-p1-a', slotId: 'p1a-2', exerciseId: 'step-up', setNumber: 1, side: 'right', load: 10, loadUnit: 'lb', reps: 8, painDuring: 6, stopped: true, stopReason: 'sharp-joint-line-pain', heightIn: 6, loggedAt: '2026-11-03T11:20:00.000Z' },
+      { id: '2026-11-10-p1-a:p1a-3:both:1', workoutId: '2026-11-10-p1-a', slotId: 'p1a-3', exerciseId: 'db-bench-press', setNumber: 1, side: 'both', load: 25, loadUnit: 'lb', reps: 10, rpe: 6, painDuring: 0, stopped: false, rackCapped: true },
+      { id: '2026-11-10-p1-a:p1a-6:left:1', workoutId: '2026-11-10-p1-a', slotId: 'p1a-6', exerciseId: 'single-leg-balance', setNumber: 1, side: 'left', load: 0, loadUnit: 'none', seconds: 30, painDuring: 1, stopped: false, stage: 2 },
+      { id: '2026-11-10-p1-a:p1a-7:both:1', workoutId: '2026-11-10-p1-a', slotId: 'p1a-7', exerciseId: 'leg-extension', setNumber: 1, side: 'both', load: 40, loadUnit: 'lb', reps: 12, painDuring: 1, stopped: false, rangeStopDeg: 45 },
+    ],
+    morningChecks: [
+      { id: 'mc-2026-11-04', date: '2026-11-04', appliesTo: { kind: 'workout', id: '2026-11-03-p1-a' }, stiffnessUnder30Min: true, worseThanYesterday: false, visibleSwelling: false, warmth: false, painChangePoints: 0, redFlags: [] },
+      { id: 'mc-2026-11-12', date: '2026-11-12', appliesTo: null, stiffnessUnder30Min: false, worseThanYesterday: true, visibleSwelling: false, warmth: true, painChangePoints: 2, redFlags: ['locking'], notes: 'Caught on the stairs “twice”\nthen fine' },
+    ],
+    runs: [
+      { id: 'run-2026-11-02', date: '2026-11-02', type: 'mbr', miles: 3, minutes: 33, effort: 'easy', maxPain: 1, strides: true, tempo: false, stravaUrl: 'https://www.strava.com/activities/1', notes: 'Windy' },
+      { id: 'run-2026-11-11', date: '2026-11-11', type: 'rower-swap', miles: 0, minutes: 35, effort: 'moderate', maxPain: 1, strides: false, tempo: true, locationId: 'loc-1' },
+    ],
+    gateTests: [
+      { id: 'gt-1', date: '2026-11-13', gate: 1, item: 'hop-single', valueInjured: 56, valueOther: 62, trialsInjured: [50, 56], trialsOther: [60, 62, 61], pass: true, manual: false, notes: 'Shoes on' },
+      { id: 'gt-2', date: '2026-11-14', gate: 1, item: 'ortho-sign-off', valueInjured: 1, valueOther: 1, pass: true, manual: true },
+    ],
+    sessionMoves: [{ id: 'move-1', week: 2, dayA: 'fri', dayB: 'sun' }],
+    locations: [home, hotel, oldHotel],
+    programOverrides: [
+      { slotId: 'p1a-1', cues: ['Feet high on the plate'], editedOn: '2026-11-16' },
+      { slotId: 'p1a-2', substitutionIds: ['box-step-up', 'split-squat'], editedOn: '2026-11-17' },
+      { slotId: 'p1b-1', cues: ['Slow down'], substitutionIds: [], editedOn: '2026-11-18' },
+    ],
+  }
+}
+
+const stored = (over: Partial<StoredContents> = {}): StoredContents => ({ settings, ...tables(), ...over })
+const EXPORTED_AT = '2026-11-21T14:05:00.000Z'
+const built = () => buildBackup(stored(), EXPORTED_AT).backup
+const fileText = (backup: unknown) => JSON.stringify(backup)
+const without = <T extends object>(object: T, key: keyof T) => Object.fromEntries(Object.entries(object).filter(([k]) => k !== key))
+
+describe('the export file', () => {
+  it('names the app and version, carries every table in order, and leaves the phone’s own lastExportedAt out', () => {
+    const { backup, unreadable } = buildBackup(stored(), EXPORTED_AT)
+    expect(unreadable).toEqual([])
+    expect(Object.keys(backup)).toEqual(['app', 'schemaVersion', 'exportedAt', 'settings', ...BACKUP_TABLES])
+    expect(backup).toMatchObject({ app: 'knee-rebuild', schemaVersion: BACKUP_SCHEMA_VERSION, exportedAt: EXPORTED_AT })
+    expect(backup.settings).toEqual(without(settings, 'lastExportedAt'))
+    for (const name of BACKUP_TABLES) expect(backup[name], name).toHaveLength(tables()[name].length)
+  })
+
+  it('lists each table’s rows in key order, as the phone reads them, whatever order they came in', () => {
+    const shuffled = stored({ setLogs: [...tables().setLogs].reverse(), locations: [oldHotel, home, hotel], programOverrides: [...tables().programOverrides].reverse() })
+    const { backup } = buildBackup(shuffled, EXPORTED_AT)
+    expect(backup.setLogs.map((s) => s.id)).toEqual(tables().setLogs.map((s) => s.id))
+    expect(backup.locations.map((l) => l.id)).toEqual(['loc-1', 'loc-2', 'planet-fitness'])
+    expect(backup.programOverrides.map((o) => o.slotId)).toEqual(['p1a-1', 'p1a-2', 'p1b-1'])
+    expect(backupText(backup)).toBe(backupText(built()))
+  })
+
+  it('writes each row as the app stores it now: an M3 settings row gets the gym and bag defaults', () => {
+    const { activeLocationId: _a, kit: _k, lastExportedAt: _l, ...m3 } = settings
+    void [_a, _k, _l]
+    const { backup } = buildBackup(stored({ settings: m3 as Settings }), EXPORTED_AT)
+    expect(backup.settings).toMatchObject({ activeLocationId: 'planet-fitness', kit: ['ankle-strap', 'mini-band'] })
+  })
+
+  it('keeps a row that no longer reads as stored, as it is, and names it, rather than dropping it', () => {
+    const bad = { ...tables().runs[0], maxPain: 11 } as BackupTables['runs'][number]
+    const { backup, unreadable } = buildBackup(stored({ runs: [bad] }), EXPORTED_AT)
+    expect(backup.runs).toEqual([bad])
+    expect(unreadable).toEqual([expect.stringMatching(/^The run “run-2026-11-02” \(maxPain: .+\)\.$/)])
+  })
+
+  it('refuses, in words, a phone with no settings yet', () => {
+    expect(() => buildBackup(stored({ settings: undefined }), EXPORTED_AT)).toThrow('There are no settings on this phone to export yet. Open Today once so the app can seed them.')
+  })
+
+  it('is two-space JSON with a final newline, named for the day it is written', () => {
+    const text = backupText(built())
+    expect(text.startsWith('{\n  "app": "knee-rebuild",\n  "schemaVersion": 4,\n  "exportedAt": "2026-11-21T14:05:00.000Z",\n')).toBe(true)
+    expect(text.endsWith('}\n')).toBe(true)
+    expect(backupFileName('2026-11-21')).toBe('knee-rebuild-2026-11-21.json')
+  })
+})
+
+describe('reading a file back', () => {
+  it('reads its own export back exactly', () => {
+    const backup = built()
+    const read = parseBackup(backupText(backup))
+    expect(read).toEqual({ ok: true, backup, migratedFrom: null })
+    if (read.ok) expect(backupText(read.backup)).toBe(backupText(backup))
+  })
+
+  it('refuses what isn’t a backup at all', () => {
+    expect(parseBackup('{"app": "knee-rebuild", ')).toEqual({ ok: false, refusal: 'This file isn’t a Knee Rebuild backup: it doesn’t read as JSON. Nothing was imported.' })
+    for (const text of ['[]', 'null', '"knee-rebuild"', '{"schemaVersion": 4}']) {
+      expect(parseBackup(text), text).toEqual({ ok: false, refusal: 'This file isn’t a Knee Rebuild backup: it doesn’t name the app that wrote it. Nothing was imported.' })
+    }
+  })
+
+  it('refuses another app’s file in words, without quoting what it calls itself', () => {
+    const read = parseBackup(fileText({ ...built(), app: 'strong-app' }))
+    expect(read).toEqual({ ok: false, refusal: 'This file is from another app, not Knee Rebuild. Nothing was imported.' })
+  })
+
+  it('refuses a newer schema version, saying how to get an app that reads it', () => {
+    expect(parseBackup(fileText({ ...built(), schemaVersion: 5 }))).toEqual({
+      ok: false,
+      refusal: 'This backup is from a newer version of the app (schema version 5; this one reads up to 4). Open the app with a signal and tap Reload when Update ready shows, then import it again. Nothing was imported.',
+    })
+  })
+
+  it('refuses a missing or nonsense version, and one older than any backup', () => {
+    const noVersion = 'This backup has no schema version, so the app can’t tell how to read it. Nothing was imported.'
+    expect(parseBackup(fileText(without(built(), 'schemaVersion')))).toEqual({ ok: false, refusal: noVersion })
+    for (const v of ['4', 3.5, 0, -1, null]) expect(parseBackup(fileText({ ...built(), schemaVersion: v })), String(v)).toEqual({ ok: false, refusal: noVersion })
+    expect(parseBackup(fileText({ ...built(), schemaVersion: 1 }))).toEqual({
+      ok: false,
+      refusal: 'This backup says schema version 1, and no backup was ever written below version 2, so the app can’t read it. Nothing was imported.',
+    })
+  })
+
+  it('refuses a part the app doesn’t keep, the phone’s own lastExportedAt and a settings key included', () => {
+    expect(parseBackup(fileText({ ...built(), notes: 'hi' }))).toEqual({ ok: false, refusal: 'This backup has a part the app doesn’t keep, “notes”. Nothing was imported.' })
+    expect(parseBackup('{"app":"knee-rebuild","schemaVersion":4,"__proto__":{"polluted":true}}')).toMatchObject({ ok: false, refusal: expect.stringContaining('“__proto__”') })
+    const lastExport = parseBackup(fileText({ ...built(), settings: { ...built().settings, lastExportedAt: EXPORTED_AT } }))
+    expect(lastExport).toMatchObject({ ok: false, refusal: expect.stringMatching(/^This backup’s settings don’t read as the app stores them \(.*lastExportedAt.*\)\. Nothing was imported\.$/) })
+    expect(parseBackup(fileText({ ...built(), settings: { ...built().settings, id: 'settings' } }))).toMatchObject({ ok: false })
+    expect(({}) as Record<string, unknown>).not.toHaveProperty('polluted')
+  })
+
+  it('refuses a file missing its date, its settings or a table, or with a table that isn’t a list', () => {
+    expect(parseBackup(fileText({ ...built(), exportedAt: 'Nov 21' }))).toEqual({ ok: false, refusal: 'This backup doesn’t say when it was exported. Nothing was imported.' })
+    expect(parseBackup(fileText(without(built(), 'settings')))).toEqual({ ok: false, refusal: 'This backup has no settings. Nothing was imported.' })
+    expect(parseBackup(fileText(without(built(), 'runs')))).toEqual({ ok: false, refusal: 'This backup has no list of runs. Nothing was imported.' })
+    expect(parseBackup(fileText({ ...built(), setLogs: {} }))).toEqual({ ok: false, refusal: 'This backup’s sets aren’t a list. Nothing was imported.' })
+  })
+
+  it('refuses the whole file for one row the app wouldn’t store, naming its table and row', () => {
+    const backup = built()
+    const setLogs = backup.setLogs.map((s, i) => (i === 2 ? { ...s, painDuring: 11 } : s))
+    const read = parseBackup(fileText({ ...backup, setLogs }))
+    expect(read).toMatchObject({ ok: false, refusal: expect.stringMatching(/^This backup’s sets, row 3, doesn’t read as the app stores it \(painDuring: .+\)\. Nothing was imported\.$/) })
+    // Strict rows: a key the schema doesn't know, a link that isn't Strava's, an edit with nothing in it.
+    expect(parseBackup(fileText({ ...backup, workouts: [{ ...backup.workouts[0], mood: 'good' }] }))).toMatchObject({ ok: false, refusal: expect.stringContaining('This backup’s sessions, row 1') })
+    expect(parseBackup(fileText({ ...backup, runs: [{ ...backup.runs[0], stravaUrl: 'javascript:alert(1)' }] }))).toMatchObject({ ok: false, refusal: expect.stringContaining('This backup’s runs, row 1') })
+    expect(parseBackup(fileText({ ...backup, programOverrides: [{ slotId: 'p1a-1', editedOn: '2026-11-16' }] }))).toMatchObject({ ok: false, refusal: expect.stringContaining('This backup’s Program edits, row 1') })
+  })
+
+  it('refuses two rows on one key, which would otherwise leave one of them silently', () => {
+    const backup = built()
+    const first = backup.workouts[0]
+    expect(parseBackup(fileText({ ...backup, workouts: [first, { ...first, notes: 'again' }] }))).toEqual({
+      ok: false,
+      refusal: 'This backup lists the session “2026-11-03-p1-a” twice. Nothing was imported.',
+    })
+    const edit = backup.programOverrides[0]
+    expect(parseBackup(fileText({ ...backup, programOverrides: [edit, edit] }))).toMatchObject({ ok: false, refusal: expect.stringContaining('the Program edit “p1a-1” twice') })
+    const longId = `${'x'.repeat(60)}\u0007`
+    const run = backup.runs[0]
+    expect(parseBackup(fileText({ ...backup, runs: [{ ...run, id: longId }, { ...run, id: longId }] }))).toMatchObject({
+      ok: false,
+      refusal: `This backup lists the run “${'x'.repeat(40)}…” twice. Nothing was imported.`,
+    })
+  })
+
+  it('refuses a file past any size a backup comes near, before reading it', () => {
+    expect(sizeProblem(BACKUP_MAX_BYTES)).toBeNull()
+    expect(sizeProblem(12.34 * 1024 * 1024)).toBe('This file is 12.3 MB, past the 10 MB no backup of this app comes near, so it isn’t one. Nothing was imported.')
+    expect(parseBackup(' '.repeat(BACKUP_MAX_BYTES + 1))).toEqual({ ok: false, refusal: sizeProblem(BACKUP_MAX_BYTES + 1) })
+  })
+})
+
+describe('older files carried forward', () => {
+  // Version 2 as the M3 phone stored it: settings from before gyms, no gyms list, no Program edits.
+  const { activeLocationId: _a, kit: _k, lastExportedAt: _l, ...m3Settings } = settings
+  void [_a, _k, _l]
+  const v2 = () => {
+    const t = tables()
+    return {
+      app: 'knee-rebuild',
+      schemaVersion: 2,
+      exportedAt: EXPORTED_AT,
+      settings: m3Settings,
+      workouts: t.workouts.map((w) => without(w, 'locationId')),
+      setLogs: t.setLogs.map((s) => without(s, 'rackCapped')),
+      morningChecks: t.morningChecks,
+      runs: t.runs.map((r) => without(r, 'locationId')),
+      gateTests: t.gateTests,
+      sessionMoves: t.sessionMoves,
+    }
+  }
+  const v3 = () => ({ ...v2(), schemaVersion: 3, settings: without(settings, 'lastExportedAt'), workouts: tables().workouts, locations: tables().locations })
+
+  it('has a step for every version from the oldest up to this one', () => {
+    for (let v = OLDEST_SCHEMA_VERSION; v < BACKUP_SCHEMA_VERSION; v++) expect(MIGRATIONS[v], `version ${v}`).toBeTypeOf('function')
+  })
+
+  it('version 2 gains an empty gyms list, version 3 an empty Program edits list', () => {
+    expect(MIGRATIONS[2]?.(v2())).toEqual({ ...v2(), schemaVersion: 3, locations: [] })
+    expect(MIGRATIONS[3]?.(v3())).toEqual({ ...v3(), schemaVersion: 4, programOverrides: [] })
+  })
+
+  it('a step leaves a list the file already has for the schema to judge', () => {
+    expect(MIGRATIONS[2]?.({ ...v2(), locations: [home] })).toMatchObject({ locations: [home] })
+    expect(parseBackup(fileText({ ...v2(), locations: [{ ...home, name: '' }] }))).toMatchObject({ ok: false, refusal: expect.stringContaining('This backup’s gyms, row 1') })
+  })
+
+  it('reads a version 2 file as this version’s, with the M4b defaults, and says what it came from', () => {
+    const read = parseBackup(fileText(v2()))
+    expect(read.ok).toBe(true)
+    if (!read.ok) return
+    expect(read.migratedFrom).toBe(2)
+    expect(read.backup.schemaVersion).toBe(BACKUP_SCHEMA_VERSION)
+    expect(read.backup.settings).toEqual({ ...m3Settings, activeLocationId: 'planet-fitness', kit: ['ankle-strap', 'mini-band'] })
+    expect(read.backup.locations).toEqual([])
+    expect(read.backup.programOverrides).toEqual([])
+    expect(read.backup.setLogs).toEqual(v2().setLogs)
+  })
+
+  it('reads a version 3 file with its gyms and no edits', () => {
+    const read = parseBackup(fileText(v3()))
+    expect(read).toMatchObject({ ok: true, migratedFrom: 3, backup: { locations: tables().locations, programOverrides: [] } })
+  })
+
+  it('a version with no step can’t be carried', () => {
+    expect(() => migrateForward({ schemaVersion: 1 })).toThrow('no step carries a version 1 backup forward')
+    expect(migrateForward({ schemaVersion: 4, a: 1 })).toEqual({ schemaVersion: 4, a: 1 })
+  })
+})
+
+describe('what a file holds', () => {
+  it('counts each table, the archived gyms, and the days logged', () => {
+    expect(summarize(tables())).toEqual({
+      counts: { workouts: 2, setLogs: 5, morningChecks: 2, runs: 2, gateTests: 2, sessionMoves: 1, locations: 3, programOverrides: 3 },
+      archivedGyms: 1,
+      first: '2026-11-02',
+      last: '2026-11-14',
+    })
+  })
+
+  it('has no days with nothing logged', () => {
+    expect(loggedRange({ workouts: [], runs: [], morningChecks: [], gateTests: [] })).toEqual({ first: null, last: null })
+  })
+
+  it('names what an import would erase: rows on the phone the file doesn’t have, by key', () => {
+    const file = tables()
+    const phone = tables()
+    phone.workouts.push({ ...phone.workouts[0]!, id: '2026-11-12-p1-b', date: '2026-11-12', templateId: 'p1-b' })
+    phone.setLogs.push({ ...phone.setLogs[0]!, id: 'a' }, { ...phone.setLogs[0]!, id: 'b' })
+    phone.programOverrides.push({ slotId: 'p1c-1', cues: ['New'], editedOn: '2026-11-21' })
+    // A row on the same key that changed is replaced, not lost.
+    phone.runs[0] = { ...phone.runs[0]!, notes: 'edited' }
+    expect(lostOnImport(phone, file)).toEqual([
+      { table: 'workouts', count: 1 },
+      { table: 'setLogs', count: 2 },
+      { table: 'programOverrides', count: 1 },
+    ])
+    expect(lostOnImport(file, phone)).toEqual([])
+  })
+})
+
+describe('the export reminder', () => {
+  it('reads the export’s day in America/New_York', () => {
+    // 10:30 pm on Monday Nov 9 in New York is already Nov 10 in UTC.
+    expect(exportDay('2026-11-10T03:30:00.000Z')).toBe('2026-11-09')
+    expect(exportDay('2026-11-10T05:00:00.000Z')).toBe('2026-11-10')
+    expect(exportDay('2026-11-09T22:30:00-05:00')).toBe('2026-11-09')
+  })
+
+  it('counts whole days since the last export, 0 the same day, null when never', () => {
+    expect(daysSinceExport(undefined, '2026-11-20')).toBeNull()
+    expect(daysSinceExport('2026-11-10T03:30:00.000Z', '2026-11-09')).toBe(0)
+    expect(daysSinceExport('2026-11-10T03:30:00.000Z', '2026-11-18')).toBe(9)
+    // An export stamped after today (a phone clock set ahead, then back) reads as today's.
+    expect(daysSinceExport('2026-11-25T12:00:00.000Z', '2026-11-20')).toBe(0)
+  })
+
+  it('says so once the last export is more than 7 days old', () => {
+    const at = '2026-11-10T15:00:00.000Z'
+    expect(exportNudge(at, '2026-11-17', '2026-11-02')).toBeNull()
+    expect(exportNudge(at, '2026-11-18', '2026-11-02')).toEqual({ kind: 'since-export', days: 8 })
+    expect(exportNudge(at, '2026-11-19', null)).toEqual({ kind: 'since-export', days: 9 })
+  })
+
+  it('never exported: counts from the first thing logged, and says nothing with nothing logged', () => {
+    expect(exportNudge(undefined, '2026-11-20', null)).toBeNull()
+    expect(exportNudge(undefined, '2026-11-09', '2026-11-02')).toBeNull()
+    expect(exportNudge(undefined, '2026-11-10', '2026-11-02')).toEqual({ kind: 'never-exported', days: 8 })
+  })
+})
+
+describe('the file type', () => {
+  it('a built file satisfies the Backup type and backupFrom reads the object form too', () => {
+    const backup: Backup = built()
+    expect(backupFrom(JSON.parse(backupText(backup)))).toEqual({ ok: true, backup, migratedFrom: null })
+  })
+})
