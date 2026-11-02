@@ -129,6 +129,20 @@ describe('suggestRun headline', () => {
     expect(suggestRun({ ...base, session: 'run:mbr', milesSoFar: 9 })?.headline).toBe('1 mile')
     expect(suggestRun({ ...base, session: 'run:easy', week: 13, target: null })?.headline).toBe('easy, by feel')
   })
+  it('never says easy over a hard effort the same suggestion calls for (M4 fix verification)', () => {
+    // Week 13, Phase 3 since week 8: no mileage target, but Friday still carries the tempo.
+    const tempo = suggestRun({ ...base, session: 'run:long', week: 13, target: null, currentPhase: 3, phaseWeek: 6 })
+    expect(tempo).toMatchObject({ miles: null, tempo: true })
+    expect(tempo?.headline).toBe('distance by feel')
+    // Still in Phase 2 at week 13: Friday's faster effort is on.
+    const faster = suggestRun({ ...base, session: 'run:long', week: 13, target: null, currentPhase: 2, phaseWeek: 9 })
+    expect(faster).toMatchObject({ miles: null, fasterAllowed: true })
+    expect(faster?.headline).toBe('distance by feel')
+    // Strides finish an easy run, so the easy run stays easy.
+    expect(suggestRun({ ...base, session: 'run:easy', week: 13, target: null, currentPhase: 3, phaseWeek: 6 })).toMatchObject({ strides: true, headline: 'easy, by feel' })
+    // No check yet: the hard parts wait, so the headline is the plain one.
+    expect(suggestRun({ ...base, session: 'run:long', week: 13, target: null, currentPhase: 3, phaseWeek: 6, morning: null })?.headline).toBe('easy, by feel')
+  })
 })
 
 describe('weekDays', () => {

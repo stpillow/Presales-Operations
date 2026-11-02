@@ -356,5 +356,7 @@ describe('run days', () => {
     expect(suggestionWords(late.body.suggestion).headline).toBe(`Suggested: ${late.body.suggestion.headline}`)
     expect(suggestionWords(late.body.suggestion).reasons).toEqual(late.body.suggestion.reasons.map((r) => `${r.charAt(0).toUpperCase()}${r.slice(1)}.`))
     expect(suggestionWords(late.body.suggestion).reasons).toContain('Carry a 2 × 5 min comfortably-hard segment with 3 min easy between.')
+    // ...and the headline over that tempo does not say easy.
+    expect(suggestionWords(late.body.suggestion).headline).toBe('Suggested: distance by feel')
   })
 })

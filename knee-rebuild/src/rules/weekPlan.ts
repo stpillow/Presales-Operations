@@ -35,7 +35,8 @@ export interface RunSuggestion {
   miles: number | null
   /**
    * The suggestion in words, for screens to print after "Suggested: ", so none writes its own:
-   * the swap when one is suggested, else the miles ("4 miles", "1 mile"), else "easy, by feel".
+   * the swap when one is suggested, else the miles ("4 miles", "1 mile"), else "easy, by feel"
+   * ("distance by feel" when the tempo or a faster effort is on).
    */
   headline: string
   strides: boolean
@@ -104,13 +105,17 @@ export function suggestRun(input: {
   if (strides) reasons.push('finish with 4 × 15 s strides building to about 85%, full walk-back between')
   if (tempo) reasons.push('carry a 2 × 5 min comfortably-hard segment with 3 min easy between')
   if (fasterAllowed) reasons.push('one faster effort is allowed today')
-  return { type, miles, headline: runHeadline(swapSuggested, miles), strides, tempo, fasterAllowed, swapSuggested, reasons }
+  return { type, miles, headline: runHeadline(swapSuggested, miles, tempo || fasterAllowed), strides, tempo, fasterAllowed, swapSuggested, reasons }
 }
 
-/** RunSuggestion.headline. */
-function runHeadline(swapSuggested: boolean, miles: number | null): string {
+/**
+ * RunSuggestion.headline. With no miles (outside the plan) it says easy, unless the same
+ * suggestion carries the tempo or a faster effort: then only the distance is by feel, so the
+ * headline never says easy over a hard segment (week 13's Friday in Phase 3).
+ */
+function runHeadline(swapSuggested: boolean, miles: number | null, hardEffort: boolean): string {
   if (swapSuggested) return 'a 30 to 40 minute elliptical or rower swap'
-  if (miles === null) return 'easy, by feel'
+  if (miles === null) return hardEffort ? 'distance by feel' : 'easy, by feel'
   return `${miles} ${miles === 1 ? 'mile' : 'miles'}`
 }
 
