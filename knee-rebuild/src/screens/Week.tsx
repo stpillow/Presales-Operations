@@ -248,6 +248,7 @@ function DayItem({
 
   const open = (a: DayAction) => {
     if (a.kind === 'summary') navigate({ name: 'session', workoutId: a.workoutId })
+    else if (a.kind === 'preview') navigate({ name: 'preview', date: a.date })
     else navigate({ name: 'run' })
   }
 

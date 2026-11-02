@@ -146,13 +146,15 @@ export function summaryWorkout(workouts: readonly Workout[]): Workout | null {
   return sorted[0] ?? null
 }
 
-export type DayAction = { kind: 'summary'; workoutId: string; label: string } | { kind: 'run'; label: string }
+export type DayAction = { kind: 'summary'; workoutId: string; label: string } | { kind: 'run'; label: string } | { kind: 'preview'; date: IsoDate; label: string }
 
 /** What tapping a day does: a day with a finished or abandoned lift opens its summary; today's run day opens the run logger. */
 export function dayAction(day: Pick<WeekDay, 'date' | 'session' | 'status' | 'workouts'>, today: IsoDate): DayAction | null {
   const workout = summaryWorkout(day.workouts.filter((w) => w.status === 'finished' || w.status === 'abandoned'))
   if (workout) return { kind: 'summary', workoutId: workout.id, label: 'Open the summary' }
   if (day.date === today && runTypeFor(day.session) !== null) return { kind: 'run', label: 'Log the run' }
+  // A lift day with nothing logged yet opens a preview of the session it holds, past, today or ahead.
+  if (day.session.startsWith('lift:')) return { kind: 'preview', date: day.date, label: 'See the session' }
   return null
 }
 
