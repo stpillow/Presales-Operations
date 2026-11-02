@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { MileageWeek, MorningCheck, Run, SetLog, Settings, Workout } from '../schema/index.ts'
 import { attachChecks, type SubjectReading } from './history.ts'
-import { advancePhase, awaitingMorningCheck, consecutiveCleanDays, loadSeries, milesSeries, symmetrySeries } from './progress.ts'
+import { advancePhase, awaitingMorningCheck, consecutiveCleanDays, loadSeries, milesSeries, symmetryLeftOut, symmetrySeries } from './progress.ts'
 
 const workout = (id: string, date: string, status: Workout['status'] = 'finished'): Workout => ({ id, date, templateId: 'p2-b', phase: 2, week: 5, isDeload: false, status })
 const set = (workoutId: string, side: SetLog['side'], n: number, load: number, reps: number, exerciseId = 'bulgarian-split-squat'): SetLog => ({ id: `${workoutId}-${side}-${n}`, workoutId, slotId: 'p2b-1', exerciseId, setNumber: n, side, load, loadUnit: 'lb', reps, painDuring: 1, stopped: false })
@@ -49,6 +49,58 @@ describe('symmetrySeries (PROGRAM-QUESTIONS 111)', () => {
   it('leaves out a session where only the other side carried no load: there is no percent of 0 lb', () => {
     const records = attachChecks([workout('w1', '2026-12-15')], [set('w1', 'right', 1, 10, 8), set('w1', 'left', 1, 0, 8)], [])
     expect(symmetrySeries(records, 'bulgarian-split-squat', 'right')).toEqual([])
+  })
+  describe('compares like with like: sides on different steps, stages or ranges are left out, with the reason (PROGRAM-QUESTIONS 112)', () => {
+    const step = (workoutId: string, side: SetLog['side'], load: number, reps: number, heightIn: number, exerciseId = 'lateral-step-down'): SetLog => ({ ...set(workoutId, side, 1, load, reps, exerciseId), heightIn })
+    const hold = (workoutId: string, side: SetLog['side'], seconds: number, stage: number): SetLog => {
+      const { reps: _reps, ...base } = set(workoutId, side, 1, 0, 0, 'single-leg-balance')
+      return { ...base, seconds, stage }
+    }
+
+    it('a lateral step-down from 4 in. against 8 in. is not 100% by counts', () => {
+      const records = attachChecks([workout('w1', '2026-11-10'), workout('w2', '2026-11-17')], [step('w1', 'right', 0, 10, 4), step('w1', 'left', 0, 10, 8), step('w2', 'right', 0, 8, 8), step('w2', 'left', 0, 10, 8)], [])
+      expect(symmetrySeries(records, 'lateral-step-down', 'right')).toEqual([{ date: '2026-11-17', percent: 80, basis: 'count', injured: 8, other: 10 }])
+      expect(symmetryLeftOut(records, 'lateral-step-down', 'right')).toEqual([
+        { date: '2026-11-10', reason: 'the sides stepped from different heights (4 in. on the injured side, 8 in. on the other)' },
+      ])
+    })
+
+    it('a step-up with more load on a lower step is not 200% by loads', () => {
+      const records = attachChecks([workout('w1', '2026-11-10')], [step('w1', 'right', 10, 10, 4, 'step-up'), step('w1', 'left', 5, 10, 8, 'step-up')], [])
+      expect(symmetrySeries(records, 'step-up', 'right')).toEqual([])
+      expect(symmetryLeftOut(records, 'step-up', 'right')).toEqual([{ date: '2026-11-10', reason: 'the sides stepped from different heights (4 in. on the injured side, 8 in. on the other)' }])
+    })
+
+    it('the same step on both sides compares the loads, a 0 included', () => {
+      const records = attachChecks([workout('w1', '2026-11-10')], [step('w1', 'right', 0, 10, 8, 'step-up'), step('w1', 'left', 10, 10, 8, 'step-up')], [])
+      expect(symmetrySeries(records, 'step-up', 'right')).toEqual([{ date: '2026-11-10', percent: 0, basis: 'load', injured: 0, other: 10 }])
+      expect(symmetryLeftOut(records, 'step-up', 'right')).toEqual([])
+    })
+
+    it('single-leg balance on different stages is left out; on the same stage the seconds compare', () => {
+      const records = attachChecks([workout('w1', '2026-11-10'), workout('w2', '2026-11-17')], [hold('w1', 'right', 30, 0), hold('w1', 'left', 30, 2), hold('w2', 'right', 25, 1), hold('w2', 'left', 30, 1)], [])
+      expect(symmetrySeries(records, 'single-leg-balance', 'right')).toEqual([{ date: '2026-11-17', percent: 83.3, basis: 'count', injured: 25, other: 30 }])
+      expect(symmetryLeftOut(records, 'single-leg-balance', 'right')).toEqual([{ date: '2026-11-10', reason: 'the sides were on different stages (stage 1 on the injured side, stage 3 on the other)' }])
+    })
+
+    it('different range stops are left out too', () => {
+      const ranged = (side: SetLog['side'], rangeStopDeg: number): SetLog => ({ ...set('w1', side, 1, 20, 8, 'split-squat'), rangeStopDeg })
+      const records = attachChecks([workout('w1', '2026-11-10')], [ranged('right', 45), ranged('left', 30)], [])
+      expect(symmetrySeries(records, 'split-squat', 'right')).toEqual([])
+      expect(symmetryLeftOut(records, 'split-squat', 'right')).toEqual([{ date: '2026-11-10', reason: 'the sides stopped at different ranges (45° on the injured side, 30° on the other)' }])
+    })
+
+    it('says why a session with no percent is left out, and passes over one missing a side', () => {
+      const records = attachChecks(
+        [workout('w1', '2026-12-15'), workout('w2', '2026-12-22'), workout('w3', '2026-12-29')],
+        [set('w1', 'right', 1, 10, 8), set('w1', 'left', 1, 0, 8), set('w2', 'right', 1, 20, 0), set('w2', 'left', 1, 20, 0), set('w3', 'right', 1, 20, 8)],
+        [],
+      )
+      expect(symmetryLeftOut(records, 'bulgarian-split-squat', 'right')).toEqual([
+        { date: '2026-12-15', reason: 'only the injured side carried a load (10 lb against 0 lb), so there is no percent' },
+        { date: '2026-12-22', reason: 'the other side logged 0 reps, so there is no percent' },
+      ])
+    })
   })
   it('skips a session missing either side', () => {
     const records = attachChecks([workout('w1', '2026-12-01')], [set('w1', 'right', 1, 20, 8)], [])
