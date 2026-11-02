@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { MileageWeek, Run, WeeklyTemplate, Workout } from '../schema/index.ts'
 import type { SubjectReading } from './history.ts'
-import { readingsInWeek, runTypeFor, runsInWeek, suggestRun, targetForWeek, weekDays, weekMilesSummary } from './weekPlan.ts'
+import { readingsInWeek, runTypeFor, runsInWeek, sessionDone, suggestRun, targetForWeek, weekDays, weekMilesSummary } from './weekPlan.ts'
 
 const START = '2026-11-02'
 const plan: MileageWeek[] = [10, 11, 12, 9, 13, 14, 15, 11, 16, 17, 18, 14].map((targetMiles, i) => ({ week: i + 1, targetMiles, isDown: [4, 8, 12].includes(i + 1) }))
@@ -91,6 +91,40 @@ describe('weekDays', () => {
     expect(days.map((d) => d.status)).toEqual(['done', 'done', 'missed', 'today', 'upcoming', 'upcoming', 'off'])
     expect(days[1]?.reading).toBe('hold')
     expect(days[0]?.date).toBe('2026-11-02')
+  })
+  it('is done only when what was logged is the day’s session; anything else keeps the date’s status and stays listed', () => {
+    // Thu Nov 5. Tue (Session A) has only a jog; Wed (easy run) only a workout; Mon a swap; Sun a run.
+    const days = weekDays({
+      startDate: START, week: 1, today: '2026-11-05', template: TEMPLATE, moves: [],
+      runs: [run('2026-11-02', 0, 'rower-swap'), run('2026-11-03', 2), run('2026-11-05', 3, 'long'), run('2026-11-08', 2)],
+      workouts: [workout('2026-11-04', 'finished')],
+      readings: [],
+    })
+    expect(days.map((d) => `${d.day}:${d.status}`)).toEqual(['mon:done', 'tue:missed', 'wed:missed', 'thu:today', 'fri:upcoming', 'sat:upcoming', 'sun:done'])
+    expect(days[1]?.runs.map((r) => r.date)).toEqual(['2026-11-03'])
+    expect(days[2]?.workouts.map((w) => w.date)).toEqual(['2026-11-04'])
+    expect(days[3]?.runs.map((r) => r.type)).toEqual(['long'])
+  })
+  it('an abandoned workout counts as the lift day’s session; one still open or only planned does not', () => {
+    const days = weekDays({
+      startDate: START, week: 1, today: '2026-11-08', template: TEMPLATE, moves: [],
+      runs: [], workouts: [workout('2026-11-03', 'abandoned'), workout('2026-11-05', 'in-progress'), workout('2026-11-07', 'planned')], readings: [],
+    })
+    expect([days[1]?.status, days[3]?.status, days[5]?.status]).toEqual(['done', 'missed', 'missed'])
+  })
+  it('sessionDone: a lift needs a workout that happened, a run day a run or swap, an off day anything', () => {
+    const jog = [{ date: '2026-11-03' }]
+    expect(sessionDone('lift:A', jog, [])).toBe(false)
+    expect(sessionDone('lift:A', [], [{ status: 'abandoned' }])).toBe(true)
+    expect(sessionDone('lift:A', [], [{ status: 'in-progress' }])).toBe(false)
+    expect(sessionDone('run:easy', [], [{ status: 'finished' }])).toBe(false)
+    expect(sessionDone('run:easy', jog, [])).toBe(true)
+    expect(sessionDone('off', [], [{ status: 'finished' }])).toBe(true)
+    expect(sessionDone('off', [], [])).toBe(false)
+  })
+  it('a moved run on a lift day’s date is done once the run is logged there', () => {
+    const days = weekDays({ startDate: START, week: 1, today: '2026-11-08', template: TEMPLATE, moves: [{ id: 'm', week: 1, dayA: 'thu', dayB: 'fri' }], runs: [run('2026-11-05', 4, 'long')], workouts: [], readings: [] })
+    expect([days[3]?.session, days[3]?.status, days[4]?.session, days[4]?.status]).toEqual(['run:long', 'done', 'lift:B', 'missed'])
   })
   it('follows session moves', () => {
     const days = weekDays({ startDate: START, week: 1, today: '2026-11-01', template: TEMPLATE, moves: [{ id: 'm', week: 1, dayA: 'thu', dayB: 'fri' }], runs: [], workouts: [], readings: [] })

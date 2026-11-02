@@ -106,6 +106,18 @@ export interface WeekDay {
 
 const RANK: Record<ReadingResult, number> = { clean: 0, hold: 1, 'back-off': 2 }
 
+/**
+ * Whether what was logged on a day is that day's session: a finished or abandoned workout on a lift
+ * day, a run or a swap on a run day, anything on an off day. A run on a lift day doesn't make the
+ * lift done (M4 review); the day keeps its date status and still lists the run.
+ */
+export function sessionDone(session: DaySession, runs: readonly Pick<Run, 'date'>[], workouts: readonly Pick<Workout, 'status'>[]): boolean {
+  const lifted = workouts.some((w) => w.status === 'finished' || w.status === 'abandoned')
+  if (session === 'off') return lifted || runs.length > 0
+  if (runTypeFor(session)) return runs.length > 0
+  return lifted
+}
+
 /** The seven days of a program week, after moves, with what happened on each. */
 export function weekDays(input: {
   startDate: IsoDate
@@ -125,8 +137,7 @@ export function weekDays(input: {
     const workouts = input.workouts.filter((w) => w.date === date && (w.status === 'finished' || w.status === 'abandoned'))
     const dayReadings = input.readings.filter((r) => r.date === date).map((r) => r.result)
     const reading = dayReadings.length ? dayReadings.reduce((a, b) => (RANK[b] > RANK[a] ? b : a)) : null
-    const happened = runs.length > 0 || workouts.length > 0
-    const status: DayStatus = happened ? 'done' : session === 'off' ? 'off' : date === input.today ? 'today' : date < input.today ? 'missed' : 'upcoming'
+    const status: DayStatus = sessionDone(session, runs, workouts) ? 'done' : session === 'off' ? 'off' : date === input.today ? 'today' : date < input.today ? 'missed' : 'upcoming'
     return { day, date, session, status, reading, runs, workouts }
   })
 }
