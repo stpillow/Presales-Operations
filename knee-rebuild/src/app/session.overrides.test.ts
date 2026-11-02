@@ -110,6 +110,37 @@ describe('a back-off on bodyweight work moves to the first substitution on the e
     expect(plan.prescriptions[0]).toMatchObject({ exerciseId: 'seated-leg-curl', basis: 'back-off' })
   })
 
+  describe('once the slot is on the easier version (PROGRAM-QUESTIONS 55 and 120)', () => {
+    const curl: Workout = { id: 'w2', date: '2027-01-05', templateId: 'p3-a', phase: 3, week: 10, isDeload: false, status: 'finished' }
+    const curlSets: SetLog[] = [1, 2, 3].map((n) => ({ id: `w2-${n}`, workoutId: 'w2', slotId: 'p3a-2', exerciseId: 'single-leg-seated-leg-curl', setNumber: n, side: 'both', load: 40, loadUnit: 'lb', reps: 10, painDuring: 2, stopped: false }))
+    const curlCheck: MorningCheck = { ...check, id: 'm2', date: '2027-01-06' }
+    const onCurl = (programOverrides: ProgramOverride[]) => {
+      const history = historyOf({ workouts: [workout, curl], setLogs: [...sets, ...curlSets], morningChecks: [check, curlCheck], programOverrides })
+      return slot(planSession({ template, week: 11, settings, history, gym: home, before: '2027-01-12' }), 'p3a-2')
+    }
+
+    it('as program.md writes it, the slot stays on the leg curl', () => {
+      expect(onCurl([]).exercise.id).toBe('single-leg-seated-leg-curl')
+    })
+
+    it('moving the leg curl down the list, past nothing this gym has, leaves the slot on it', () => {
+      const plan = onCurl([edit({ slotId: 'p3a-2', substitutionIds: ['lying-leg-curl', 'single-leg-seated-leg-curl', 'seated-leg-curl'] })])
+      expect(plan.exercise.id).toBe('single-leg-seated-leg-curl')
+    })
+
+    it('moving one this gym has above it puts the slot on that one, still backed off from Nordics, as if program.md wrote it first (question 89)', () => {
+      const plan = onCurl([edit({ slotId: 'p3a-2', substitutionIds: ['seated-leg-curl', 'lying-leg-curl', 'single-leg-seated-leg-curl'] })])
+      expect(plan.exercise.id).toBe('seated-leg-curl')
+      expect(plan.prescriptions[0]?.note).toMatch(/^On Seated leg curl since Nordic hamstring negatives backed off/)
+    })
+
+    it('removing the leg curl puts the slot back on Nordics, whose back-off is served again on the edited list’s first substitution', () => {
+      const plan = onCurl([edit({ slotId: 'p3a-2', substitutionIds: ['seated-leg-curl', 'lying-leg-curl'] })])
+      expect(plan.exercise.id).toBe('nordic-negatives')
+      expect(plan.prescriptions[0]).toMatchObject({ exerciseId: 'seated-leg-curl', basis: 'back-off' })
+    })
+  })
+
   it('with every substitution removed, it backs off where nothing is written (one set fewer), as snap-downs do', () => {
     const edited = nordics([edit({ slotId: 'p3a-2', substitutionIds: [] })]).prescriptions[0]
     expect(edited).toMatchObject({ exerciseId: 'nordic-negatives', basis: 'back-off' })
