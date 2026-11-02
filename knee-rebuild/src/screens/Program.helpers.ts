@@ -206,6 +206,16 @@ export function addSections(slot: Slot, edit: SlotEdit, catalog: readonly Exerci
   }
 }
 
+/**
+ * program.md's chart images by the path the file names them by, with each file's own width and
+ * height (a test reads them from the PNGs), set on the image so the browser holds its place while
+ * it loads and the reference doesn't jump under a thumb.
+ */
+export const CHART_SIZES: Readonly<Record<string, { width: number; height: number }>> = {
+  'media/image1.png': { width: 1344, height: 416 },
+  'media/image2.png': { width: 1344, height: 582 },
+}
+
 /** A table stays a grid only when it fits a phone: four columns at most, every cell short. Longer ones stack, row by row. */
 export const GRID_CELL_MAX = 24
 

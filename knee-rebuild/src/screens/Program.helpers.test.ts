@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest'
+import programMd from '../../docs/program.md?raw'
+import phasesChart from '../../docs/media/image1.png?inline'
+import mileageChart from '../../docs/media/image2.png?inline'
 import { program, templateFor } from '../program/program.ts'
-import { parseInline, type Block } from '../rules/markdown.ts'
+import { parseInline, parseMarkdown, type Block } from '../rules/markdown.ts'
 import { Settings, type ProgramOverride, type Slot } from '../schema/index.ts'
 import {
+  CHART_SIZES,
   CUE_COUNT_FROM,
   addSections,
   cueCountWords,
@@ -176,6 +180,24 @@ describe('addSections and patternWords', () => {
   it('words a pattern as program.md would: capitalized, hyphen kept', () => {
     expect(patternWords('single-leg')).toBe('Single-leg')
     expect(patternWords('plyo')).toBe('Plyo')
+  })
+})
+
+/** A PNG's own width and height, from its IHDR chunk (bytes 16 to 23 of the file). */
+function pngSize(dataUrl: string): { width: number; height: number } {
+  const head = atob(dataUrl.slice(dataUrl.indexOf(',') + 1).slice(0, 32))
+  const view = new DataView(Uint8Array.from(head, (c) => c.charCodeAt(0)).buffer)
+  return { width: view.getUint32(16), height: view.getUint32(20) }
+}
+
+describe('CHART_SIZES', () => {
+  it('gives each of program.md’s chart images its file’s own width and height, so the page keeps its place while one loads', () => {
+    expect(CHART_SIZES['media/image1.png']).toEqual(pngSize(phasesChart))
+    expect(CHART_SIZES['media/image2.png']).toEqual(pngSize(mileageChart))
+    expect(CHART_SIZES['media/image1.png']).toEqual({ width: 1344, height: 416 })
+    const named = parseMarkdown(programMd).flatMap((b) => (b.kind === 'image' ? [b.src] : []))
+    expect(named).toEqual(['media/image1.png', 'media/image2.png'])
+    expect(Object.keys(CHART_SIZES).sort()).toEqual(named)
   })
 })
 

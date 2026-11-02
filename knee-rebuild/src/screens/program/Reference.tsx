@@ -3,7 +3,7 @@ import programMd from '../../../docs/program.md?raw'
 import phasesChart from '../../../docs/media/image1.png'
 import mileageChart from '../../../docs/media/image2.png'
 import { contents, parseMarkdown, plainText, type Block, type Inline } from '../../rules/markdown.ts'
-import { tableLayout } from '../Program.helpers.ts'
+import { CHART_SIZES, tableLayout } from '../Program.helpers.ts'
 import { LABEL } from './parts.tsx'
 
 /*
@@ -133,9 +133,11 @@ function BlockView({ block }: { block: Block }) {
       return tableLayout(block) === 'grid' ? <GridTable table={block} /> : <StackedTable table={block} />
     case 'image': {
       const src = IMAGES[block.src]
+      // The file's own size, so the page keeps its place while the image loads; the CSS still sizes it to the column.
+      const size = CHART_SIZES[block.src]
       return src ? (
         <figure className="flex flex-col gap-2">
-          <img src={src} alt={block.alt} className="h-auto w-full rounded-sm" />
+          <img src={src} alt={block.alt} width={size?.width} height={size?.height} className="h-auto w-full rounded-sm" />
         </figure>
       ) : (
         <p className="text-small text-on-dark-muted">Image not in the app: {block.alt}</p>
