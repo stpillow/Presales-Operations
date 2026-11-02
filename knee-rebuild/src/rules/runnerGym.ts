@@ -4,7 +4,7 @@ import { DUMBBELLS, missingHere, type Available, type SlotRoute } from './equipm
 /*
  * What the Session runner does with the gym it runs at (M4b, design section 4): which slots the
  * run order leaves for Skip or Do it anyway, and what a Swap pick or Do it anyway offers to mark at
- * the gym. Pure: the routes, what is here and the kit come in as arguments; the runner shows the
+ * the gym. Pure: the routes, what is here and the carried items come in as arguments; the runner shows the
  * offers and src/db/repo.ts writes the marks (`setPresent`, `markOff`).
  */
 
@@ -35,18 +35,29 @@ const optionsOf = (requirement: Requirement): EquipmentId[] => (typeof requireme
 
 const once = (ids: readonly EquipmentId[]): EquipmentId[] => [...new Set(ids)]
 
+type Needs = Pick<Exercise, 'requires' | 'stages' | 'stageRequires'>
+
+const lacking = (exercise: Needs, available: Available): EquipmentId[] => once(missingHere(exercise, available).flatMap(optionsOf))
+
 /**
  * "Mark step platforms here": what the exercise lacks at this gym (`missingHere`, so a ladder's
- * first stage counts), each option of an either-or, in the exercise's order, once each. Dumbbells
- * are never offered: the gym's dumbbell max decides them, not a mark (PROGRAM-QUESTIONS 75).
+ * first stage counts), each option of an either-or, in the exercise's order, once each. Never
+ * dumbbells, which the gym's dumbbell max decides, and never an item carried in the bag
+ * (`carried`, the list's carried items), which is Settings' kit at every gym, not a mark at one
+ * (PROGRAM-QUESTIONS 75).
  */
-export function markHereItems(exercise: Pick<Exercise, 'requires' | 'stages' | 'stageRequires'>, available: Available): EquipmentId[] {
-  return once(missingHere(exercise, available).flatMap(optionsOf)).filter((id) => id !== DUMBBELLS)
+export function markHereItems(exercise: Needs, available: Available, carried: readonly EquipmentId[]): EquipmentId[] {
+  return lacking(exercise, available).filter((id) => id !== DUMBBELLS && !carried.includes(id))
 }
 
 /** Whether the exercise lacks dumbbells here: the way to add them is the gym's dumbbell max in Where you train. */
-export function lacksDumbbells(exercise: Pick<Exercise, 'requires' | 'stages' | 'stageRequires'>, available: Available): boolean {
-  return missingHere(exercise, available).some((r) => optionsOf(r).includes(DUMBBELLS))
+export function lacksDumbbells(exercise: Needs, available: Available): boolean {
+  return lacking(exercise, available).includes(DUMBBELLS)
+}
+
+/** The carried items the exercise lacks: not in the bag (Settings' kit), so no mark at a gym adds them. */
+export function lacksFromBag(exercise: Needs, available: Available, carried: readonly EquipmentId[]): EquipmentId[] {
+  return lacking(exercise, available).filter((id) => carried.includes(id))
 }
 
 /** Every item an exercise uses: what it requires, then what its stages stand on, each option of an either-or. */
@@ -57,42 +68,44 @@ function usesItems(exercise: Pick<Exercise, 'requires' | 'stageRequires'>): Equi
 /**
  * "Smith machine isn't here: mark it", after a Swap pick that is here: the items the exercise
  * swapped away from uses that the gym's list says are here and the pick doesn't use (the goblet
- * squat still needs the bench the Smith box squat sat on). Never the kit, which is in the bag at
- * every gym, and never dumbbells, which follow the dumbbell max (PROGRAM-QUESTIONS 75).
+ * squat still needs the bench the Smith box squat sat on). Never a carried item, which is in the
+ * bag at every gym, and never dumbbells, which follow the dumbbell max (PROGRAM-QUESTIONS 75).
  */
 export function markOffItems(
   left: Pick<Exercise, 'requires' | 'stageRequires'>,
   pick: Pick<Exercise, 'requires' | 'stageRequires'>,
   available: Available,
-  kit: readonly EquipmentId[],
+  carried: readonly EquipmentId[],
 ): EquipmentId[] {
   const pickUses = new Set(usesItems(pick))
-  return usesItems(left).filter((id) => available.has(id) && id !== DUMBBELLS && !kit.includes(id) && !pickUses.has(id))
+  return usesItems(left).filter((id) => available.has(id) && id !== DUMBBELLS && !carried.includes(id) && !pickUses.has(id))
 }
 
 export type SwapOffer =
-  /** The pick isn't here: mark what it lacks here; `dumbbells` when it lacks them, which only the dumbbell max adds. */
-  | { kind: 'mark-here'; items: EquipmentId[]; dumbbells: boolean }
+  /**
+   * The pick isn't here: mark what it lacks here (`items`); `dumbbells` when it lacks them, which
+   * only the dumbbell max adds; `bag`, the carried items it lacks, which only Settings' kit adds.
+   */
+  | { kind: 'mark-here'; items: EquipmentId[]; dumbbells: boolean; bag: EquipmentId[] }
   /** The pick is here: mark off what the exercise it replaced needed. */
   | { kind: 'mark-off'; items: EquipmentId[] }
 
 /**
  * What a Swap pick offers (design section 4): a pick that isn't here offers "Mark Smith machine
  * here" for what it lacks; a pick that is here offers "Smith machine isn't here: mark it" for what
- * the exercise it replaced (`left`, the one on the card) needed. Null when there is nothing to offer.
+ * the exercise it replaced (`left`, the one on the card) needed. Null when the pick is here and
+ * there is nothing to mark off; a pick that isn't here always says what it lacks.
  */
 export function swapOffer(
-  left: Pick<Exercise, 'id' | 'requires' | 'stages' | 'stageRequires'>,
-  pick: Pick<Exercise, 'id' | 'requires' | 'stages' | 'stageRequires'>,
+  left: Pick<Exercise, 'id'> & Needs,
+  pick: Pick<Exercise, 'id'> & Needs,
   available: Available,
-  kit: readonly EquipmentId[],
+  carried: readonly EquipmentId[],
 ): SwapOffer | null {
   if (missingHere(pick, available).length > 0) {
-    const items = markHereItems(pick, available)
-    const dumbbells = lacksDumbbells(pick, available)
-    return items.length > 0 || dumbbells ? { kind: 'mark-here', items, dumbbells } : null
+    return { kind: 'mark-here', items: markHereItems(pick, available, carried), dumbbells: lacksDumbbells(pick, available), bag: lacksFromBag(pick, available, carried) }
   }
   if (left.id === pick.id) return null
-  const items = markOffItems(left, pick, available, kit)
+  const items = markOffItems(left, pick, available, carried)
   return items.length > 0 ? { kind: 'mark-off', items } : null
 }
