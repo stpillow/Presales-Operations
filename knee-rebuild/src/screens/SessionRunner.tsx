@@ -199,6 +199,7 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
       draft: { ...draft, pain },
       loggedAt: new Date().toISOString(),
       ...(stop ? { stop } : {}),
+      rackCapped: prescription.rackCapped === true,
     })
     void write(
       () => upsertSet(set),
@@ -225,6 +226,8 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
       // A correction keeps its time stamp: a fresh one would restart the rest timer and reorder sets for the climbing check.
       loggedAt: original.loggedAt ?? new Date().toISOString(),
       ...(original.stopped ? { stop: original.stopReason ?? 'other' } : {}),
+      // A correction keeps the stamp it was logged with: the rack it ran at doesn't change after the fact.
+      rackCapped: original.rackCapped === true,
     })
     void write(() => upsertSet(set), () => setEditingId(null))
   }

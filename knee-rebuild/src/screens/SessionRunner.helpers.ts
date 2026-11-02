@@ -171,6 +171,12 @@ export function buildSet(input: {
   draft: Draft
   loggedAt: string
   stop?: StopReason
+  /**
+   * The side's prescription was rack-capped (`Prescription.rackCapped`: the gym's heaviest dumbbell,
+   * nothing here to swap to). The set is stored `rackCapped`, so gymLoads.ts keeps the session out of
+   * the baseline and a clean on it from counting (PROGRAM-QUESTIONS 73). A correction keeps the stamp.
+   */
+  rackCapped?: boolean
 }): SetLog {
   const { slot, exercise, draft } = input
   const field = countField(input.repUnit)
@@ -191,6 +197,7 @@ export function buildSet(input: {
     ...(draft.heightIn !== undefined ? { heightIn: draft.heightIn } : {}),
     ...(draft.rangeStopDeg !== undefined ? { rangeStopDeg: draft.rangeStopDeg } : {}),
     ...(draft.stage !== undefined ? { stage: draft.stage } : {}),
+    ...(input.rackCapped ? { rackCapped: true } : {}),
     loggedAt: input.loggedAt,
   }
 }

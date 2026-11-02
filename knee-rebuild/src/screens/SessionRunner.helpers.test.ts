@@ -78,6 +78,13 @@ describe('buildSet and draftFromSet', () => {
     const stepUp = ex({ id: 'step-up', loadType: 'step-height', loadUnit: 'in', increment: 2, holdsLoad: 'dumbbell-each' })
     expect(buildSet({ workoutId: 'w1', slot: slot(), repUnit: 'reps', exercise: stepUp, side: 'right', setNumber: 1, draft: { load: 20, count: 10, rpe: 6, pain: 1, heightIn: 6 }, loggedAt: 't' })).toMatchObject({ load: 20, loadUnit: 'lb', heightIn: 6, reps: 10 })
   })
+  it('stamps rackCapped when the side’s prescription was rack-capped, so the set never counts as clean; otherwise no field (M4b)', () => {
+    const rdl = ex({ id: 'db-rdl', loadType: 'dumbbell-each', loadUnit: 'lb', increment: 5 })
+    const input = { workoutId: 'w1', slot: slot(), repUnit: 'reps' as const, exercise: rdl, side: 'both' as const, setNumber: 1, draft: { load: 25, count: 10, rpe: 7, pain: 1 }, loggedAt: 't' }
+    expect(buildSet({ ...input, rackCapped: true })).toMatchObject({ load: 25, loadUnit: 'lb', rackCapped: true })
+    expect('rackCapped' in buildSet({ ...input, rackCapped: false })).toBe(false)
+    expect('rackCapped' in buildSet(input)).toBe(false)
+  })
   it('round-trips a logged set into a draft', () => {
     expect(draftFromSet(set())).toEqual({ load: 8, count: 12, rpe: 7, pain: 2 })
   })
