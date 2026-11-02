@@ -40,7 +40,8 @@ export interface ActiveCardProps {
   sides: { side: SetSide; open: boolean }[]
   injuredSide: Side
   painPerSet: boolean
-  dumbbellMax: number
+  /** The gym's heaviest dumbbell, in lb (0 means none): the load field stops there for dumbbell work. */
+  rackLb: number
   historyRpe: number | null
   budget: number[] | null
   /** Pain for the exercise on the card when pain is logged once per exercise. */
@@ -279,7 +280,7 @@ export function ActiveCard(props: ActiveCardProps) {
             ) : null}
 
             {hasLoad ? (
-              <Stepper label={loadLabel(exercise)} value={draft.load} step={loadStep(exercise)} min={0} max={loadMax(exercise, props.dumbbellMax)} onChange={(v) => set({ load: v })} />
+              <Stepper label={loadLabel(exercise)} value={draft.load} step={loadStep(exercise)} min={0} max={loadMax(exercise, props.rackLb)} onChange={(v) => set({ load: v })} />
             ) : null}
             {blockedOnLoad ? <p className="text-small text-on-dark">First time on this exercise: pick a load that lands at the target RPE.</p> : null}
 

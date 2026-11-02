@@ -367,7 +367,7 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
             sides={sidesFor(activePlan)}
             injuredSide={settings.injuredSide}
             painPerSet={settings.painPerSet}
-            dumbbellMax={location.dumbbellMaxLb}
+            rackLb={location.dumbbellMaxLb}
             historyRpe={lastRpeFor(activePlan.prescriptions[0]?.exerciseId ?? activePlan.exercise.id, history.setLogs)}
             budget={healthySideTargets(slotSetsOf(activePlan.slot.id).filter((s) => s.side === settings.injuredSide && s.exerciseId === (activePlan.prescriptions[0]?.exerciseId ?? activePlan.exercise.id)))}
             exercisePain={exercisePain(activePlan.slot.id, editing?.exerciseId ?? activePlan.prescriptions[0]?.exerciseId ?? activePlan.exercise.id)}
