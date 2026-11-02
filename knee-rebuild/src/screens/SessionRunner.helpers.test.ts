@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest'
+import { planSession } from '../app/session.ts'
+import { homeLocation } from '../db/migrations.ts'
 import { exerciseById, program } from '../program/program.ts'
+import { availableEquipment } from '../rules/equipment.ts'
+import { needsLoadPick } from '../rules/prefill.ts'
 import type { SlotRoute } from '../rules/equipment.ts'
 import type { Prescription } from '../rules/prescription.ts'
-import { swapOffer } from '../rules/runnerGym.ts'
-import type { Exercise, SetLog, Slot } from '../schema/index.ts'
+import { asksForRack, swapOffer } from '../rules/runnerGym.ts'
+import { DEFAULT_KIT, Settings, type Exercise, type SetLog, type Slot } from '../schema/index.ts'
 import {
   buildSet,
   countField,
@@ -35,6 +39,9 @@ import {
   parseStoredSwaps,
   pickNotHereWords,
   prescriptionWords,
+  RACK_ASK_LB,
+  rackAskWords,
+  rackSetWords,
   rangeStopOptions,
   routeLines,
   setWords,
@@ -384,5 +391,38 @@ describe('the gym in words (M4b, design section 4)', () => {
     ]
     expect(notLoggedLabels(plans, steps, new Set(['a2:both:1']), new Set(), new Set(['a7']))).toEqual(['1 Goblet squat to a bench'])
     expect(notLoggedLabels(plans, steps, new Set(), new Set(['a1']), new Set())).toEqual(['7 Step-off landing', '2 Dumbbell Romanian deadlift'])
+  })
+})
+
+describe('a slot run at a gym with no dumbbells can always be logged (M4b review)', () => {
+  // "Hampton Inn", added without touching Dumbbells (the New form starts at None), with a flat bench.
+  const hampton = { ...homeLocation(80, program.planetFitness, '2026-11-02', program.equipmentListVersion), id: 'loc-1', name: 'Hampton Inn', startedFrom: 'empty' as const, present: ['flat-bench'], dumbbellMaxLb: 0 }
+  const available = availableEquipment(hampton, program.equipment, program.planetFitness, DEFAULT_KIT)
+  const settingsIn = (phase: number) => Settings.parse({ injuredSide: 'right', startDate: '2026-11-02', dumbbellMax: 80, restTimerSeconds: 60, painPerSet: false, currentPhase: phase, phaseEnteredWeek: 1 })
+  const none = { workouts: [], setLogs: [], morningChecks: [], runs: [], gateTests: [], sessionMoves: [] }
+
+  it('every slot whose load field stops at 0 with no load to start from asks for the rack, and any rack it offers opens the field', () => {
+    let asked = 0
+    for (const template of program.templates) {
+      for (const plan of planSession({ template, week: 2, settings: settingsIn(template.phase), history: none, gym: { location: hampton, kit: DEFAULT_KIT }, before: '2026-11-10' })) {
+        for (const p of plan.prescriptions) {
+          const exercise = exerciseById(p.exerciseId)
+          const stuck = showsLoad(exercise) && loadMax(exercise, 0) === 0 && needsLoadPick(p, true, exercise.loadDirection, { load: 0 })
+          if (!stuck) continue
+          asked += 1
+          // Run anyway (not held): the card asks for the heaviest dumbbell here.
+          expect(asksForRack(exercise, available, false), `${plan.slot.id} ${exercise.id}`).toBe(true)
+          for (const lb of RACK_ASK_LB) expect(loadMax(exercise, lb)).toBeGreaterThan(0)
+        }
+      }
+    }
+    // Phase 1 A's dumbbell bench press, the farmer's carry, the seated shoulder press and more.
+    expect(asked).toBeGreaterThan(3)
+  })
+
+  it('says why the field stops at 0 and what a rack tap saved', () => {
+    expect(RACK_ASK_LB).toEqual([25, 50, 60, 75, 80])
+    expect(rackAskWords('Hampton Inn')).toBe('No dumbbells are set for Hampton Inn, so the load stops at 0 lb. Tap the heaviest one here, or set another weight in Where you train.')
+    expect(rackSetWords('Hampton Inn', 25)).toBe('Dumbbells at Hampton Inn now go to 25 lb.')
   })
 })

@@ -3,6 +3,7 @@ import { HELD_LOAD_INCREMENT_LB, RANGE_LADDER_DEG, type Prescription } from '../
 import type { Draft } from '../rules/prefill.ts'
 import { stepKey } from '../rules/runOrder.ts'
 import type { SwapOffer } from '../rules/runnerGym.ts'
+import { RACK_PRESETS } from './LocationEditor.helpers.ts'
 import type { Equipment, EquipmentId, Exercise, LoadUnit, RepUnit, Requirement, SessionTemplate, SetLog, SetSide, Side, Slot, StopReason, Workout } from '../schema/index.ts'
 
 /**
@@ -363,6 +364,22 @@ export function markOffLabel(id: EquipmentId, items: readonly ItemLike[]): strin
 
 /** What no mark at a gym adds: dumbbells, which the gym's dumbbell max decides. */
 export const NO_DUMBBELLS_WORDS = "No dumbbells here: each gym's dumbbells are set in Where you train."
+
+/** The racks the card offers when a slot runs at a gym with no dumbbells: the editor's presets, less None. */
+export const RACK_ASK_LB: readonly number[] = RACK_PRESETS.filter((lb) => lb > 0)
+
+/**
+ * The card's ask when a slot runs on dumbbell work at a gym with none set (`asksForRack`): the load
+ * field stops at the rack, so the heaviest dumbbell is set right there, a preset a tap.
+ */
+export function rackAskWords(gymName: string): string {
+  return `No dumbbells are set for ${gymName}, so the load stops at 0 lb. Tap the heaviest one here, or set another weight in Where you train.`
+}
+
+/** The line after a rack tap is saved. */
+export function rackSetWords(gymName: string, lb: number): string {
+  return `Dumbbells at ${gymName} now go to ${lb} lb.`
+}
 
 /** What no mark at a gym adds: a carried item, which is Settings' kit ("In your bag" in Where you train). */
 export function notInBagWords(ids: readonly EquipmentId[], items: readonly ItemLike[]): string {

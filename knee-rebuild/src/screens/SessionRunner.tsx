@@ -6,21 +6,21 @@ import { Button } from '../components/Button.tsx'
 import { RestTimer } from '../components/RestTimer.tsx'
 import { Screen } from '../components/Screen.tsx'
 import { useHistory, useLocation, useLocations, useSetsFor, useSettings, useWorkout } from '../db/hooks.ts'
-import { deleteSet, deleteWorkout, markOff, setPresent, setWorkoutLocation, SWAP_KEY_PREFIX, updateWorkout, upsertSet, type History } from '../db/repo.ts'
+import { deleteSet, deleteWorkout, markOff, setDumbbellMax, setPresent, setWorkoutLocation, SWAP_KEY_PREFIX, updateWorkout, upsertSet, type History } from '../db/repo.ts'
 import { exerciseById } from '../program/program.ts'
 import { effectiveSlot } from '../rules/effectiveSlot.ts'
 import { WARM_UP_BIKE } from '../rules/equipment.ts'
 import { gymLocked, listedLocations, locationIdOf } from '../rules/locations.ts'
 import { loggedPain, painRewriteAllowed, type Draft } from '../rules/prefill.ts'
 import { firstOpenStepOf, nextStep, openStepForSide, restAfter, sessionSteps, type Step } from '../rules/runOrder.ts'
-import { notHereSlots, swapOffer, type SwapOffer } from '../rules/runnerGym.ts'
+import { asksForRack, notHereSlots, skipTakesBack, swapOffer, type SwapOffer } from '../rules/runnerGym.ts'
 import { healthySideTargets } from '../rules/unilateral.ts'
 import type { IsoDate, Location, SessionTemplate, SetLog, SetSide, Settings, StopReason, Workout } from '../schema/index.ts'
 import { ActiveCard } from './session/ActiveCard.tsx'
 import { DoneBar } from './session/DoneBar.tsx'
 import { EndPanel, FinishPanel } from './session/EndPanels.tsx'
 import { GymLine } from './session/GymLine.tsx'
-import type { GymAction } from './session/GymNotes.tsx'
+import type { GymAction, RackAsk } from './session/GymNotes.tsx'
 import { SlotList } from './session/SlotList.tsx'
 import { Summary } from './session/Summary.tsx'
 import {
@@ -31,6 +31,7 @@ import {
   loggedMaxPain,
   markedWords,
   mergeSwaps,
+  NO_DUMBBELLS_WORDS,
   notHereEntries,
   notHereWords,
   notLoggedLabels,
@@ -39,6 +40,9 @@ import {
   parseStoredSlotIds,
   parseStoredSwaps,
   pickNotHereWords,
+  RACK_ASK_LB,
+  rackAskWords,
+  rackSetWords,
   routeLines,
   setStepKey,
   standingMarkFor,
@@ -323,6 +327,24 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
     setEditingId(null)
   }
 
+  /** Skip on a slot run anyway with nothing logged (`skipTakesBack`): Do it anyway is taken back, so the run order passes it again. */
+  function takeBack(slotId: string) {
+    const next = runAnyway.filter((id) => id !== slotId)
+    setRunAnyway(next)
+    writeStored(anywayKey, next)
+    skip()
+  }
+
+  /** A rack tapped on the card (`asksForRack`): this session's gym's heaviest dumbbell, as Where you train sets it. */
+  function setRack(slotId: string, lb: number) {
+    void write(
+      async () => {
+        await setDumbbellMax(location.id, lb)
+      },
+      () => setMarked({ slotId, text: rackSetWords(location.name, lb) }),
+    )
+  }
+
   /** Do it anyway: the slot runs like any other, and the card offers to mark what it lacks here. */
   function doAnyway(slotId: string) {
     const next = [...new Set([...runAnyway, slotId])]
@@ -371,7 +393,7 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
    * lacks (`standingMarkFor`, read from what is stored, so a reload keeps it) and says what the gym
    * lacks for a pick in words; otherwise the last pick's offer stands.
    */
-  function gymFor(plan: SlotPlan): { lines: string[]; actions: GymAction[] } {
+  function gymFor(plan: SlotPlan): { lines: string[]; actions: GymAction[]; rack: RackAsk | null } {
     const slotId = plan.slot.id
     const swapped = chosen[slotId] !== undefined
     const cardId = plan.prescriptions[0]?.exerciseId ?? plan.exercise.id
@@ -381,14 +403,20 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
     const standing = standingId ? swapOffer(exerciseById(standingId), exerciseById(standingId), available, CARRIED) : null
     const pending = standing ?? (offer?.slotId === slotId ? offer.offer : null)
     const notes = offerNotes(pending, available, ITEMS)
+    // Dumbbell work at a gym with none set: the load field stops at 0, so the card asks for the rack instead of only naming Where you train.
+    const askRack = asksForRack(exerciseById(cardId), available, notHere.has(slotId))
     const actions: GymAction[] = notHere.has(slotId)
       ? [
           { label: 'Skip', onPress: skip },
           { label: 'Do it anyway', onPress: () => doAnyway(slotId) },
         ]
-      : []
+      : skipTakesBack({ slotId, route: plan.route }, new Set(runAnyway), loggedSlots)
+        ? [{ label: 'Skip', onPress: () => takeBack(slotId) }]
+        : []
     for (const m of notes.marks) actions.push({ label: m.label, onPress: () => mark(slotId, m) })
-    return { lines: [...lines, ...(pickLine ? [pickLine] : []), ...notes.lines, ...(marked?.slotId === slotId ? [marked.text] : [])], actions }
+    const rack = askRack ? { words: rackAskWords(location.name), choices: RACK_ASK_LB.map((lb) => ({ label: `${lb} lb`, onPress: () => setRack(slotId, lb) })) } : null
+    const noteLines = askRack ? notes.lines.filter((line) => line !== NO_DUMBBELLS_WORDS) : notes.lines
+    return { lines: [...lines, ...(pickLine ? [pickLine] : []), ...noteLines, ...(marked?.slotId === slotId ? [marked.text] : [])], actions, rack }
   }
 
   function pickSide(slotId: string, side: SetSide) {

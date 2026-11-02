@@ -28,7 +28,7 @@ import {
   type SwapChoice,
 } from '../SessionRunner.helpers.ts'
 import { DoneBar } from './DoneBar.tsx'
-import { GymNotes, type GymAction } from './GymNotes.tsx'
+import { GymNotes, type GymAction, type RackAsk } from './GymNotes.tsx'
 
 export interface ActiveCardProps {
   plan: SlotPlan
@@ -56,7 +56,7 @@ export interface ActiveCardProps {
   /** What "Back to" returns a swapped slot to: the exercise the plan runs without the swap. */
   backToName: string
   /** What the gym does to the slot, in words, and the marks and choices it offers (design section 4). */
-  gym: { lines: string[]; actions: GymAction[] }
+  gym: { lines: string[]; actions: GymAction[]; rack: RackAsk | null }
   /** Nothing on the slot's list is here and Shawn hasn't picked Do it anyway: no set to log, only the gym's offers and Swap. */
   held: boolean
   busy: boolean
@@ -169,7 +169,7 @@ export function ActiveCard(props: ActiveCardProps) {
           <p className="text-body text-on-dark-dim">{prescriptionWords(prescription, slot, exercise)}</p>
           {prescription.note ? <p className="text-small text-on-dark-dim">{prescription.note}</p> : null}
           {moved ? <p className="text-small text-on-dark">Moved to {exercise.name} by the engine.</p> : null}
-          <GymNotes lines={props.gym.lines} actions={props.gym.actions} busy={props.busy} />
+          <GymNotes lines={props.gym.lines} actions={props.gym.actions} rack={props.gym.rack} busy={props.busy} />
           {bothForUnilateral ? <p className="text-small text-on-dark-dim">Logs as both sides: this slot is two-legged in the program.</p> : null}
           {exercise.sideMeaning ? <p className="text-small text-on-dark-dim">{exercise.sideMeaning}</p> : null}
         </header>

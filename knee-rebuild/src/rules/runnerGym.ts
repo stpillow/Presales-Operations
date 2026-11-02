@@ -55,6 +55,26 @@ export function lacksDumbbells(exercise: Needs, available: Available): boolean {
   return lacking(exercise, available).includes(DUMBBELLS)
 }
 
+/**
+ * Whether the card asks for this gym's heaviest dumbbell (M4b review): the exercise it runs needs
+ * dumbbells and the gym has none (its dumbbell max is 0), and the slot runs anyway (Do it anyway, a
+ * swap, a set logged; not `held` for Skip or Do it anyway). Its load field stops at the rack, so
+ * without a rack no load could be logged. An exercise that only holds dumbbells is bodyweight there
+ * (PROGRAM-QUESTIONS 91) and never asks.
+ */
+export function asksForRack(exercise: Needs, available: Available, held: boolean): boolean {
+  return !held && lacksDumbbells(exercise, available)
+}
+
+/**
+ * Whether Skip takes back Do it anyway on a slot: while nothing on its list is here (routed `none`)
+ * and until a set is logged on it, so the slot is nothing here again and the run order passes it
+ * (PROGRAM-QUESTIONS 83). Once a set is logged it ran; once something is here it runs anyway.
+ */
+export function skipTakesBack(slot: RunnerSlot, runAnyway: ReadonlySet<string>, logged: ReadonlySet<string>): boolean {
+  return slot.route.kind === 'none' && runAnyway.has(slot.slotId) && !logged.has(slot.slotId)
+}
+
 /** The carried items the exercise lacks: not in the bag (Settings' kit), so no mark at a gym adds them. */
 export function lacksFromBag(exercise: Needs, available: Available, carried: readonly EquipmentId[]): EquipmentId[] {
   return lacking(exercise, available).filter((id) => carried.includes(id))

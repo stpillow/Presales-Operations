@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { EquipmentId, Exercise, Requirement } from '../schema/index.ts'
-import { lacksDumbbells, lacksFromBag, markHereItems, markOffItems, notHereSlots, swapOffer } from './runnerGym.ts'
+import { asksForRack, lacksDumbbells, lacksFromBag, markHereItems, markOffItems, notHereSlots, skipTakesBack, swapOffer } from './runnerGym.ts'
 
 // Inline fixtures shaped like the seed (design section 4); the ids are the seed's own.
 
@@ -40,6 +40,28 @@ describe('notHereSlots: what the run order leaves for Skip or Do it anyway (PROG
     expect(notHereSlots(slots, new Set(['a7']), new Set(), new Set())).toEqual(new Set(['a8']))
     expect(notHereSlots(slots, new Set(), new Set(['a8']), new Set())).toEqual(new Set(['a7']))
     expect(notHereSlots(slots, new Set(), new Set(), new Set(['a7', 'a8']))).toEqual(new Set())
+  })
+})
+
+describe('a slot run at a gym with no dumbbells (M4b review)', () => {
+  const dbBench = ex('db-bench-press', ['dumbbells', 'flat-bench'], { loadType: 'dumbbell-each' })
+  it('the card asks for the gym’s heaviest dumbbell once the slot runs on an exercise that needs them: its load field stops at the rack', () => {
+    expect(asksForRack(dbBench, here('flat-bench'), false)).toBe(true)
+    expect(asksForRack(gobletSquat, here(), false)).toBe(true)
+  })
+  it('not while the slot waits for Skip or Do it anyway, not where dumbbells are here, and not for an exercise that only holds them', () => {
+    expect(asksForRack(dbBench, here('flat-bench'), true)).toBe(false)
+    expect(asksForRack(dbBench, here('flat-bench', 'dumbbells'), false)).toBe(false)
+    // The split squat holds dumbbells without needing them: at a gym with none it is bodyweight (PROGRAM-QUESTIONS 91).
+    expect(asksForRack(splitSquat, here(), false)).toBe(false)
+  })
+  it('Skip takes back Do it anyway until a set is logged on the slot, so the run order passes it again', () => {
+    const a3 = { slotId: 'a3', route: { kind: 'none' as const } }
+    expect(skipTakesBack(a3, new Set(['a3']), new Set())).toBe(true)
+    expect(skipTakesBack(a3, new Set(['a3']), new Set(['a3']))).toBe(false)
+    expect(skipTakesBack(a3, new Set(), new Set())).toBe(false)
+    // The rack set on the card since: the slot runs here now, and there is nothing to take back.
+    expect(skipTakesBack({ slotId: 'a3', route: { kind: 'own' } }, new Set(['a3']), new Set())).toBe(false)
   })
 })
 
