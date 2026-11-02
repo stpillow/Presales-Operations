@@ -145,8 +145,13 @@ export function typedOutcome(
  * lists, so their names are free again; `exceptId` is the gym being renamed.
  */
 export function nameTaken(locations: readonly Pick<Location, 'id' | 'name' | 'archived'>[], name: string, exceptId: string | null): boolean {
+  return nameTakenBy(locations, name, exceptId) !== null
+}
+
+/** The gym that already goes by this name (`nameTaken`), as stored, so a refusal can name it; null when the name is free. */
+export function nameTakenBy<L extends Pick<Location, 'id' | 'name' | 'archived'>>(locations: readonly L[], name: string, exceptId: string | null): L | null {
   const wanted = normalizeTyped(name)
-  return locations.some((l) => !l.archived && l.id !== exceptId && normalizeTyped(l.name) === wanted)
+  return locations.find((l) => !l.archived && l.id !== exceptId && normalizeTyped(l.name) === wanted) ?? null
 }
 
 export interface PhaseMove extends CoverageMove {

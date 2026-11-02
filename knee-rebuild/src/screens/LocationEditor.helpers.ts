@@ -2,7 +2,7 @@ import { currentTemplate } from '../app/session.ts'
 import { weekOf } from '../rules/calendar.ts'
 import { forNextProgramUpdate, type Available, type ChecklistGroup, type ChecklistItem, type CoverageMove, type ExerciseLookup, type RunSwapType } from '../rules/equipment.ts'
 import { phaseWeekOf } from '../rules/session.ts'
-import { ifNotHere, nameTaken, newOnList, phaseCoverage, type SubstitutionRow, type TypedOutcome } from '../rules/whereYouTrain.ts'
+import { ifNotHere, nameTakenBy, newOnList, phaseCoverage, type SubstitutionRow, type TypedOutcome } from '../rules/whereYouTrain.ts'
 import { Location, type Equipment, type EquipmentId, type Exercise, type IsoDate, type Requirement, type SessionTemplate, type Settings } from '../schema/index.ts'
 
 /*
@@ -28,13 +28,15 @@ export type NameCheck = { ok: true; name: string } | { ok: false; message: strin
 
 /**
  * Whether a typed name can be saved: the schema's 1 to 60 characters (trimmed), and not the name
- * of another gym the lists offer (`nameTaken`), which Today's Change couldn't tell apart.
+ * of another gym the lists offer (`nameTakenBy`), which Today's Change couldn't tell apart. The
+ * refusal names that gym as stored, so the typed text's own punctuation never ends up mid-sentence.
  */
 export function nameCheck(text: string, locations: readonly Pick<Location, 'id' | 'name' | 'archived'>[], exceptId: string | null): NameCheck {
   const name = text.trim()
   if (name.length === 0) return { ok: false, message: 'A gym needs a name: type the one you will look for on Today.' }
   if (!Location.shape.name.safeParse(name).success) return { ok: false, message: `That is ${name.length} characters; a gym’s name fits in ${NAME_MAX}.` }
-  if (nameTaken(locations, name, exceptId)) return { ok: false, message: `Another gym is already called ${name}. Pick a name Today can tell apart.` }
+  const taken = nameTakenBy(locations, name, exceptId)
+  if (taken) return { ok: false, message: `${taken.name} already has that name. Pick one Today can tell apart.` }
   return { ok: true, name }
 }
 

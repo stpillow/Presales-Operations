@@ -81,7 +81,9 @@ describe('nameCheck', () => {
   })
 
   it("refuses another listed gym's name, and lets a gym keep its own", () => {
-    expect(nameCheck('marriott downtown', gyms, null)).toEqual({ ok: false, message: 'Another gym is already called marriott downtown. Pick a name Today can tell apart.' })
+    expect(nameCheck('marriott downtown', gyms, null)).toEqual({ ok: false, message: 'Marriott Downtown already has that name. Pick one Today can tell apart.' })
+    // The refusal names the gym as stored, not the typed text with its own punctuation ("planet FITNESS!.").
+    expect(nameCheck('planet  FITNESS!', gyms, null)).toEqual({ ok: false, message: 'Planet Fitness already has that name. Pick one Today can tell apart.' })
     expect(nameCheck('Marriott Downtown', gyms, 'loc-1')).toEqual({ ok: true, name: 'Marriott Downtown' })
   })
 

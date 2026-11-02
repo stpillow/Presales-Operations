@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Equipment, EquipmentId, Exercise, Location, Requirement, SessionTemplate, Slot } from '../schema/index.ts'
 import { availableEquipment, type ChecklistGroup } from './equipment.ts'
-import { checklistNotHere, ifNotHere, itemOutcome, nameTaken, newOnList, notHereWrite, phaseCoverage, rowItems, typedOutcome } from './whereYouTrain.ts'
+import { checklistNotHere, ifNotHere, itemOutcome, nameTaken, nameTakenBy, newOnList, notHereWrite, phaseCoverage, rowItems, typedOutcome } from './whereYouTrain.ts'
 
 // Inline fixtures shaped like the seed; the live seed's rows are checked in src/screens/LocationEditor.helpers.test.ts.
 
@@ -187,6 +187,12 @@ describe('nameTaken', () => {
     expect(nameTaken(gyms, 'Marriott Downtown', 'loc-1')).toBe(false)
     expect(nameTaken(gyms, 'Hotel gym', null)).toBe(false)
     expect(nameTaken(gyms, 'Hilton', null)).toBe(false)
+  })
+
+  it('names the gym that already goes by it, as stored, so the refusal can say which', () => {
+    expect(nameTakenBy(gyms, 'planet  FITNESS!', null)).toEqual({ id: 'planet-fitness', name: 'Planet Fitness', archived: false })
+    expect(nameTakenBy(gyms, 'Marriott Downtown', 'loc-1')).toBeNull()
+    expect(nameTakenBy(gyms, 'Hotel gym', null)).toBeNull()
   })
 })
 
