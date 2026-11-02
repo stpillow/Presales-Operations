@@ -35,7 +35,7 @@ import {
   type ProgramLike,
   type ResolvedForm,
 } from './RunLogger.helpers.ts'
-import { swapCallAt } from './Today.helpers.ts'
+import { swapCallAt } from '../rules/gymDay.ts'
 
 const START = '2026-11-02'
 /** The gym a swap is logged at: the active one. */

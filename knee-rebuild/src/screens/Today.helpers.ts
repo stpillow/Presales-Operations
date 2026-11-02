@@ -1,8 +1,9 @@
 import type { History } from '../db/repo.ts'
 import { addDays, dayOf, isDeloadWeek, scheduledSession } from '../rules/calendar.ts'
-import { locationCoverage, suggestedRunSwap, type Available, type CoverageMove, type ExerciseLookup, type RunSwapType } from '../rules/equipment.ts'
+import { locationCoverage, type Available, type CoverageMove, type ExerciseLookup } from '../rules/equipment.ts'
+import { swapCallAt } from '../rules/gymDay.ts'
 import { attachChecks, subjectReadings, workoutReading } from '../rules/history.ts'
-import { listedLocations, locationIdOf, locationOrHome } from '../rules/locations.ts'
+import { listedLocations } from '../rules/locations.ts'
 import { morningCheckApplies, morningReading, type Reading } from '../rules/reading.ts'
 import { phaseWeekOf } from '../rules/session.ts'
 import { runsInWeek, suggestRun, targetForWeek, type RunSuggestion } from '../rules/weekPlan.ts'
@@ -381,16 +382,6 @@ export function gymRows(locations: readonly Location[], activeId: string): GymRo
   return listedLocations(locations).map((l) => ({ id: l.id, name: l.name, active: l.id === activeId, mark: l.id === activeId ? '✓ Active' : 'Use here' }))
 }
 
-/**
- * The gym the day's lift runs at: a session already started (open or left early) stays at the gym
- * it was stamped with at Start (`locationIdOf`: none means Planet Fitness), archived or not; one
- * still to start, or finished, is the active gym's.
- */
-export function liftGym(workout: Pick<Workout, 'status' | 'locationId'> | null, active: Location, locations: readonly Location[]): Location {
-  if (workout && (workout.status === 'in-progress' || workout.status === 'abandoned')) return locationOrHome(locations, locationIdOf(workout)) ?? active
-  return active
-}
-
 /** "Start Session A", "Resume Session A", and "Resume Session A at Marriott Downtown" when the session's gym is not the active one. */
 export function startWords(label: string, workout: Pick<Workout, 'status'> | null, gym: Pick<Location, 'id' | 'name'>, active: Pick<Location, 'id'>): string {
   if (workout?.status !== 'in-progress' && workout?.status !== 'abandoned') return `Start ${label}`
@@ -455,19 +446,6 @@ export interface MarkOffLine {
 /** Each item marked not here at a gym (from the runner or Today), in the order marked, with the day. */
 export function markOffLines(location: Pick<Location, 'markedOff'>, items: readonly ItemLike[]): MarkOffLine[] {
   return location.markedOff.map((m) => ({ itemId: m.id, words: `${itemName(m.id, items).name} marked not here since ${monthDayWords(m.on)}` }))
-}
-
-export type SwapCall = { kind: 'take'; type: RunSwapType } | { kind: 'neither' }
-
-/**
- * What a hold or back-off morning's swap call comes to at a gym: `take` the first swap whose machine
- * is here, elliptical then rower (`suggestedRunSwap`), or `neither`, when nothing is suggested and
- * he picks (Shawn's Nov 1 answer 7). Null when the engine calls for no swap.
- */
-export function swapCallAt(suggestion: Pick<RunSuggestion, 'swapSuggested'> | null, available: Available): SwapCall | null {
-  if (!suggestion?.swapSuggested) return null
-  const type = suggestedRunSwap(available)
-  return type ? { kind: 'take', type } : { kind: 'neither' }
 }
 
 /** A Hold run day at a gym with neither swap machine (Shawn's Nov 1 answer 7). */

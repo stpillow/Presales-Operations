@@ -7,12 +7,12 @@ import { ReadingWord, readingSentence } from '../components/ReadingWord.tsx'
 import { Screen } from '../components/Screen.tsx'
 import { useActiveLocation, useHistory, useLocations, useSettings } from '../db/hooks.ts'
 import { clearMarkOff, putWorkout, reopenWorkout, setActiveLocation } from '../db/repo.ts'
+import { liftGym } from '../rules/gymDay.ts'
 import type { EquipmentId, IsoDate, Location, Settings } from '../schema/index.ts'
 import {
   NEW_LOCATION_HASH,
   atGymWords,
   gymRows,
-  liftGym,
   liftMoves,
   markOffLines,
   movesHeading,

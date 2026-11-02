@@ -10,7 +10,6 @@ import {
   gymRows,
   itemWords,
   lackWords,
-  liftGym,
   liftMoves,
   markOffLines,
   monthDayWords,
@@ -446,21 +445,7 @@ describe('the gym line and Change', () => {
   })
 })
 
-describe('the gym a lift runs at', () => {
-  const at = (status: Workout['status'], locationId?: string): Workout => ({ ...workout('w', '2026-11-03', status), ...(locationId ? { locationId } : {}) })
-  it('an open or abandoned session keeps the gym it was started at', () => {
-    expect(liftGym(at('in-progress', 'loc-1'), HOME, [HOME, MARRIOTT]).id).toBe('loc-1')
-    expect(liftGym(at('abandoned', 'loc-1'), HOME, [HOME, MARRIOTT]).id).toBe('loc-1')
-    // Archived since: the session still ran there.
-    expect(liftGym(at('in-progress', 'loc-2'), HOME, [HOME, OLD_HOTEL]).id).toBe('loc-2')
-  })
-  it('a session stamped with no gym ran at Planet Fitness', () => {
-    expect(liftGym(at('in-progress'), MARRIOTT, [HOME, MARRIOTT]).id).toBe('planet-fitness')
-  })
-  it('a session still to start, or one finished, plans at the active gym', () => {
-    expect(liftGym(null, MARRIOTT, [HOME, MARRIOTT]).id).toBe('loc-1')
-    expect(liftGym(at('finished', 'planet-fitness'), MARRIOTT, [HOME, MARRIOTT]).id).toBe('loc-1')
-  })
+describe('the Start button at a gym', () => {
   it('Start names the session; Resume names the gym only when it is not the active one', () => {
     expect(startWords('Session A', null, HOME, HOME)).toBe('Start Session A')
     expect(startWords('Session A', { status: 'in-progress' }, HOME, HOME)).toBe('Resume Session A')

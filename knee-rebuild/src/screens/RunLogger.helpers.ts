@@ -1,6 +1,7 @@
 import type { History } from '../db/repo.ts'
 import { addDays, dateOf, dayOf, daysBetween, scheduledSession, weekOf } from '../rules/calendar.ts'
 import { runSwapsHere, type Available, type RunSwapHere } from '../rules/equipment.ts'
+import { swapCallAt, type SwapCall } from '../rules/gymDay.ts'
 import { attachChecks, runReading, subjectReadings } from '../rules/history.ts'
 import { isSwap } from '../rules/mileage.ts'
 import { morningCheckApplies, morningReading } from '../rules/reading.ts'
@@ -8,7 +9,7 @@ import { progressionSuspended, stopMessage } from '../rules/redFlags.ts'
 import { phaseWeekOf } from '../rules/session.ts'
 import { runTypeFor, runsInWeek, suggestRun, weekMilesSummary, type RunSuggestion, type WeekMiles } from '../rules/weekPlan.ts'
 import { Effort, Run, RunType, type Day, type DaySession, type IsoDate, type MorningCheck, type Program, type ReadingResult, type Settings } from '../schema/index.ts'
-import { dateWords, noSwapMachineWords, runLabel, sessionLabel, shortDateWords, swapCallAt, type SwapCall } from './Today.helpers.ts'
+import { dateWords, noSwapMachineWords, runLabel, sessionLabel, shortDateWords } from './Today.helpers.ts'
 
 /**
  * Pure helpers for the Run logger: which dates a run can be logged for, the view the screen renders,
