@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { program } from '../program/program.ts'
 import { Run, type MorningCheck, type Settings } from '../schema/index.ts'
 import {
   MILES_MAX,
@@ -20,6 +21,8 @@ import {
   openForm,
   reasonSentence,
   resolveForm,
+  rowerCue,
+  rowerCueFor,
   runPlanWords,
   runRow,
   saveWords,
@@ -278,6 +281,21 @@ describe('swaps at the gym (M4b, design section 7)', () => {
     const view = formView({ ...base, today: '2026-11-04', history: holdMorning, gym: NEITHER })
     expect(view).toMatchObject({ swapCall: { kind: 'neither' }, morning: 'hold', type: 'easy' })
     expect(view.suggestion && suggestionHead(view.suggestion, view)).toBe('No elliptical or rower at Marriott Downtown')
+  })
+  it('takes the rower cue verbatim from program.md’s running rules (live seed)', () => {
+    expect(rowerCue(program.running.rules)).toBe('On the rower, strap in, drive with the legs only through the pain-free range, and keep the stroke rate around 22–24.')
+    expect(rowerCue(['Swap any run for the elliptical.'])).toBeNull()
+  })
+  it('shows the rower cue when the rower swap is the call or the type picked, never for the elliptical or a run', () => {
+    const cue = 'On the rower, strap in.'
+    const rowerCall = formView({ ...base, today: '2026-11-04', history: holdMorning, gym: ROWER_ONLY })
+    expect(rowerCueFor(rowerCall, cue)).toBe(cue)
+    const rowerPicked = formView({ ...base, today: '2026-11-04', picked: { date: null, type: 'rower-swap' } })
+    expect(rowerCueFor(rowerPicked, cue)).toBe(cue)
+    const ellipticalCall = formView({ ...base, today: '2026-11-04', history: holdMorning })
+    expect(rowerCueFor(ellipticalCall, cue)).toBeNull()
+    expect(rowerCueFor(formView({ ...base, today: '2026-11-04' }), cue)).toBeNull()
+    expect(rowerCueFor(rowerPicked, null)).toBeNull()
   })
   it('a swap not at the gym still logs, and stores the gym it was logged at', () => {
     const view = formView({ ...base, today: '2026-11-04', gym: NEITHER, picked: { date: null, type: 'elliptical-swap' } })

@@ -228,6 +228,30 @@ export function typeDetail(type: RunType, view: { preselected: RunType | null; s
   return type === view.preselected ? 'scheduled' : undefined
 }
 
+const ROWER_CUE_START = 'On the rower'
+
+/**
+ * program.md's rower cue, verbatim (design section 7): the sentence of its running rules that starts
+ * "On the rower" ("On the rower, strap in, drive with the legs only through the pain-free range, and
+ * keep the stroke rate around 22–24."). Null if the rules ever stop carrying one.
+ */
+export function rowerCue(rules: readonly string[]): string | null {
+  for (const rule of rules) {
+    const at = rule.indexOf(ROWER_CUE_START)
+    if (at < 0) continue
+    const rest = rule.slice(at)
+    const end = rest.search(/[.!?](\s|$)/)
+    return end < 0 ? rest : rest.slice(0, end + 1)
+  }
+  return null
+}
+
+/** The rower cue when the rower swap is the morning's call at this gym or the type picked; null otherwise. */
+export function rowerCueFor(view: { type: RunType | null; swapCall: SwapCall | null }, cue: string | null): string | null {
+  const rower = view.type === 'rower-swap' || (view.swapCall?.kind === 'take' && view.swapCall.type === 'rower-swap')
+  return rower ? cue : null
+}
+
 /** The engine's reasons are lowercase fragments; on screen each is a sentence. */
 export function reasonSentence(reason: string): string {
   const text = reason.trim()

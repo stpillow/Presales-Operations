@@ -32,6 +32,8 @@ import {
   openForm,
   reasonSentence,
   resolveForm,
+  rowerCue,
+  rowerCueFor,
   runPlanWords,
   runRow,
   saveWords,
@@ -50,6 +52,8 @@ const LABEL = 'font-mono text-small font-normal uppercase tracking-[0.22em] text
 const HEADING = 'font-sans text-h3 font-medium text-on-dark'
 
 type FormView = Extract<LoggerView, { kind: 'form' }>
+
+const ROWER_CUE = rowerCue(PROGRAM.running.rules)
 
 /**
  * One run, one hand, under ten seconds: the type preselected from the day's session, the engine's
@@ -138,6 +142,8 @@ function Logger({ today, settings, history, location }: { today: IsoDate; settin
   }
 
   const resolved = resolveForm(form, view)
+  // program.md's rower cue, verbatim, when the rower swap is the morning's call here or the type picked (design section 7).
+  const cue = rowerCueFor(view, ROWER_CUE)
   const draft = toRun(resolved, newRunId(resolved.date, history.runs.map((r) => r.id)), location.id)
   const set = (patch: Partial<RunForm>) => setForm((f) => ({ ...f, ...patch }))
 
@@ -182,6 +188,7 @@ function Logger({ today, settings, history, location }: { today: IsoDate; settin
             <Choice key={type} label={runLabel(type)} detail={typeDetail(type, view)} selected={view.type === type} onSelect={() => set({ type })} />
           ))}
         </div>
+        {cue ? <p className="text-body text-on-dark-dim">{cue}</p> : null}
       </Section>
 
       <SuggestionBlock view={view} today={today} onTake={(type) => set({ type })} />
