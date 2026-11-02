@@ -414,15 +414,19 @@ describe('the gym in words (M4b, design section 4)', () => {
       'Nothing here for 2 Seated leg curl; 5 Copenhagen plank, short lever: tap a row below for Skip, Do it anyway or Swap, or finish.',
     )
     // The M4b drive's Finish at Marriott Downtown: one set of the goblet squat logged, the rest open.
-    expect(notLoggedWords(['1 Goblet squat to a bench', '4 Lat pulldown', '5 Cable hip abduction, ankle strap', '6 Single-leg calf raise on a step'], true)).toBe(
-      'Not logged: 1 Goblet squat to a bench; 4 Lat pulldown; 5 Cable hip abduction, ankle strap; 6 Single-leg calf raise on a step. They keep last session’s prescription.',
+    expect(notLoggedWords({ notLogged: ['4 Lat pulldown', '5 Cable hip abduction, ankle strap', '6 Single-leg calf raise on a step'], notFinished: ['1 Goblet squat to a bench'] }, true)).toBe(
+      'Not logged: 4 Lat pulldown; 5 Cable hip abduction, ankle strap; 6 Single-leg calf raise on a step. They keep last session’s prescription. Not finished: 1 Goblet squat to a bench.',
     )
   })
 
   it('Finish says every required set is logged, or every other one when the not-here line names some', () => {
-    expect(notLoggedWords([], false)).toBe('Every required set is logged.')
-    expect(notLoggedWords([], true)).toBe('Every other required set is logged.')
-    expect(notLoggedWords(['3 Dumbbell bench press'], false)).toBe('Not logged: 3 Dumbbell bench press. They keep last session’s prescription.')
+    const none = { notLogged: [], notFinished: [] }
+    expect(notLoggedWords(none, false)).toBe('Every required set is logged.')
+    expect(notLoggedWords(none, true)).toBe('Every other required set is logged.')
+    expect(notLoggedWords({ notLogged: ['3 Dumbbell bench press'], notFinished: [] }, false)).toBe('Not logged: 3 Dumbbell bench press. They keep last session’s prescription.')
+  })
+  it('Finish calls a slot with some of its sets logged not finished, not not logged (M4b review)', () => {
+    expect(notLoggedWords({ notLogged: [], notFinished: ['1 Goblet squat to a bench'] }, false)).toBe('Not finished: 1 Goblet squat to a bench.')
   })
 
   it('Finish’s not-logged list leaves out the slots the not-here line already names', () => {
@@ -438,8 +442,11 @@ describe('the gym in words (M4b, design section 4)', () => {
       { key: 'a9:both:1', slotId: 'a9' },
       { key: 'a2:both:1', slotId: 'a2' },
     ]
-    expect(notLoggedLabels(plans, steps, new Set(['a2:both:1']), new Set(), new Set(['a7']))).toEqual(['1 Goblet squat to a bench'])
-    expect(notLoggedLabels(plans, steps, new Set(), new Set(['a1']), new Set())).toEqual(['7 Step-off landing', '2 Dumbbell Romanian deadlift'])
+    expect(notLoggedLabels(plans, steps, new Set(['a2:both:1']), new Set(), new Set(['a7']))).toEqual({ notLogged: ['1 Goblet squat to a bench'], notFinished: [] })
+    expect(notLoggedLabels(plans, steps, new Set(), new Set(['a1']), new Set())).toEqual({ notLogged: ['7 Step-off landing', '2 Dumbbell Romanian deadlift'], notFinished: [] })
+    // One of the goblet squat's three sets logged: started, not finished.
+    const three = [{ key: 'a1:both:1', slotId: 'a1' }, { key: 'a1:both:2', slotId: 'a1' }, { key: 'a1:both:3', slotId: 'a1' }]
+    expect(notLoggedLabels(plans.slice(0, 1), three, new Set(['a1:both:1']), new Set(), new Set())).toEqual({ notLogged: [], notFinished: ['1 Goblet squat to a bench'] })
   })
 })
 

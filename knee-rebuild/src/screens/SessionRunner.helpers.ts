@@ -620,8 +620,9 @@ export function doneWords(gymName: string, held: readonly string[]): { heading: 
 }
 
 /**
- * Finish's "Not logged": required slots not stopped with a step still open, as "1 Goblet squat to a
- * bench", leaving out the slots nothing here runs (`held`), which the not-here line names.
+ * Finish's open slots: required slots not stopped with a step still open, as "1 Goblet squat to a
+ * bench", leaving out the slots nothing here runs (`held`), which the not-here line names. A slot
+ * with none of its sets logged is not logged; one with some but not all is not finished.
  */
 export function notLoggedLabels(
   plans: readonly { slot: Pick<Slot, 'id' | 'label' | 'optional'>; exercise: Pick<Exercise, 'name'> }[],
@@ -629,19 +630,24 @@ export function notLoggedLabels(
   done: ReadonlySet<string>,
   stopped: ReadonlySet<string>,
   held: ReadonlySet<string>,
-): string[] {
-  return plans
-    .filter((p) => !p.slot.optional && !stopped.has(p.slot.id) && !held.has(p.slot.id) && steps.some((s) => s.slotId === p.slot.id && !done.has(s.key)))
-    .map((p) => `${p.slot.label} ${p.exercise.name}`)
+): { notLogged: string[]; notFinished: string[] } {
+  const open = plans.filter((p) => !p.slot.optional && !stopped.has(p.slot.id) && !held.has(p.slot.id) && steps.some((s) => s.slotId === p.slot.id && !done.has(s.key)))
+  const started = (slotId: string) => steps.some((s) => s.slotId === slotId && done.has(s.key))
+  const label = (p: (typeof open)[number]) => `${p.slot.label} ${p.exercise.name}`
+  return { notLogged: open.filter((p) => !started(p.slot.id)).map(label), notFinished: open.filter((p) => started(p.slot.id)).map(label) }
 }
 
 /**
  * Finish's line under the not-here line: the slots `notLoggedLabels` leaves open, separated by
  * semicolons as the not-here line is (program.md's names carry their own commas: "5 Cable hip
- * abduction, ankle strap"), or, with none open, that every required set (every other one, when the
- * not-here line names some) is logged.
+ * abduction, ankle strap"), not logged first, then not finished; or, with none open, that every
+ * required set (every other one, when the not-here line names some) is logged.
  */
-export function notLoggedWords(labels: readonly string[], notHereSaid: boolean): string {
-  if (labels.length > 0) return `Not logged: ${labels.join('; ')}. They keep last session’s prescription.`
+export function notLoggedWords(open: { notLogged: readonly string[]; notFinished: readonly string[] }, notHereSaid: boolean): string {
+  const parts = [
+    open.notLogged.length > 0 ? `Not logged: ${open.notLogged.join('; ')}. They keep last session’s prescription.` : '',
+    open.notFinished.length > 0 ? `Not finished: ${open.notFinished.join('; ')}.` : '',
+  ].filter(Boolean)
+  if (parts.length > 0) return parts.join(' ')
   return notHereSaid ? 'Every other required set is logged.' : 'Every required set is logged.'
 }
