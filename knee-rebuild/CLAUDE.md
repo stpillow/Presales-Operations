@@ -3,7 +3,7 @@
 Single-user PWA that runs Shawn's 12-week knee return-to-sport program on his iPhone: says what to do today, logs what happened, reads the knee's response, decides the next session. Read these before changing anything:
 
 - `PROMPT.md`: owns app behavior (model, rules, screens, build plan, working agreements).
-- `docs/program.md`: owns training content. Transcribed into seed data once; never parsed at runtime, never "improved" in code.
+- `docs/program.md`: owns training content. Its training content is transcribed into the seed data (`data/program.json`) once and never parsed at runtime, never "improved" in code. The Program screen renders program.md for reading only (`src/rules/markdown.ts` reads it into headings, paragraphs, lists and tables); nothing the engine decides comes from it.
 - Where they disagree: program.md wins on training content, PROMPT.md wins on app behavior.
 - `PLAN.md`: the status page. Tick tasks when they finish, not when they start. Keep it truthful and short.
 - `PROGRAM-QUESTIONS.md`: every ambiguity in the program, with the reading taken (the one more conservative for the knee). Add to it; don't resolve it in code.
