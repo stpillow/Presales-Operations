@@ -374,6 +374,52 @@ describe('an import and the red flag (PROGRAM-QUESTIONS 128)', () => {
   })
 })
 
+describe('the export stamp has its own row, so the build before M6 still reads the settings (PROGRAM-QUESTIONS 132)', () => {
+  // M5's Settings, field for field: the strict row the build before M6 parses on every settings read.
+  const M5Settings = Settings.omit({ lastExportedAt: true })
+  async function settingsRow(): Promise<unknown> {
+    const row = await db.settings.get('settings')
+    if (!row) return undefined
+    const { id: _id, ...rest } = row
+    void _id
+    return rest
+  }
+
+  it('an export, a settings save and an import leave the settings row as M5 reads it, and the stamp reads back', async () => {
+    await ensureSettings(defaultSettings(program))
+    await ensureLocations(program, START)
+    await markExported(T1)
+    expect(M5Settings.safeParse(await settingsRow()).success).toBe(true)
+    expect((await getSettings())?.lastExportedAt).toBe(T1)
+
+    // A screen saves the settings it holds, the stamp among them: the row still never carries it, and the stamp stays.
+    const held = await getSettings()
+    if (!held) throw new Error('no settings')
+    await saveSettings({ ...held, painPerSet: true })
+    expect(M5Settings.safeParse(await settingsRow()).success).toBe(true)
+    expect(await getSettings()).toMatchObject({ painPerSet: true, lastExportedAt: T1 })
+
+    const read = parseBackup(backupText((await exportBackup(T2)).backup))
+    if (!read.ok) throw new Error(read.refusal)
+    await replaceAll(read.backup, program, TODAY, T2)
+    expect(M5Settings.safeParse(await settingsRow()).success).toBe(true)
+    expect((await getSettings())?.lastExportedAt).toBe(T2)
+
+    // Reset takes the stamp's row with everything else.
+    await resetAll(defaultSettings(program), program, TODAY)
+    expect(await db.settings.count()).toBe(1)
+    expect((await getSettings())?.lastExportedAt).toBeUndefined()
+  })
+
+  it('a row an earlier M6 build wrote with the stamp inside still reads, stamp and all', async () => {
+    await db.table('settings').put({ ...defaultSettings(program), lastExportedAt: T1, id: 'settings' })
+    expect((await getSettings())?.lastExportedAt).toBe(T1)
+    await markExported(T2)
+    expect((await getSettings())?.lastExportedAt).toBe(T2)
+    expect(M5Settings.safeParse(await settingsRow()).success).toBe(true)
+  })
+})
+
 describe('the stamp an import records (PROGRAM-QUESTIONS 121)', () => {
   it('a file stamped after the import’s own moment records the import’s moment, so Today’s reminder still comes', async () => {
     await ensureSettings(defaultSettings(program))

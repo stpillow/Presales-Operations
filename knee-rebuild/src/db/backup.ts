@@ -1,5 +1,5 @@
-import { db, type SettingsRow } from './db.ts'
-import { ensureLocations, forgetSwaps, getSettings, saveSettings, SETTINGS_ID, type HomeLists } from './repo.ts'
+import { db } from './db.ts'
+import { ensureLocations, forgetSwaps, getSettings, getSettingsRow, getStoredSettings, saveExportStamp, saveSettings, type HomeLists } from './repo.ts'
 import { BACKUP_TABLES, backupFrom, buildBackup, importStamp, redFlagOnImport, type Backup, type ExportResult, type StoredContents } from '../rules/backup.ts'
 import { Settings, type IsoDate, type IsoDateTime } from '../schema/index.ts'
 
@@ -16,19 +16,12 @@ function checkCovered(): void {
   if (missing.length > 0) throw new Error(`The backup doesn’t carry the ${missing.join(', ')} table yet.`)
 }
 
-/** Everything the phone holds, read in one transaction so the file is one moment's data: the settings row without its key, and every table as stored. */
+/** Everything the phone holds, read in one transaction so the file is one moment's data: the settings as stored, the export stamp read back in, and every table as stored. */
 export async function readStored(): Promise<StoredContents> {
   checkCovered()
   return db.transaction('r', db.tables, async () => {
-    const row = await db.settings.get(SETTINGS_ID)
-    let settings: Settings | undefined
-    if (row) {
-      const { id: _id, ...rest } = row
-      void _id
-      settings = rest
-    }
     return {
-      settings,
+      settings: await getStoredSettings(),
       workouts: await db.workouts.toArray(),
       setLogs: await db.setLogs.toArray(),
       morningChecks: await db.morningChecks.toArray(),
@@ -46,12 +39,18 @@ export async function exportBackup(exportedAt: IsoDateTime): Promise<ExportResul
   return buildBackup(await readStored(), exportedAt)
 }
 
-/** Records that the file stamped `exportedAt` left the phone: Settings' "Last export" and Today's reminder read it. */
+/**
+ * Records that the file stamped `exportedAt` left the phone: Settings' "Last export" and Today's
+ * reminder read it. The stamp goes in its own row; the settings row is written again only to take
+ * out a stamp an earlier M6 build left on it (PROGRAM-QUESTIONS 132).
+ */
 export async function markExported(exportedAt: IsoDateTime): Promise<void> {
   await db.transaction('rw', db.settings, async () => {
     const settings = await getSettings()
     if (!settings) throw new Error('no settings row to record the export on')
-    await saveSettings({ ...settings, lastExportedAt: exportedAt })
+    const row = await getSettingsRow()
+    if (row && 'lastExportedAt' in row) await saveSettings(settings)
+    await saveExportStamp(exportedAt)
   })
 }
 
@@ -73,11 +72,11 @@ export async function replaceAll(backup: Backup, lists: HomeLists, createdOn: Is
   const file = read.backup
   await db.transaction('rw', db.tables, async () => {
     // The phone's red flag, read as stored: a settings row that no longer reads whole still gives its flag, and never blocks a restore.
-    const flag = Settings.shape.redFlag.safeParse((await db.settings.get(SETTINGS_ID))?.redFlag)
-    const redFlag = redFlagOnImport(flag.success ? flag.data : undefined, file.settings.redFlag)
-    const settings: SettingsRow = { ...Settings.parse({ ...file.settings, redFlag, lastExportedAt: importStamp(file.exportedAt, now) }), id: SETTINGS_ID }
+    const flag = Settings.shape.redFlag.safeParse((await getSettingsRow())?.redFlag)
+    const settings = Settings.parse({ ...file.settings, redFlag: redFlagOnImport(flag.success ? flag.data : undefined, file.settings.redFlag) })
     for (const table of db.tables) await table.clear()
-    await db.settings.put(settings)
+    await saveSettings(settings)
+    await saveExportStamp(importStamp(file.exportedAt, now))
     for (const name of BACKUP_TABLES) await db.table(name).bulkAdd(file[name])
     await ensureLocations(lists, createdOn)
   })
