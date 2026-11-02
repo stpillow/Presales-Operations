@@ -1,6 +1,11 @@
+import type { RemovedItem } from '../../rules/overrides.ts'
+
+/** What came off a slot's list and can still be put back, with the sentence that says so. */
+export type Removed = RemovedItem & { words: string }
+
 /**
- * What a slot's card on the Program screen holds that isn't stored yet: the new-cue field's text and
- * the editor's last refusal. A card unmounts when the editor's view changes or Shawn leaves for
+ * What a slot's card on the Program screen holds that isn't stored yet: the new-cue field's text,
+ * the editor's last refusal, and the last removal Put it back can undo. A card unmounts when the editor's view changes or Shawn leaves for
  * another tab, so they wait here, by slot id, until the app closes; the card reads them back when
  * it mounts again, so "It waits in the new-cue field" holds (Program.helpers `unaddedCueWords`).
  * Nothing here is a decision or a write; a reload starts empty, as any unsaved field does.
@@ -10,9 +15,11 @@ export interface SlotDraft {
   newCue: string
   /** The editor's last refusal or failed save, kept under the slot after it closes. */
   standing: string | null
+  /** The last cue or substitution removed, for Put it back; cleared once it is put back or the slot is reset. */
+  removed: Removed | null
 }
 
-export const EMPTY_DRAFT: Readonly<SlotDraft> = Object.freeze({ newCue: '', standing: null })
+export const EMPTY_DRAFT: Readonly<SlotDraft> = Object.freeze({ newCue: '', standing: null, removed: null })
 
 const drafts = new Map<string, SlotDraft>()
 
@@ -24,7 +31,7 @@ export function slotDraft(slotId: string): SlotDraft {
 /** Keeps one part of the slot's draft; a slot whose parts are all empty again is let go. */
 export function keepSlotDraft<K extends keyof SlotDraft>(slotId: string, part: K, value: SlotDraft[K]): void {
   const next = { ...slotDraft(slotId), [part]: value }
-  if (next.newCue === EMPTY_DRAFT.newCue && next.standing === EMPTY_DRAFT.standing) drafts.delete(slotId)
+  if (next.newCue === EMPTY_DRAFT.newCue && next.standing === EMPTY_DRAFT.standing && next.removed === EMPTY_DRAFT.removed) drafts.delete(slotId)
   else drafts.set(slotId, next)
 }
 

@@ -73,3 +73,66 @@ test('a new cue typed but not added survives the program.md view and another tab
   await expect(legPressSlot(page).getByRole('listitem').filter({ hasText: cue })).toHaveCount(1)
   await expect(waits).toHaveCount(0)
 })
+
+/** No CSS scroll anchoring, as on an iPhone before iOS 27: only what the app does keeps a tap's place. */
+async function withoutScrollAnchoring(page: Page): Promise<void> {
+  await page.addStyleTag({ content: 'html, body, * { overflow-anchor: none !important; }' })
+}
+
+/** Where an element sits on screen now: its top, in CSS px from the top of the viewport. */
+async function topOf(locator: Locator): Promise<number> {
+  const box = await locator.boundingBox()
+  if (!box) throw new Error('not on the page')
+  return box.y
+}
+
+/** Puts an element's center at `y` px from the top of the viewport, where a thumb taps. */
+async function scrollTo(page: Page, locator: Locator, y: number): Promise<void> {
+  await locator.scrollIntoViewIfNeeded()
+  const box = await locator.boundingBox()
+  if (!box) throw new Error('not on the page')
+  await page.mouse.wheel(0, box.y + box.height / 2 - y)
+  await expect(async () => expect(Math.abs((await topOf(locator)) + box.height / 2 - y)).toBeLessThan(4)).toPass()
+}
+
+test('Remove says so with Put it back where the tap was, and the undo outlives Done editing and the program.md view', async ({ page }) => {
+  await withoutScrollAnchoring(page)
+  const slot = legPressSlot(page)
+  const cue = 'Drive through the whole foot; heels stay down'
+  await editButton(page).click()
+  await newCueField(page).fill(cue)
+  await slot.getByRole('button', { name: 'Add cue' }).click()
+  await expect(slot.getByRole('textbox', { name: 'Cue 2' })).toHaveValue(cue)
+
+  // A substitution: the thumb at y 560 on the second one's Remove.
+  const remove = slot.getByRole('button', { name: 'Remove Smith machine box squat' })
+  await scrollTo(page, remove, 560)
+  await remove.click()
+  const putBack = slot.getByRole('button', { name: 'Put it back' })
+  await expect(slot.getByText('Removed Smith machine box squat from the substitutions.')).toBeInViewport()
+  await expect(putBack).toBeInViewport()
+  expect(Math.abs((await topOf(putBack)) - 560)).toBeLessThan(160)
+
+  // Closed, the slot still offers it, and it goes back where it stood: second on the list.
+  await doneButton(page).click()
+  await expect(slot.getByText('Removed Smith machine box squat from the substitutions.')).toBeVisible()
+  await page.getByRole('radio', { name: /program\.md/ }).click()
+  await page.getByRole('radio', { name: /This phase/ }).click()
+  await putBack.click()
+  await expect(putBack).toHaveCount(0)
+  await expect(slot.getByRole('list').last().getByRole('listitem')).toHaveText(['45° leg press', 'Smith machine box squat', 'Goblet squat to a bench'])
+
+  // His own cue: removed, the editor closed and the screen left, it can still come back.
+  await editButton(page).click()
+  const removeCue = slot.getByRole('button', { name: 'Remove cue 2' })
+  await scrollTo(page, removeCue, 560)
+  await removeCue.click()
+  await expect(slot.getByText(`Removed the cue “${cue}”.`)).toBeInViewport()
+  await expect(putBack).toBeInViewport()
+  await doneButton(page).click()
+  await page.getByRole('navigation', { name: 'Sections' }).getByRole('button', { name: 'More' }).click()
+  await page.getByRole('button', { name: 'Program', exact: true }).click()
+  await expect(slot.getByText(`Removed the cue “${cue}”.`)).toBeVisible()
+  await putBack.click()
+  await expect(slot.getByRole('listitem').filter({ hasText: cue })).toHaveCount(1)
+})

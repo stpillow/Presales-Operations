@@ -1,11 +1,11 @@
 import { useEffect, useState, type Dispatch, type SetStateAction } from 'react'
 import { Button } from '../../components/Button.tsx'
-import { overridesBySlot } from '../../rules/overrides.ts'
+import { overridesBySlot, withPutBack } from '../../rules/overrides.ts'
 import type { IsoDate, ProgramOverride } from '../../schema/index.ts'
-import { unaddedCueWords, type PhaseScreen, type SlotRow } from '../Program.helpers.ts'
+import { editorView, unaddedCueWords, type PhaseScreen, type SlotRow } from '../Program.helpers.ts'
 import { keepSlotDraft, slotDraft, type SlotDraft } from './drafts.ts'
 import { HEADING, LABEL, Note, Problem } from './parts.tsx'
-import { SlotEditor } from './SlotEditor.tsx'
+import { SlotEditor, editFailedWords, saveSlotEdit } from './SlotEditor.tsx'
 
 /** The current phase's sessions, A then B then C, each slot read-only with an Edit that opens its editor in place. */
 export function PhaseSessions({ screen, overrides, today }: { screen: PhaseScreen; overrides: readonly ProgramOverride[]; today: IsoDate }) {
@@ -48,7 +48,21 @@ function SlotCard({ row, override, today, open, onToggle }: { row: SlotRow; over
   // The new-cue field's text, kept with the slot so Done editing, another slot's Edit, the program.md
   // view or another tab before Add cue never drops it (drafts.ts).
   const [newCue, setNewCue] = useSlotDraft(row.id, 'newCue')
+  // The last removal, for Put it back: in the list where it stood while the editor is open, under the slot once it closes.
+  const [removed, setRemoved] = useSlotDraft(row.id, 'removed')
   const unadded = open ? null : unaddedCueWords(newCue)
+  /** Put it back with the editor closed: onto the lists as stored, where it stood (`withPutBack`); a failure says so and keeps the offer. */
+  const putBack = async () => {
+    if (!removed) return
+    const item = removed
+    setRemoved(null)
+    try {
+      await saveSlotEdit(row.slot, withPutBack(row.slot, editorView(row.slot, override).edit, item), today)
+    } catch (e: unknown) {
+      setRemoved(item)
+      setStanding(editFailedWords('Put it back', e))
+    }
+  }
   const toggle = () => {
     if (!open) setStanding(null)
     onToggle()
@@ -101,7 +115,9 @@ function SlotCard({ row, override, today, open, onToggle }: { row: SlotRow; over
         </>
       )}
 
-      {open ? <SlotEditor slot={row.slot} override={override} today={today} onStanding={setStanding} newCue={newCue} onNewCue={setNewCue} /> : null}
+      {open ? (
+        <SlotEditor slot={row.slot} override={override} today={today} onStanding={setStanding} newCue={newCue} onNewCue={setNewCue} removed={removed} onRemoved={setRemoved} />
+      ) : null}
       {/* One button under the slot or its editor, the same element either way, so focus stays on it. */}
       <Button wide aria-expanded={open} aria-label={`${open ? 'Done editing' : 'Edit cues and substitutions for'} ${row.exerciseName}, slot ${row.label}`} onClick={toggle}>
         {open ? 'Done editing' : 'Edit cues and substitutions'}
@@ -111,6 +127,16 @@ function SlotCard({ row, override, today, open, onToggle }: { row: SlotRow; over
         <p role="status" className="text-body text-on-dark wrap-anywhere">
           {unadded}
         </p>
+      ) : null}
+      {!open && removed ? (
+        <div className="flex flex-col gap-2">
+          <p role="status" className="text-body text-on-dark wrap-anywhere">
+            {removed.words}
+          </p>
+          <Button wide onClick={() => void putBack()}>
+            Put it back
+          </Button>
+        </div>
       ) : null}
     </li>
   )

@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type Dispatch, type SetStateAction } from 'react'
+import { useEffect, useId, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react'
 import { PROGRAM } from '../../app/session.ts'
 import { Button } from '../../components/Button.tsx'
 import { clearProgramOverride, saveProgramOverride } from '../../db/repo.ts'
@@ -13,18 +13,29 @@ import {
   withCueAdded,
   withPutBack,
   withSubstitutionAdded,
-  type RemovedItem,
   type SlotEdit,
 } from '../../rules/overrides.ts'
 import type { IsoDate, ProgramOverride, Slot } from '../../schema/index.ts'
 import { failedWords } from '../Locations.helpers.ts'
 import { RESET_ASK, SUBSTITUTION_ORDER_NOTE, addSections, cueCountWords, editorView, exerciseName, removedWords } from '../Program.helpers.ts'
+import type { Removed } from './drafts.ts'
 import { Group, LABEL, Note, Problem, RowButton, useFlash } from './parts.tsx'
 
 type Part = 'cues' | 'substitutions' | 'reset'
-type Removed = RemovedItem & { words: string }
 
 const STILL = 'the slot shows what the phone still has.'
+
+/** A failed edit, in words: what didn't save, why, and that the slot shows what the phone still has. */
+export function editFailedWords(what: string, error: unknown): string {
+  return failedWords(what, error, STILL)
+}
+
+/** Saves a slot's lists as its override, or clears the override when they are program.md's (`overrideFor` decides). */
+export async function saveSlotEdit(slot: Slot, next: SlotEdit, today: IsoDate): Promise<void> {
+  const row = overrideFor(slot, next, today)
+  if (row) await saveProgramOverride(row, PROGRAM)
+  else await clearProgramOverride(slot.id)
+}
 
 /**
  * One slot's editor, inline under it (no modal): its cues (reword, add, remove, reorder) and its
@@ -35,6 +46,8 @@ const STILL = 'the slot shows what the phone still has.'
  * slot to keep showing after Done editing closes the editor: the tap that closes it is often the
  * one that left the field and drew the refusal. `newCue` is the new-cue field's text, held by the
  * slot so that closing the editor before Add cue keeps it (the slot says so: `unaddedCueWords`).
+ * `removed` is the last removal, held by the slot too: its Put it back stands in the list where the
+ * removed row stood, under the thumb that tapped Remove, and outlives the editor.
  */
 export function SlotEditor({
   slot,
@@ -43,6 +56,8 @@ export function SlotEditor({
   onStanding,
   newCue,
   onNewCue,
+  removed,
+  onRemoved,
 }: {
   slot: Slot
   override: ProgramOverride | undefined
@@ -50,6 +65,8 @@ export function SlotEditor({
   onStanding: (sentence: string | null) => void
   newCue: string
   onNewCue: Dispatch<SetStateAction<string>>
+  removed: Removed | null
+  onRemoved: (removed: Removed | null) => void
 }) {
   const view = editorView(slot, override)
   const stored = view.edit
@@ -61,7 +78,8 @@ export function SlotEditor({
   const pending = useRef(0)
   const [saved, flash] = useFlash<Part>()
   const [problem, setProblem] = useState<{ part: Part; text: string } | null>(null)
-  const [removed, setRemoved] = useState<Removed | null>(null)
+  // Counts this visit's removals, so the one just made is brought into view, never one the slot kept from before.
+  const [removals, setRemovals] = useState(0)
   const [added, setAdded] = useState<string | null>(null)
   const [asking, setAsking] = useState(false)
 
@@ -81,13 +99,11 @@ export function SlotEditor({
     setProblem(null)
     pending.current += 1
     try {
-      const row = overrideFor(slot, next, today)
-      if (row) await saveProgramOverride(row, PROGRAM)
-      else await clearProgramOverride(slot.id)
+      await saveSlotEdit(slot, next, today)
       flash(part)
       return true
     } catch (e: unknown) {
-      const text = failedWords('That edit', e, STILL)
+      const text = editFailedWords('That edit', e)
       setProblem({ part, text })
       onStanding(text)
       if (pending.current === 1) {
@@ -107,20 +123,21 @@ export function SlotEditor({
     const next = kind === 'cue' ? { ...latest.current, cues: removeItem(list, index) } : { ...latest.current, substitutionIds: removeItem(list, index) }
     setAdded(null)
     if (await write(kind === 'cue' ? 'cues' : 'substitutions', next)) {
-      setRemoved({ kind, index, value, words: removedWords(kind, kind === 'cue' ? value : exerciseName(value)) })
+      onRemoved({ kind, index, value, words: removedWords(kind, kind === 'cue' ? value : exerciseName(value)) })
+      setRemovals((n) => n + 1)
     }
   }
 
   const putBack = async () => {
     if (!removed) return
-    setRemoved(null)
+    onRemoved(null)
     // withPutBack decides where it goes and whether it can (no repeat); an edit it leaves as it was saves nothing.
     await write(removed.kind === 'cue' ? 'cues' : 'substitutions', withPutBack(slot, latest.current, removed))
   }
 
   const reset = async () => {
     setProblem(null)
-    setRemoved(null)
+    onRemoved(null)
     setAdded(null)
     pending.current += 1
     try {
@@ -132,7 +149,7 @@ export function SlotEditor({
       flash('reset')
       onStanding(null)
     } catch (e: unknown) {
-      const text = failedWords('Back to program.md’s', e, STILL)
+      const text = editFailedWords('Back to program.md’s', e)
       setProblem({ part: 'reset', text })
       onStanding(text)
     } finally {
@@ -143,37 +160,58 @@ export function SlotEditor({
   const problemFor = (part: Part) => (problem?.part === part ? <Problem>{problem.text}</Problem> : null)
   const isEdited = view.edited.cues || view.edited.substitutions
   const sections = addSections(slot, draft, PROGRAM.exercises)
+  /** A list's rows with the removed one's Put it back standing where it stood. */
+  const withRemoved = (kind: Removed['kind'], rows: ReactNode[]): ReactNode[] => {
+    if (removed?.kind !== kind) return rows
+    const at = Math.min(removed.index, rows.length)
+    return [...rows.slice(0, at), <PutBack key="removed" removed={removed} bringIntoView={removals} onPutBack={() => void putBack()} />, ...rows.slice(at)]
+  }
+  const cueRows = draft.cues.map((cue, i) => (
+    <CueRow
+      key={`${i}:${cue}`}
+      index={i}
+      count={draft.cues.length}
+      cue={cue}
+      onReword={(text) => void write('cues', { ...latest.current, cues: replaceItem(latest.current.cues, i, cleanCue(text)) })}
+      onMove={(by) => void write('cues', { ...latest.current, cues: moveItem(latest.current.cues, i, by) })}
+      onRemove={() => void remove('cue', i)}
+      onRefusal={onStanding}
+    />
+  ))
+  const substitutionRows = draft.substitutionIds.map((id, i) => {
+    const name = exerciseName(id)
+    return (
+      <li key={id} className="flex flex-col gap-2">
+        <p className="text-body text-on-dark wrap-anywhere">
+          <span className="font-mono text-small text-on-dark-muted">{i + 1}.</span> {name}
+        </p>
+        <div className="grid grid-cols-3 gap-2">
+          <RowButton aria-label={`Move ${name} up`} disabled={i === 0} onClick={() => void write('substitutions', { ...latest.current, substitutionIds: moveItem(latest.current.substitutionIds, i, -1) })}>
+            Up
+          </RowButton>
+          <RowButton
+            aria-label={`Move ${name} down`}
+            disabled={i === draft.substitutionIds.length - 1}
+            onClick={() => void write('substitutions', { ...latest.current, substitutionIds: moveItem(latest.current.substitutionIds, i, 1) })}
+          >
+            Down
+          </RowButton>
+          <RowButton aria-label={`Remove ${name}`} onClick={() => void remove('substitution', i)}>
+            Remove
+          </RowButton>
+        </div>
+      </li>
+    )
+  })
 
   return (
     <div className="flex flex-col gap-6 rounded-sm border border-on-dark-faint p-4">
       {view.detail ? <p className="text-body text-on-dark wrap-anywhere">{view.detail}</p> : <p className="text-body text-on-dark-dim">As program.md writes it. Each change saves at once.</p>}
 
-      {removed ? (
-        <div className="flex flex-col gap-2">
-          <p role="status" className="text-body text-on-dark wrap-anywhere">
-            {removed.words}
-          </p>
-          <Button wide onClick={() => void putBack()}>
-            Put it back
-          </Button>
-        </div>
-      ) : null}
-
       <Group label="Cues" saved={saved === 'cues'}>
         {draft.cues.length === 0 ? <Note>No cues. Add one below, or go back to program.md’s.</Note> : null}
         <ol className="flex flex-col gap-4">
-          {draft.cues.map((cue, i) => (
-            <CueRow
-              key={`${i}:${cue}`}
-              index={i}
-              count={draft.cues.length}
-              cue={cue}
-              onReword={(text) => void write('cues', { ...latest.current, cues: replaceItem(latest.current.cues, i, cleanCue(text)) })}
-              onMove={(by) => void write('cues', { ...latest.current, cues: moveItem(latest.current.cues, i, by) })}
-              onRemove={() => void remove('cue', i)}
-              onRefusal={onStanding}
-            />
-          ))}
+          {withRemoved('cue', cueRows)}
         </ol>
         <AddCue text={newCue} setText={onNewCue} onAdd={(text) => write('cues', withCueAdded(latest.current, text))} onRefusal={onStanding} />
         {problemFor('cues')}
@@ -183,31 +221,7 @@ export function SlotEditor({
       <Group label="Substitutions, in order" saved={saved === 'substitutions'}>
         {draft.substitutionIds.length === 0 ? <Note>None. With none, nothing stands in when the gym lacks this exercise, and a back-off on bodyweight work drops a set instead.</Note> : null}
         <ol className="flex flex-col gap-3">
-          {draft.substitutionIds.map((id, i) => {
-            const name = exerciseName(id)
-            return (
-              <li key={id} className="flex flex-col gap-2">
-                <p className="text-body text-on-dark wrap-anywhere">
-                  <span className="font-mono text-small text-on-dark-muted">{i + 1}.</span> {name}
-                </p>
-                <div className="grid grid-cols-3 gap-2">
-                  <RowButton aria-label={`Move ${name} up`} disabled={i === 0} onClick={() => void write('substitutions', { ...latest.current, substitutionIds: moveItem(latest.current.substitutionIds, i, -1) })}>
-                    Up
-                  </RowButton>
-                  <RowButton
-                    aria-label={`Move ${name} down`}
-                    disabled={i === draft.substitutionIds.length - 1}
-                    onClick={() => void write('substitutions', { ...latest.current, substitutionIds: moveItem(latest.current.substitutionIds, i, 1) })}
-                  >
-                    Down
-                  </RowButton>
-                  <RowButton aria-label={`Remove ${name}`} onClick={() => void remove('substitution', i)}>
-                    Remove
-                  </RowButton>
-                </div>
-              </li>
-            )
-          })}
+          {withRemoved('substitution', substitutionRows)}
         </ol>
         <Note>{SUBSTITUTION_ORDER_NOTE}</Note>
         {added ? (
@@ -218,7 +232,7 @@ export function SlotEditor({
         <AddSubstitution
           sections={sections}
           onAdd={async (id) => {
-            setRemoved(null)
+            onRemoved(null)
             if (await write('substitutions', withSubstitutionAdded(slot, latest.current, id))) setAdded(`Added ${exerciseName(id)} at the end of the substitutions.`)
           }}
         />
@@ -250,6 +264,28 @@ export function SlotEditor({
         </div>
       ) : null}
     </div>
+  )
+}
+
+/**
+ * What was just removed and Put it back, standing in the list where the removed row stood, so it is
+ * under the thumb that tapped Remove; brought into view (`bringIntoView` counts removals) should the
+ * list have moved.
+ */
+function PutBack({ removed, bringIntoView, onPutBack }: { removed: Removed; bringIntoView: number; onPutBack: () => void }) {
+  const ref = useRef<HTMLLIElement>(null)
+  useEffect(() => {
+    if (bringIntoView > 0) ref.current?.scrollIntoView({ block: 'nearest' })
+  }, [bringIntoView])
+  return (
+    <li ref={ref} className="flex flex-col gap-2 border-l border-on-dark-faint pl-3">
+      <p role="status" className="text-body text-on-dark wrap-anywhere">
+        {removed.words}
+      </p>
+      <Button wide onClick={onPutBack}>
+        Put it back
+      </Button>
+    </li>
   )
 }
 
