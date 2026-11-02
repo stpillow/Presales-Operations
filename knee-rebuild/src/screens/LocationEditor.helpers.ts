@@ -1,10 +1,11 @@
-import { currentTemplate } from '../app/session.ts'
+import { PROGRAM, currentTemplate } from '../app/session.ts'
 import { weekOf } from '../rules/calendar.ts'
 import { forNextProgramUpdate, type Available, type ChecklistGroup, type ChecklistItem, type CoverageMove, type ExerciseLookup, type RunSwapType } from '../rules/equipment.ts'
 import { phaseWeekOf } from '../rules/session.ts'
 import { RACK_MAX_LB, RACK_STEP_LB, rackValue } from '../rules/locations.ts'
+import { applyToTemplate, overridesBySlot } from '../rules/overrides.ts'
 import { ifNotHere, nameShows, nameTakenBy, newOnList, phaseCoverage, type SubstitutionRow, type TypedOutcome } from '../rules/whereYouTrain.ts'
-import { EXTRA_TEXT_MAX, Location, type Equipment, type EquipmentId, type Exercise, type IsoDate, type Requirement, type SessionTemplate, type Settings } from '../schema/index.ts'
+import { EXTRA_TEXT_MAX, Location, type Equipment, type EquipmentId, type Exercise, type IsoDate, type ProgramOverride, type Requirement, type SessionTemplate, type Settings } from '../schema/index.ts'
 
 /*
  * The location editor (`#/location/:id`, `#/location/new`, M4b design section 5): its choices and
@@ -241,6 +242,19 @@ export function coverageWeek(settings: Pick<Settings, 'startDate' | 'phaseEntere
 /** The current phase's sessions, A then B then C; none in Phase 4, whose sessions aren't written. */
 export function currentTemplates(settings: Settings): SessionTemplate[] {
   return (['A', 'B', 'C'] as const).flatMap((letter) => currentTemplate(settings, letter) ?? [])
+}
+
+/** The catalog's exercise ids: an edit naming one the seed no longer has is dropped, as `planSession` drops it. */
+const KNOWN_IDS: ReadonlySet<string> = new Set(PROGRAM.exercises.map((e) => e.id))
+
+/**
+ * The current phase's sessions as they run: the Program screen's edits laid over program.md's
+ * lists (`applyToTemplate`, as `planSession` lays them), so "What this changes" names the stand-in
+ * the session runs, not the one program.md lists first. program.md's templates are left alone.
+ */
+export function templatesAsRun(settings: Settings, overrides: readonly ProgramOverride[]): SessionTemplate[] {
+  const bySlot = overridesBySlot(overrides)
+  return currentTemplates(settings).map((template) => applyToTemplate(template, bySlot, KNOWN_IDS))
 }
 
 type ItemLike = Pick<Equipment, 'id' | 'name' | 'carried'>

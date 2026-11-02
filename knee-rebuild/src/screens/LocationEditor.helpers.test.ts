@@ -4,7 +4,7 @@ import { program } from '../program/program.ts'
 import { availableEquipment, equipmentChecklist, usedEquipment } from '../rules/equipment.ts'
 import { newLocation } from '../rules/locations.ts'
 import { rowItems, typedOutcome } from '../rules/whereYouTrain.ts'
-import type { Location, Settings } from '../schema/index.ts'
+import type { Location, ProgramOverride, Settings } from '../schema/index.ts'
 import {
   DEFAULT_START,
   KEEP_AS_TYPED,
@@ -35,6 +35,7 @@ import {
   shortDate,
   startWords,
   startedFromWords,
+  templatesAsRun,
   typedWords,
   usedByWords,
 } from './LocationEditor.helpers.ts'
@@ -319,6 +320,31 @@ describe('What this changes', () => {
     const [later] = view(marriott, phase3, 3).sessions
     expect(later?.lines).toContain('Nothing here for Jump onto the circuit step and step down (no step platforms)')
     expect(later?.lines.some((l) => l.includes('Step-off landing'))).toBe(false)
+  })
+
+  it('names the stand-in the session runs: the Program screen’s edits to a slot’s substitutions, not program.md’s list', () => {
+    const s = settings()
+    // Shawn put the goblet squat ahead of the Smith box squat on Phase 1 A's leg press.
+    const edit: ProgramOverride = { slotId: 'p1a-1', substitutionIds: ['goblet-squat-bench', 'smith-box-squat'], editedOn: '2026-11-16' }
+    const edited = changesView({
+      templates: templatesAsRun(s, [edit]),
+      phase: s.currentPhase,
+      phaseWeek: 1,
+      phaseEnteredWeek: s.phaseEnteredWeek,
+      byId,
+      available: availableOf(marriott),
+      items: program.equipment,
+      gymName: marriott.name,
+    })
+    expect(edited.sessions[0]?.lines[0]).toBe('Leg press, both legs → Goblet squat to a bench (no seated leg press)')
+    // The runner plans the same slot from the same lists.
+    expect(templatesAsRun(s, [edit])[0]?.slots[0]?.substitutionIds).toEqual(['goblet-squat-bench', 'smith-box-squat'])
+    // With no edits, the lists are program.md's; an id the catalog no longer has is dropped, never named.
+    expect(templatesAsRun(s, [])).toEqual(currentTemplates(s))
+    const retired: ProgramOverride = { slotId: 'p1a-1', substitutionIds: ['retired-press', 'smith-box-squat'], editedOn: '2026-11-16' }
+    expect(templatesAsRun(s, [retired])[0]?.slots[0]?.substitutionIds).toEqual(['smith-box-squat'])
+    // program.md's templates are never written.
+    expect(currentTemplates(s)[0]?.slots[0]?.substitutionIds).toEqual(['leg-press-45', 'smith-box-squat', 'goblet-squat-bench'])
   })
 
   it('says Phase 4 has no sessions to move', () => {
