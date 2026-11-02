@@ -229,9 +229,10 @@ export function lastExportWords(lastExportedAt: IsoDateTime | undefined, today: 
   return `Last export: ${days} days ago.`
 }
 
-/** "Monday Dec 21": the day a file was written, in New York. */
-export function exportedOnWords(exportedAt: IsoDateTime): string {
-  return dateWords(exportDay(exportedAt))
+/** "Monday Dec 21": the day a file was written, in New York; "Monday Dec 21, 2026" when that isn't this year (`today`'s). */
+export function exportedOnWords(exportedAt: IsoDateTime, today: IsoDate): string {
+  const day = exportDay(exportedAt)
+  return day.slice(0, 4) === today.slice(0, 4) ? dateWords(day) : `${dateWords(day)}, ${day.slice(0, 4)}`
 }
 
 /** "a", "a and b", "a, b and c". */

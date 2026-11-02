@@ -349,7 +349,14 @@ describe('backup words (M6)', () => {
     // 10:30 pm on Nov 19 in New York: yesterday on the 20th, though it is the 20th in UTC.
     expect(lastExportWords('2026-11-20T03:30:00.000Z', '2026-11-20')).toBe('Last export: yesterday.')
     expect(lastExportWords('2026-11-11T15:00:00.000Z', '2026-11-20')).toBe('Last export: 9 days ago.')
-    expect(exportedOnWords('2026-12-22T02:00:00.000Z')).toBe('Monday Dec 21')
+    expect(exportedOnWords('2026-12-22T02:00:00.000Z', '2026-12-28')).toBe('Monday Dec 21')
+  })
+
+  it('names the year a file was written in when it isn’t this year, so a file stamped 2099, or last year’s, says so', () => {
+    expect(exportedOnWords('2026-12-22T02:00:00.000Z', '2027-01-04')).toBe('Monday Dec 21, 2026')
+    expect(exportedOnWords('2099-03-02T15:00:00.000Z', '2026-11-20')).toBe('Monday Mar 2, 2099')
+    // New Year's Eve in New York is still the old year, though it is already Jan 1 in UTC.
+    expect(exportedOnWords('2027-01-01T03:00:00.000Z', '2026-12-31')).toBe('Thursday Dec 31')
   })
 
   it('says what a file holds as the brief has it, then the rest', () => {

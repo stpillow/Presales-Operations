@@ -346,7 +346,7 @@ function SettingsForm({ stored }: { stored: SettingsRecord }) {
 
       <ExportSection today={today} lastExportedAt={draft.lastExportedAt} saved={savedField === 'export'} problem={problemFor('export')} onExported={recordExport} />
 
-      <ImportSection held={hold === 'reset' ? held : null} onReplace={importFile} />
+      <ImportSection today={today} held={hold === 'reset' ? held : null} onReplace={importFile} />
 
       <ResetSection
         step={resetStep}
@@ -809,7 +809,7 @@ interface PendingImport {
  * table in one transaction, all or nothing, and says it did here, where Yes was tapped (the top of
  * the screen is a long scroll away).
  */
-function ImportSection({ held, onReplace }: { held: string | null; onReplace: (backup: Backup) => Promise<void> }) {
+function ImportSection({ today, held, onReplace }: { today: IsoDate; held: string | null; onReplace: (backup: Backup) => Promise<void> }) {
   const inputId = useId()
   const [pending, setPending] = useState<PendingImport | null>(null)
   const [step, setStep] = useState<'idle' | 'reading' | 'writing'>('idle')
@@ -889,7 +889,7 @@ function ImportSection({ held, onReplace }: { held: string | null; onReplace: (b
       {pending ? (
         <div className="flex flex-col gap-3">
           <p className="text-body text-on-dark wrap-anywhere">
-            {pending.name}, exported {exportedOnWords(pending.backup.exportedAt)}: {holdsLine(pending.file)}
+            {pending.name}, exported {exportedOnWords(pending.backup.exportedAt, today)}: {holdsLine(pending.file)}
           </p>
           {migratedWords(pending.migratedFrom) ? <Note>{migratedWords(pending.migratedFrom)}</Note> : null}
           <p className="text-body text-on-dark-dim">This phone now: {holdsLine(pending.phone)}</p>
