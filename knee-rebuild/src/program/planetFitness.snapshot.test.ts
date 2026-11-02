@@ -8,8 +8,10 @@ import { program } from './program.ts'
  * What planSession says at Planet Fitness before the gym-aware prescription (M4b, design section 3):
  * all nine templates, empty history, settings as a fresh install writes them (right knee, start
  * 2026-11-02, 80 lb rack), each template in the first week of its phase. Recorded before
- * prescription.ts or runOrder.ts changed and kept byte-identical after: at Shawn's club, where every
- * slot runs its own exercise and every balance stage is here, the equipment rules change nothing.
+ * prescription.ts or runOrder.ts changed and kept byte-identical after. With empty history every
+ * prescription is a first session, so this pins first sessions only; homeGym.prescribe.test.ts
+ * covers the rest, comparing `prescribe` at the home gym with no gym given under readings, loads
+ * and a deload week.
  *
  * The slot, the exercise and the substitutions are the seed's own objects handed back, so they are
  * recorded by id; every prescription is recorded in full.
