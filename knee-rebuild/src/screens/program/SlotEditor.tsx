@@ -479,7 +479,7 @@ function AddSubstitution({ sections, onAdd }: { sections: ReturnType<typeof addS
         Close the catalog
       </Button>
       <h5 className={LABEL}>{sections.same.heading}</h5>
-      {sections.same.exercises.length > 0 ? pick(sections.same.exercises) : <Note>Every exercise of this pattern is on the list already.</Note>}
+      {sections.same.exercises.length > 0 ? pick(sections.same.exercises) : <Note>No other exercise of this pattern can stand in here.</Note>}
       {all ? (
         sections.others.map((group) => (
           <div key={group.heading} className="flex flex-col gap-2">

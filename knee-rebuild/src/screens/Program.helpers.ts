@@ -1,7 +1,7 @@
 import { PROGRAM } from '../app/session.ts'
 import type { Block } from '../rules/markdown.ts'
 import { plainText } from '../rules/markdown.ts'
-import { addableSubstitutions, cleanCue, cueLength, editedParts, overridesBySlot, slotEdit, type Edited, type SlotEdit } from '../rules/overrides.ts'
+import { addableSubstitutions, cleanCue, cueLength, editedParts, overridesBySlot, slotEdit, substitutionProblem, type Edited, type SlotEdit } from '../rules/overrides.ts'
 import { slotsForPhaseWeek } from '../rules/session.ts'
 import { CUE_MAX, showsText, type Exercise, type IsoDate, type ProgramOverride, type Settings, type Slot } from '../schema/index.ts'
 import { coverageWeek, currentTemplates, shortDate } from './LocationEditor.helpers.ts'
@@ -199,9 +199,16 @@ export interface AddGroup {
   exercises: Exercise[]
 }
 
-/** Add's offer in sections: the slot's own pattern first (named after its exercise), then every other pattern. */
+/**
+ * Add's offer in sections: the slot's own pattern first (named after its exercise), then every other
+ * pattern; never an exercise the slot can't count or step (`substitutionProblem`, PROGRAM-QUESTIONS
+ * 130), which the repo would refuse on save.
+ */
 export function addSections(slot: Slot, edit: SlotEdit, catalog: readonly Exercise[]): { same: AddGroup; others: AddGroup[]; otherCount: number } {
-  const { samePattern, others } = addableSubstitutions(slot, edit, catalog)
+  const addable = addableSubstitutions(slot, edit, catalog)
+  const fits = (e: Exercise) => substitutionProblem(slot, e) === null
+  const samePattern = addable.samePattern.filter(fits)
+  const others = addable.others.filter(fits)
   const own = catalog.find((e) => e.id === slot.exerciseId)
   const patterns = [...new Set(others.map((e) => e.pattern))]
   return {

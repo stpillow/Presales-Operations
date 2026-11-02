@@ -4,6 +4,7 @@ import phasesChart from '../../docs/media/image1.png?inline'
 import mileageChart from '../../docs/media/image2.png?inline'
 import { program, templateFor } from '../program/program.ts'
 import { fallbacksAfter } from '../rules/equipment.ts'
+import { substitutionProblem } from '../rules/overrides.ts'
 import { parseInline, parseMarkdown, type Block } from '../rules/markdown.ts'
 import { Settings, type ProgramOverride, type Slot } from '../schema/index.ts'
 import {
@@ -200,8 +201,29 @@ describe('addSections and patternWords', () => {
     expect(sections.same.heading).toBe('Hip, like Hip abductor machine')
     expect(sections.same.exercises.map((e) => e.id)).toEqual(['smith-hip-thrust', 'db-glute-bridge', 'db-hip-thrust', 'single-leg-hip-thrust', 'hip-adductor-machine', 'cable-hip-adduction', 'copenhagen-plank-long'])
     expect(sections.others[0]?.heading).toBe('Squat')
-    expect(sections.others.flatMap((g) => g.exercises)).toHaveLength(program.exercises.length - 4 - 7)
-    expect(sections.otherCount).toBe(program.exercises.length - 4 - 7)
+    // Less the slot and its list (4), its own pattern (7), and the 6 it can't count or step (below).
+    expect(sections.others.flatMap((g) => g.exercises)).toHaveLength(program.exercises.length - 4 - 7 - 6)
+    expect(sections.otherCount).toBe(program.exercises.length - 4 - 7 - 6)
+  })
+
+  it('leaves out what the slot can’t count or step, which the repo would refuse (PROGRAM-QUESTIONS 130)', () => {
+    const abductor = seedSlot('p1-a', 'p1a-5')
+    const offered = (slot: Slot, substitutionIds = slot.substitutionIds) => {
+      const sections = addSections(slot, { cues: [], substitutionIds }, program.exercises)
+      return [...sections.same.exercises, ...sections.others.flatMap((g) => g.exercises)].map((e) => e.id)
+    }
+    // A reps slot with no step height: no step-up, no carry, no cardio.
+    for (const id of ['step-up', 'step-up-stair', 'lateral-step-down', 'farmers-carry', 'suitcase-carry', 'elliptical-easy']) expect(offered(abductor)).not.toContain(id)
+    // A slot counted in yards takes only a carry: with its list emptied, the carries are all Add offers.
+    const carry = seedSlot('p1-c', 'p1c-7')
+    expect(offered(carry, [])).toEqual(program.exercises.filter((e) => e.pattern === 'carry' && e.id !== carry.exerciseId).map((e) => e.id))
+    // Every slot: nothing Add offers is refused on save.
+    for (const slot of program.templates.flatMap((t) => t.slots)) {
+      for (const id of offered(slot)) {
+        const exercise = program.exercises.find((e) => e.id === id)
+        expect(exercise && substitutionProblem(slot, exercise), `${slot.id} ${id}`).toBeNull()
+      }
+    }
   })
 
   it('words a pattern as program.md would: capitalized, hyphen kept', () => {
