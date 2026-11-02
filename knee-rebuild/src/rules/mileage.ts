@@ -31,14 +31,15 @@ export interface WeekTarget {
 
 /**
  * Rule 7: the plan's number, unless any run or workout in the previous week read hold or back-off,
- * in which case the target is capped at that week's actual miles.
+ * in which case the target is capped at that week's actual miles. A cap at or above the plan's
+ * number changes nothing, so it is no cap: capped is false and the reason is the plan's (M4 review).
+ * capped is true exactly when the target is below the plan's number.
  */
 export function weekTarget(plan: readonly MileageWeek[], week: number, previous: PreviousWeek | null): WeekTarget {
   const planned = planTarget(plan, week)
   if (planned === null) return { target: null, capped: false, reason: `week ${week} is outside the 12-week plan` }
-  if (previous && previous.readings.some((r) => r !== 'clean')) {
-    const target = Math.min(planned, previous.actualMiles)
-    return { target, capped: target < planned, reason: `last week read ${previous.readings.includes('back-off') ? 'back-off' : 'hold'}: capped at last week’s ${previous.actualMiles} miles` }
+  if (previous && previous.readings.some((r) => r !== 'clean') && previous.actualMiles < planned) {
+    return { target: previous.actualMiles, capped: true, reason: `last week read ${previous.readings.includes('back-off') ? 'back-off' : 'hold'}: capped at last week’s ${previous.actualMiles} miles` }
   }
   return { target: planned, capped: false, reason: 'from the plan' }
 }
