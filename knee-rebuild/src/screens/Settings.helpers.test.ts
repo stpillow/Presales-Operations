@@ -25,6 +25,7 @@ import {
   deloadWeeksLine,
   droppedMovesWords,
   errorWords,
+  heldWords,
   mondaysAround,
   painWords,
   phaseWords,
@@ -255,6 +256,19 @@ describe('resetWords', () => {
     expect(resetWords({ kind: 'not-seeded', error: new Error('  ') })).toEqual({
       text: 'Everything was erased, but the default settings did not save (no reason was given); reload the app to seed them again.',
       problem: true,
+    })
+  })
+})
+
+describe('heldWords', () => {
+  it('says the rest of the form waits while an import or a reset writes, and why a tap then saved nothing', () => {
+    expect(heldWords('import')).toEqual({
+      note: 'Waits while the import replaces everything on this phone.',
+      refusal: 'Not saved: the import was replacing everything on this phone. Tap it again once it’s done.',
+    })
+    expect(heldWords('reset')).toEqual({
+      note: 'Waits while Reset erases everything on this phone.',
+      refusal: 'Not saved: Reset was erasing everything on this phone. Tap it again once it’s done.',
     })
   })
 })

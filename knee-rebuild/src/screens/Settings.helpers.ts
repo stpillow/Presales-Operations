@@ -199,6 +199,20 @@ export function resetWords(outcome: ResetOutcome): { text: string; problem: bool
   }
 }
 
+/** What writes the whole phone while the rest of Settings waits. */
+export type FormHold = 'import' | 'reset'
+
+/**
+ * While an import or a reset writes, the rest of the form waits, and says so in words: a change
+ * saved then would write the settings this screen holds, the old ones, over what the import or the
+ * reset wrote. `note` sits in each waiting section; `refusal` answers a tap that came in anyway.
+ */
+export function heldWords(hold: FormHold): { note: string; refusal: string } {
+  const did = hold === 'import' ? 'the import was replacing' : 'Reset was erasing'
+  const note = hold === 'import' ? 'Waits while the import replaces everything on this phone.' : 'Waits while Reset erases everything on this phone.'
+  return { note, refusal: `Not saved: ${did} everything on this phone. Tap it again once it’s done.` }
+}
+
 // ---------------------------------------------------------------------------------------------
 // Backup: export and import (M6). What a file is and whether it may be imported is
 // src/rules/backup.ts's call; these name its answers and pick how the phone hands the file over.

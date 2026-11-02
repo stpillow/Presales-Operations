@@ -8,7 +8,7 @@ import { Stepper } from '../components/Stepper.tsx'
 import { Tap } from '../components/Tap.tsx'
 import { exportBackup, markExported, readStored, replaceAll } from '../db/backup.ts'
 import { useSettings } from '../db/hooks.ts'
-import { defaultSettings, ensureSettings, resetAll, saveSettings, saveSettingsAndMoves } from '../db/repo.ts'
+import { defaultSettings, ensureSettings, getSettings, resetAll, saveSettings, saveSettingsAndMoves } from '../db/repo.ts'
 import { backupFileName, backupText, lostOnImport, parseBackup, settingsOnImport, sizeProblem, summarize, type Backup, type BackupSummary, type BackupTable } from '../rules/backup.ts'
 import type { IsoDate, IsoDateTime, Settings as SettingsRecord } from '../schema/index.ts'
 import {
@@ -24,6 +24,7 @@ import {
   dateWords,
   errorWords,
   exportedOnWords,
+  heldWords,
   holdsLine,
   importedWords,
   lastExportWords,
@@ -41,6 +42,7 @@ import {
   deloadWeeksLine,
   startDateChange,
   weekLine,
+  type FormHold,
   type StartDateCheck,
 } from './Settings.helpers.ts'
 
@@ -113,6 +115,15 @@ function SettingsForm({ stored }: { stored: SettingsRecord }) {
   // Where the red-flag section sits is settled once per visit: clearing it, the Saved word that follows, and a
   // rejected clear (which keeps the typed note) all happen in place instead of jumping down the screen.
   const [flagFirst] = useState(() => stored.redFlag.active)
+  // While an import or a reset writes, the rest of the form waits: a save then would write the row this
+  // screen holds, the old one, and queue it behind the import's transaction, over what it wrote. The ref
+  // answers a tap in the same frame; the state disables the controls and says so in each section.
+  const holdRef = useRef<FormHold | null>(null)
+  const [hold, setHoldState] = useState<FormHold | null>(null)
+  const setHold = (next: FormHold | null) => {
+    holdRef.current = next
+    setHoldState(next)
+  }
 
   useEffect(() => {
     mounted.current = true
@@ -141,6 +152,11 @@ function SettingsForm({ stored }: { stored: SettingsRecord }) {
 
   /** Shows the change at once, writes it, and says Saved; a rejected write falls back to what the phone holds. */
   async function save(patch: Partial<SettingsRecord>, field: Field, write: (next: SettingsRecord) => Promise<void> = saveSettings): Promise<void> {
+    // The export's stamp alone is written read-modify-write (markExported), so it never needs to wait.
+    if (holdRef.current !== null && field !== 'export') {
+      setProblem({ field, text: heldWords(holdRef.current).refusal })
+      return
+    }
     const next = { ...draftRef.current, ...patch }
     adopt(next)
     setProblem(null)
@@ -185,6 +201,15 @@ function SettingsForm({ stored }: { stored: SettingsRecord }) {
   }
 
   async function eraseEverything(): Promise<void> {
+    setHold('reset')
+    try {
+      await erase()
+    } finally {
+      setHold(null)
+    }
+  }
+
+  async function erase(): Promise<void> {
     setResetStep('erasing')
     setProblem(null)
     setResetResult(null)
@@ -221,15 +246,38 @@ function SettingsForm({ stored }: { stored: SettingsRecord }) {
     }
   }
 
+  /**
+   * Replaces everything with the file (src/db/backup.ts `replaceAll`) while the rest of the form
+   * waits, then puts the stored row on the form before the live query's echo arrives, so no tap in
+   * between writes the old row back. A failure is the Import section's to say.
+   */
+  async function importFile(backup: Backup): Promise<void> {
+    const before = storedRef.current
+    setHold('import')
+    pending.current += 1
+    try {
+      await replaceAll(backup, PROGRAM, today)
+      // Read once more for the row as written (the red flag it kept, the export stamp). Should that read
+      // fail, the live query's echo is the row: adopted here if it came already, else when it comes.
+      const row = await getSettings().catch(() => undefined)
+      const next = row ?? (storedRef.current !== before ? storedRef.current : undefined)
+      if (next && mounted.current) adopt(next)
+    } finally {
+      pending.current -= 1
+      setHold(null)
+    }
+  }
+
   const problemFor = (field: Field) => (problem?.field === field ? problem.text : null)
+  const held = hold ? heldWords(hold).note : null
   const phase = phaseWords(draft, PROGRAM.phases)
-  const redFlag = <RedFlagSection state={draft.redFlag} saved={savedField === 'redFlag'} problem={problemFor('redFlag')} onClear={clearFlag} />
+  const redFlag = <RedFlagSection state={draft.redFlag} saved={savedField === 'redFlag'} problem={problemFor('redFlag')} held={held} onClear={clearFlag} />
 
   return (
     <Screen title={TITLE} lead="Each change saves on its own; a Saved word confirms it.">
       {flagFirst ? redFlag : null}
 
-      <Section label="Injured side" saved={savedField === 'injuredSide'} problem={problemFor('injuredSide')}>
+      <Section label="Injured side" saved={savedField === 'injuredSide'} problem={problemFor('injuredSide')} held={held}>
         <div role="radiogroup" aria-label="Injured side" className="flex flex-col gap-2">
           {SIDES.map((side) => (
             <Choice
@@ -237,6 +285,7 @@ function SettingsForm({ stored }: { stored: SettingsRecord }) {
               label={sideWords(side)}
               selected={draft.injuredSide === side}
               selectedWord="Injured"
+              disabled={hold !== null}
               onSelect={() => {
                 if (draft.injuredSide !== side) void save({ injuredSide: side }, 'injuredSide')
               }}
@@ -253,6 +302,7 @@ function SettingsForm({ stored }: { stored: SettingsRecord }) {
         saved={savedField === 'startDate'}
         problem={problemFor('startDate')}
         movesNotice={movesNotice}
+        held={held}
         onSave={(date) => void saveStartDate(date)}
       />
 
@@ -264,7 +314,7 @@ function SettingsForm({ stored }: { stored: SettingsRecord }) {
         </Button>
       </Section>
 
-      <Section label="Rest timer" saved={savedField === 'restTimerSeconds'} problem={problemFor('restTimerSeconds')}>
+      <Section label="Rest timer" saved={savedField === 'restTimerSeconds'} problem={problemFor('restTimerSeconds')} held={held}>
         <Stepper
           label="Rest between sets"
           unit="s"
@@ -272,13 +322,14 @@ function SettingsForm({ stored }: { stored: SettingsRecord }) {
           step={REST_STEP}
           min={REST_MIN}
           max={REST_MAX}
+          disabled={hold !== null}
           onChange={(v) => void save({ restTimerSeconds: v }, 'restTimerSeconds')}
         />
         <Note>{restTimerWords(draft.restTimerSeconds)} of rest, counted from the moment a set is marked done.</Note>
       </Section>
 
-      <Section label="Pain logging" saved={savedField === 'painPerSet'} problem={problemFor('painPerSet')}>
-        <Tap label="Pain per set" value={draft.painPerSet} onChange={(v) => void save({ painPerSet: v }, 'painPerSet')} yes="Per set" no="Per exercise" />
+      <Section label="Pain logging" saved={savedField === 'painPerSet'} problem={problemFor('painPerSet')} held={held}>
+        <Tap label="Pain per set" value={draft.painPerSet} disabled={hold !== null} onChange={(v) => void save({ painPerSet: v }, 'painPerSet')} yes="Per set" no="Per exercise" />
         <Note>{painWords(draft.painPerSet)}</Note>
       </Section>
 
@@ -295,11 +346,12 @@ function SettingsForm({ stored }: { stored: SettingsRecord }) {
 
       <ExportSection today={today} lastExportedAt={draft.lastExportedAt} saved={savedField === 'export'} problem={problemFor('export')} onExported={recordExport} />
 
-      <ImportSection today={today} />
+      <ImportSection held={hold === 'reset' ? held : null} onReplace={importFile} />
 
       <ResetSection
         step={resetStep}
         result={resetResult}
+        held={hold === 'import' ? held : null}
         onArm={() => {
           setResetResult(null)
           setResetStep('confirm')
@@ -333,7 +385,7 @@ function useFlash(): [Field | null, (field: Field) => void] {
 }
 
 /** A labelled group with a Saved word on its label row and a problem sentence under it. */
-function Section({ label, saved, problem, children }: { label: string; saved: boolean; problem: string | null; children: ReactNode }) {
+function Section({ label, saved, problem, held = null, children }: { label: string; saved: boolean; problem: string | null; held?: string | null; children: ReactNode }) {
   return (
     <section aria-label={label} className="flex flex-col gap-3 border-t border-on-dark-faint pt-4">
       <div className="flex items-center justify-between gap-4">
@@ -342,6 +394,7 @@ function Section({ label, saved, problem, children }: { label: string; saved: bo
           {saved ? '✓ Saved' : ''}
         </span>
       </div>
+      {held ? <Note>{held}</Note> : null}
       {children}
       {problem ? (
         <p role="alert" className="text-body text-on-dark">
@@ -363,12 +416,14 @@ function Choice({
   onSelect,
   selectedWord = 'Chosen',
   compact = false,
+  disabled = false,
 }: {
   label: string
   selected: boolean
   onSelect: () => void
   selectedWord?: string
   compact?: boolean
+  disabled?: boolean
 }) {
   const mark = <span className="font-mono text-small uppercase tracking-[0.22em]">{selected ? (compact ? '✓' : `✓ ${selectedWord}`) : '○'}</span>
   return (
@@ -376,8 +431,9 @@ function Choice({
       type="button"
       role="radio"
       aria-checked={selected}
+      disabled={disabled}
       onClick={onSelect}
-      className={`tap flex w-full items-center rounded-sm border px-4 py-3 text-body ${compact ? 'justify-center gap-2' : 'justify-between gap-4 text-left'} ${
+      className={`tap flex w-full items-center rounded-sm border px-4 py-3 text-body disabled:opacity-50 ${compact ? 'justify-center gap-2' : 'justify-between gap-4 text-left'} ${
         selected ? 'border-paper bg-navy-lift text-on-dark' : 'border-on-dark-faint bg-transparent text-on-dark-dim'
       }`}
     >
@@ -403,6 +459,7 @@ function StartDateSection({
   saved,
   problem,
   movesNotice,
+  held,
   onSave,
 }: {
   startDate: IsoDate
@@ -411,6 +468,8 @@ function StartDateSection({
   problem: string | null
   /** How many session moves the last change dropped, in words; null when it dropped none. */
   movesNotice: string | null
+  /** Why the section waits, while an import or a reset writes; null otherwise. */
+  held: string | null
   onSave: (date: IsoDate) => void
 }) {
   const id = useId()
@@ -424,16 +483,16 @@ function StartDateSection({
   }
   const pending = check?.ok && check.date !== startDate ? check.date : null
   return (
-    <Section label="Start date" saved={saved} problem={problem}>
+    <Section label="Start date" saved={saved} problem={problem} held={held}>
       <label htmlFor={id} className="text-body text-on-dark-dim">
         Week 1 starts on a Monday
       </label>
-      <input id={id} type="date" value={input} onChange={(e) => choose(e.target.value)} className="tap w-full rounded-sm bg-ink px-3 text-body text-on-dark" />
+      <input id={id} type="date" value={input} disabled={held !== null} onChange={(e) => choose(e.target.value)} className="tap w-full rounded-sm bg-ink px-3 text-body text-on-dark disabled:opacity-50" />
       <Note>
         {weekLine(today, startDate)} {deloadWeeksLine()}
       </Note>
       {pending ? (
-        <Button variant="primary" wide onClick={() => onSave(pending)}>
+        <Button variant="primary" wide disabled={held !== null} onClick={() => onSave(pending)}>
           Save start date
         </Button>
       ) : null}
@@ -449,7 +508,7 @@ function StartDateSection({
             {check.message}
           </p>
           {check.mondays.map((monday) => (
-            <Button key={monday} wide onClick={() => choose(monday)}>
+            <Button key={monday} wide disabled={held !== null} onClick={() => choose(monday)}>
               Use {dateWords(monday)}
             </Button>
           ))}
@@ -464,11 +523,14 @@ function RedFlagSection({
   state,
   saved,
   problem,
+  held,
   onClear,
 }: {
   state: SettingsRecord['redFlag']
   saved: boolean
   problem: string | null
+  /** Why the section waits, while an import or a reset writes; null otherwise. */
+  held: string | null
   onClear: (note: string) => string | null
 }) {
   const view = redFlagView(state, PROGRAM.redFlags)
@@ -476,7 +538,7 @@ function RedFlagSection({
   const [note, setNote] = useState('')
   const [refusal, setRefusal] = useState<string | null>(null)
   return (
-    <Section label="Red flag" saved={saved} problem={problem}>
+    <Section label="Red flag" saved={saved} problem={problem} held={held}>
       {view.active ? (
         <>
           <p className="text-lead font-medium text-on-dark">{view.headline}</p>
@@ -496,7 +558,7 @@ function RedFlagSection({
               {refusal}
             </p>
           ) : null}
-          <Button variant="primary" wide onClick={() => setRefusal(onClear(note))}>
+          <Button variant="primary" wide disabled={held !== null} onClick={() => setRefusal(onClear(note))}>
             Clear the red flag
           </Button>
         </>
@@ -519,12 +581,15 @@ function RedFlagSection({
 function ResetSection({
   step,
   result,
+  held,
   onArm,
   onDisarm,
   onErase,
 }: {
   step: ResetStep
   result: ResetResult | null
+  /** Why Reset waits, while an import writes; null otherwise. */
+  held: string | null
   onArm: () => void
   onDisarm: () => void
   onErase: () => void
@@ -535,9 +600,9 @@ function ResetSection({
     if (result) said.current?.scrollIntoView({ block: 'center' })
   }, [result])
   return (
-    <Section label="Reset" saved={false} problem={null}>
+    <Section label="Reset" saved={false} problem={null} held={held}>
       {step === 'idle' ? (
-        <Button wide onClick={onArm}>
+        <Button wide disabled={held !== null} onClick={onArm}>
           Reset all data
         </Button>
       ) : (
@@ -545,7 +610,7 @@ function ResetSection({
           <p className="text-body text-on-dark">
             This erases every session, set, morning check, run, gate test, gym, Program edit and setting on this phone. There is no undo; export first to keep a copy.
           </p>
-          <Button wide disabled={step === 'erasing'} onClick={onErase}>
+          <Button wide disabled={step === 'erasing' || held !== null} onClick={onErase}>
             {step === 'erasing' ? 'Erasing…' : 'Yes, erase everything'}
           </Button>
           <Button variant="quiet" wide disabled={step === 'erasing'} onClick={onDisarm}>
@@ -744,7 +809,7 @@ interface PendingImport {
  * table in one transaction, all or nothing, and says it did here, where Yes was tapped (the top of
  * the screen is a long scroll away).
  */
-function ImportSection({ today }: { today: IsoDate }) {
+function ImportSection({ held, onReplace }: { held: string | null; onReplace: (backup: Backup) => Promise<void> }) {
   const inputId = useId()
   const [pending, setPending] = useState<PendingImport | null>(null)
   const [step, setStep] = useState<'idle' | 'reading' | 'writing'>('idle')
@@ -793,7 +858,7 @@ function ImportSection({ today }: { today: IsoDate }) {
     setStep('writing')
     setRefusal(null)
     try {
-      await replaceAll(file.backup, PROGRAM, today)
+      await onReplace(file.backup)
       setPending(null)
       setImported(importedWords(file.name, file.file))
     } catch (e) {
@@ -804,12 +869,12 @@ function ImportSection({ today }: { today: IsoDate }) {
   }
 
   return (
-    <Section label="Import" saved={false} problem={null}>
+    <Section label="Import" saved={false} problem={null} held={held}>
       <Note>A file from Export JSON. Importing replaces everything on this phone with what the file holds; nothing is merged.</Note>
-      <label htmlFor={inputId} aria-disabled={step !== 'idle'} className={`${LINK_BUTTON} ${step === 'idle' ? '' : 'pointer-events-none opacity-50'}`}>
+      <label htmlFor={inputId} aria-disabled={step !== 'idle' || held !== null} className={`${LINK_BUTTON} ${step === 'idle' && held === null ? '' : 'pointer-events-none opacity-50'}`}>
         {step === 'reading' ? 'Reading the file…' : 'Choose a backup file'}
       </label>
-      <input id={inputId} type="file" accept=".json,application/json" disabled={step !== 'idle'} onChange={(e) => void choose(e)} className="sr-only" />
+      <input id={inputId} type="file" accept=".json,application/json" disabled={step !== 'idle' || held !== null} onChange={(e) => void choose(e)} className="sr-only" />
       {refusal ? (
         <p role="alert" className="text-body text-on-dark">
           {refusal}
@@ -835,7 +900,7 @@ function ImportSection({ today }: { today: IsoDate }) {
           ))}
           {pending.settings.redFlag ? <p className="text-body text-on-dark wrap-anywhere">{pending.settings.redFlag}</p> : null}
           <p className="text-lead font-medium text-on-dark">{IMPORT_CONFIRM}</p>
-          <Button wide disabled={step === 'writing'} onClick={() => void replace(pending)}>
+          <Button wide disabled={step === 'writing' || held !== null} onClick={() => void replace(pending)}>
             {step === 'writing' ? 'Replacing…' : 'Yes, replace everything'}
           </Button>
           <Button variant="quiet" wide disabled={step === 'writing'} onClick={() => setPending(null)}>
