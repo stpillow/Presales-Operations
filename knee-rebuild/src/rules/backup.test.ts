@@ -255,6 +255,33 @@ describe('reading a file back', () => {
     })
   })
 
+  it('quotes nothing from the file whole: a key it doesn’t keep is named cut short, with no control or format characters, however long', () => {
+    const backup = built()
+    const huge = `\u202E${'x'.repeat(20_000)}`
+    const unsafe = /[\p{Cc}\p{Cf}]/u
+    const refusals = [
+      parseBackup(fileText({ ...backup, runs: [{ ...backup.runs[0], [huge]: 1 }] })),
+      parseBackup(fileText({ ...backup, settings: { ...backup.settings, [huge]: 1 } })),
+      parseBackup(fileText({ ...backup, settings: { ...backup.settings, redFlag: { ...backup.settings.redFlag, [huge]: 1 } } })),
+      parseBackup(fileText({ ...backup, [huge]: 1 })),
+      parseBackup(fileText({ ...backup, runs: [{ ...backup.runs[0], id: huge }, { ...backup.runs[0], id: huge }] })),
+      parseBackup(fileText({ ...backup, workouts: [{ ...backup.workouts[0], ['\u0007bell\u0000']: 1 }] })),
+    ].map((read) => (read.ok ? '' : read.refusal))
+    for (const refusal of refusals) {
+      expect(refusal.length, refusal.slice(0, 80)).toBeGreaterThan(0)
+      expect(refusal.length, refusal.slice(0, 80)).toBeLessThan(200)
+      expect(refusal, refusal.slice(0, 80)).not.toMatch(unsafe)
+    }
+    expect(refusals[0]).toBe(`This backup’s runs, row 1, doesn’t read as the app stores it (a part the app doesn’t keep, “${'x'.repeat(40)}…”). Nothing was imported.`)
+    expect(refusals[2]).toBe(`This backup’s settings don’t read as the app stores them (redFlag: a part the app doesn’t keep, “${'x'.repeat(40)}…”). Nothing was imported.`)
+    expect(refusals[5]).toBe('This backup’s sessions, row 1, doesn’t read as the app stores it (a part the app doesn’t keep, “ bell ”). Nothing was imported.')
+    // Two keys it doesn't keep: the first is named, the rest counted.
+    expect(parseBackup(fileText({ ...backup, workouts: [{ ...backup.workouts[0], mood: 1, weather: 2 }] }))).toEqual({
+      ok: false,
+      refusal: 'This backup’s sessions, row 1, doesn’t read as the app stores it (a part the app doesn’t keep, “mood”, and 1 more). Nothing was imported.',
+    })
+  })
+
   it('refuses a file past any size a backup comes near, before reading it', () => {
     expect(sizeProblem(BACKUP_MAX_BYTES)).toBeNull()
     expect(sizeProblem(12.34 * 1024 * 1024)).toBe('This file is 12.3 MB, past the 10 MB no backup of this app comes near, so it isn’t one. Nothing was imported.')

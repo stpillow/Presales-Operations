@@ -90,6 +90,9 @@ export const TABLE_WORDS: Record<BackupTable, { many: string; one: string }> = {
 interface Issue {
   readonly path: readonly PropertyKey[]
   readonly message: string
+  readonly code?: string
+  /** On an unrecognized-keys issue: the keys, as the file wrote them. */
+  readonly keys?: readonly string[]
 }
 /** What a row's schema offers: a Zod schema, named by the one method used. */
 interface RowSchema<T> {
@@ -122,17 +125,33 @@ function byKey<K extends BackupTable>(table: K, rows: readonly BackupTables[K][n
   })
 }
 
-/** Text from the file, cut short and stripped of control characters, before a refusal quotes it. */
-function quoted(text: string): string {
-  const clean = text.replace(/\p{Cc}/gu, ' ')
-  return `“${clean.length > 40 ? `${clean.slice(0, 40)}…` : clean}”`
+/**
+ * Text for a refusal, safe to show: control characters a space, format characters (a right-to-left
+ * override, a zero-width joiner) gone, cut to `max` characters (code points, so an emoji is never
+ * split) with an ellipsis.
+ */
+function plain(text: string, max: number): string {
+  const chars = [...text.replace(/\p{Cc}/gu, ' ').replace(/\p{Cf}/gu, '')]
+  return chars.length > max ? `${chars.slice(0, max).join('')}…` : chars.join('')
 }
 
+/** Text from the file, cut short and stripped of control and format characters, before a refusal quotes it. */
+function quoted(text: string): string {
+  return `“${plain(text, 40)}”`
+}
+
+/**
+ * The first issue in words. Zod's message for a key the schema doesn't know repeats the key whole,
+ * however long, so that one is said here with the key quoted short; every other message is the
+ * schema's own words, and is cut short too.
+ */
 function issueWords(issues: readonly Issue[]): string {
   const issue = issues[0]
   if (!issue) return 'it is not what the app stores'
-  const where = issue.path.map(String).join('.')
-  return where ? `${where}: ${issue.message}` : issue.message
+  const where = plain(issue.path.map(String).join('.'), 40)
+  const [key, ...more] = issue.code === 'unrecognized_keys' ? (issue.keys ?? []) : []
+  const what = key !== undefined ? `a part the app doesn’t keep, ${quoted(key)}${more.length > 0 ? `, and ${more.length} more` : ''}` : plain(issue.message, 120)
+  return where ? `${where}: ${what}` : what
 }
 
 // ---------------------------------------------------------------------------------------------
