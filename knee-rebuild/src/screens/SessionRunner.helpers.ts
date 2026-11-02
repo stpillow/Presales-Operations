@@ -506,10 +506,11 @@ export function routeLines(input: { route: SlotRoute; swapped: boolean; gymName:
 
 /**
  * Whether the card says "Moved to … by the engine": the exercise on it isn't the slot's own and
- * no swap chose it, and it isn't the gym's move, which the gym's line says in words instead.
+ * no swap chose it, and it isn't the gym's move, which the gym's line says in words instead, nor
+ * the rack's, which the prescription's own note already says ("swap to Single-leg RDL").
  */
-export function movedByEngine(slotExerciseId: string, cardExerciseId: string, route: Pick<SlotRoute, 'kind' | 'exerciseId'>, swapped: boolean): boolean {
-  if (swapped || cardExerciseId === slotExerciseId) return false
+export function movedByEngine(slotExerciseId: string, cardExerciseId: string, route: Pick<SlotRoute, 'kind' | 'exerciseId'>, swapped: boolean, saidByNote = false): boolean {
+  if (swapped || saidByNote || cardExerciseId === slotExerciseId) return false
   return !(route.kind === 'moved' && cardExerciseId === route.exerciseId)
 }
 

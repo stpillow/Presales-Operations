@@ -328,6 +328,8 @@ describe('the gym in words (M4b, design section 4)', () => {
     expect(movedByEngine('leg-press', 'leg-press-45', own, false)).toBe(true)
     expect(movedByEngine('leg-press', 'leg-press', own, false)).toBe(false)
     expect(movedByEngine('leg-press', 'leg-press-45', own, true)).toBe(false)
+    // A rack move is said once, by the prescription's note.
+    expect(movedByEngine('dumbbell-rdl', 'single-leg-rdl', { kind: 'own', exerciseId: 'dumbbell-rdl' }, false, true)).toBe(false)
   })
 
   it('a Swap pick of what the gym would run anyway is no swap', () => {

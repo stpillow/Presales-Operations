@@ -112,7 +112,7 @@ export function ActiveCard(props: ActiveCardProps) {
   const blockedOnLoad = !editing && draft !== null && needsLoadPick(prescription, hasLoad, exercise.loadDirection, draft)
   const pain = props.painPerSet ? (draft?.pain ?? null) : props.exercisePain
   const blockedOnPain = !editing && step !== null && pain === null
-  const moved = movedByEngine(plan.slot.exerciseId, prescription.exerciseId, plan.route, props.swapped)
+  const moved = movedByEngine(plan.slot.exerciseId, prescription.exerciseId, plan.route, props.swapped, prescription.rackMoved === true)
   const sideNote = sideLine(plan.slot.unilateral, exercise.unilateral)
   const cuesFor = cuesWrittenFor(plan.slot.exerciseId, exercise.id, (id) => exerciseById(id).name)
   const healthyStep = step && step.side !== 'both' && step.side !== injuredSide
