@@ -91,3 +91,27 @@ describe('openStepForSide', () => {
     expect(openStepForSide(u, 'b1', 'left', none, new Set(['b1']))).toBeNull()
   })
 })
+
+describe('a slot with nothing here (routed none at this gym)', () => {
+  it('is never the automatic next step, at the start or between units', () => {
+    expect(nextStep(steps, none, none, null, new Set(['a1']))?.key).toBe('a5:both:1')
+    const a1 = new Set(['a1:both:1', 'a1:both:2', 'a1:both:3'])
+    expect(nextStep(steps, a1, none, 'a1:both:3', new Set(['a5']))?.key).toBe('a6:both:1')
+  })
+  it('is passed over inside a superset round', () => {
+    expect(nextStep(steps, new Set(['a5:both:1']), none, 'a5:both:1', new Set(['a6']))?.key).toBe('a7:right:1')
+    expect(nextStep(steps, new Set(['a5:both:1', 'a7:right:1']), none, 'a7:right:1', new Set(['a6']))?.key).toBe('a5:both:2')
+  })
+  it('leaves nothing required when it is all that is left', () => {
+    const allButA1 = new Set(steps.filter((s) => !s.optional && s.slotId !== 'a1').map((s) => s.key))
+    expect(nextStep(steps, allButA1, none, 'a7:right:3', new Set(['a1']))).toBeNull()
+    expect(nextStep(steps, allButA1, none, 'a7:right:3')?.key).toBe('a1:both:1')
+  })
+  it('still takes a tap on its row, for Skip or Do it anyway', () => {
+    expect(firstOpenStepOf(steps, 'a6', none, none)?.key).toBe('a6:both:1')
+  })
+  it('ends a superset round without it, so the rest comes after the last member that runs', () => {
+    expect(restAfter(steps, 'a6:both:1', new Set(['a5:both:1', 'a6:both:1']), none, new Set(['a7']))).toBe(true)
+    expect(restAfter(steps, 'a6:both:1', new Set(['a5:both:1', 'a6:both:1']), none)).toBe(false)
+  })
+})
