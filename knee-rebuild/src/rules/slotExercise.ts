@@ -1,5 +1,5 @@
 import type { Exercise, ReadingResult, SetLog, Side, Slot } from '../schema/index.ts'
-import { routeSlot, type Available, type SlotRoute } from './equipment.ts'
+import { missingHere, routeSlot, type Available, type SlotRoute } from './equipment.ts'
 import { exerciseHistory } from './gymLoads.ts'
 import type { WorkoutRecord } from './history.ts'
 import { backOffMoves, effectiveReading, type Placement } from './prescription.ts'
@@ -82,8 +82,8 @@ function leadingCleans(readings: readonly ReadingResult[]): number {
   return firstOther === -1 ? readings.length : firstOther
 }
 
-/** Which exercise the slot runs today and why, from its history (PROGRAM-QUESTIONS 55). */
-export function slotExercise(input: SlotExerciseInput): SlotExercise {
+/** Where the history has the slot: the exercise a back-off moved it from (null when it hasn't moved) and the one it is on. */
+function walk(input: SlotExerciseInput): { from: Exercise | null; on: Exercise } {
   const list = [input.own, ...input.substitutions]
   let from: Exercise | null = null
   let on: Exercise = input.own
@@ -92,13 +92,20 @@ export function slotExercise(input: SlotExerciseInput): SlotExercise {
     from = on
     on = next
   }
-  if (from === null) return { exercise: on, ...historyOf(input, on) }
+  return { from, on }
+}
+
+/**
+ * The slot on `on`, the easier version of `from`: back on `from` once `on` reads clean twice in a
+ * row, otherwise on `on` with why. A clean from before the move counts toward the two only with
+ * one since (Shawn's Nov 2 answer), so until `on` has run on this slot since the move (`ranSince`)
+ * its cleans count as one at most and never bring the slot back alone.
+ */
+function placedOn(input: SlotExerciseInput, from: Exercise, on: Exercise, ranSince: boolean): SlotExercise {
   const easier = on.name
   const back = from.name
-  // The slot is on the easier version only once it has run on this slot since the move (`movedFrom`),
-  // so the most recent clean is always one since the move: cleans from before it, or from another
-  // slot, never serve the back-off alone.
-  const cleans = leadingCleans(historyOf(input, on).readings)
+  const leading = leadingCleans(historyOf(input, on).readings)
+  const cleans = ranSince ? leading : Math.min(leading, 1)
   if (cleans >= 2) {
     return { exercise: from, ...historyOf(input, from), placement: { note: `Back on ${back}: ${easier} read clean twice.`, returned: true } }
   }
@@ -107,6 +114,16 @@ export function slotExercise(input: SlotExerciseInput): SlotExercise {
       ? `On ${easier} since ${back} backed off: clean once; clean again and the slot goes back to ${back}.`
       : `On ${easier} since ${back} backed off; two clean readings in a row take the slot back to ${back}.`
   return { exercise: on, ...historyOf(input, on), placement: { note, returned: false } }
+}
+
+/** Which exercise the slot runs today and why, from its history (PROGRAM-QUESTIONS 55). */
+export function slotExercise(input: SlotExerciseInput): SlotExercise {
+  const { from, on } = walk(input)
+  if (from === null) return { exercise: on, ...historyOf(input, on) }
+  // The slot is on the easier version only once it has run on this slot since the move (`movedFrom`),
+  // so the most recent clean is always one since the move: cleans from before it, or from another
+  // slot, never serve the back-off alone.
+  return placedOn(input, from, on, true)
 }
 
 /**
@@ -124,10 +141,11 @@ export function sessionSlotExercise(input: SlotExerciseInput, chosenId: string |
 export interface SlotAtGym extends SlotExercise {
   /**
    * What this gym does to the slot without a swap: `routeSlot` over the slot's list from where its
-   * history put it (the slot's own exercise, or the easier version it is on) onward. `own`: that
-   * exercise runs here. `moved`: it isn't here, and the first exercise after it that is runs, each
-   * one passed over with what is missing. `none`: nothing from it on is here; it stays, so the
-   * runner can offer Skip or Do it anyway. A swap chosen for the session doesn't change it.
+   * history put it (the slot's own exercise, or the easier version it is on; the program's own
+   * easier version where this gym has it, `slotAtGym`) onward. `own`: that exercise runs here.
+   * `moved`: it isn't here, and the first exercise after it that is runs, each one passed over with
+   * what is missing. `none`: nothing from it on is here; it stays, so the runner can offer Skip or
+   * Do it anyway. A swap chosen for the session doesn't change it.
    */
   route: SlotRoute
 }
@@ -141,14 +159,25 @@ export interface SlotAtGym extends SlotExercise {
  * `route` says it; with nothing from the pick on here, the pick as the history placed it. The gym
  * never moves a slot back up its list past where its history put it, to an exercise harder than
  * the one a back-off moved it to (PROGRAM-QUESTIONS 86).
+ *
+ * One exception: on the easier version, an exercise between the one the slot moved from and the
+ * history's pick that runs here comes first. The pick can only be past it because another gym
+ * lacked it and its back-off passed over to the pick, and that pass-over was the other gym's move,
+ * not the slot's: here the slot runs the program's easier version, placed on it, its cleans
+ * counting once it has run since the move (PROGRAM-QUESTIONS 89).
  */
 export function slotAtGym(input: SlotExerciseInput, chosenId: string | undefined, available: Available): SlotAtGym {
-  const placed = slotExercise(input)
+  const { from, on } = walk(input)
+  const history = from === null ? { exercise: on, ...historyOf(input, on) } : placedOn(input, from, on, true)
   const list = [input.own, ...input.substitutions]
   const ids = list.map((e) => e.id)
-  const from = ids.indexOf(placed.exercise.id)
   const byId = new Map(list.map((e) => [e.id, e]))
-  const route = routeSlot({ exerciseId: placed.exercise.id, substitutionIds: ids.slice(from + 1) }, byId, available)
+  const onEasier = from !== null && history.exercise.id === on.id
+  const between = onEasier ? list.slice(ids.indexOf(from.id) + 1, ids.indexOf(on.id)) : []
+  const easierHere = between.find((e) => missingHere(e, available).length === 0)
+  const placed = from !== null && easierHere ? placedOn(input, from, easierHere, false) : history
+  const at = ids.indexOf(placed.exercise.id)
+  const route = routeSlot({ exerciseId: placed.exercise.id, substitutionIds: ids.slice(at + 1) }, byId, available)
   if (chosenId !== undefined && byId.has(chosenId)) return { ...sessionSlotExercise(input, chosenId), route }
   if (route.kind !== 'moved') return { ...placed, route }
   const moved = byId.get(route.exerciseId) ?? placed.exercise

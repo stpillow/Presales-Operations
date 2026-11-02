@@ -341,6 +341,34 @@ describe('slotAtGym: the gym routes the slot forward from where its history put 
     expect(here.placement).toBeUndefined()
   })
 
+  it('another gym’s pass-over isn’t the slot’s easier version: back where the program’s easier version is, the slot runs it (PROGRAM-QUESTIONS 89)', () => {
+    // Nordics back off at home; the next A is at a hotel with no seated curl, where the back-off passes over to the lying curl.
+    const atHotel: Logged = { date: '2027-01-08', exerciseId: 'lying-curl', read: 'clean', load: 30, reps: 10 }
+    const home = new Set(['mats', 'seated-leg-curl'])
+    const here = slotAtGym(atGym([backedOff, atHotel]), undefined, home)
+    expect(here.route).toEqual({ kind: 'own', exerciseId: 'leg-curl', passedOver: [] })
+    expect(here.exercise).toBe(seated)
+    expect(here.readings).toEqual([])
+    expect(here.placement).toEqual({
+      note: 'On Leg curls since Nordic negatives backed off; two clean readings in a row take the slot back to Nordic negatives.',
+      returned: false,
+    })
+    // At the hotel again, the history’s pick still runs there, as before.
+    expect(slotAtGym(atGym([backedOff, atHotel]), undefined, new Set(['mats', 'lying-leg-curl']))).toMatchObject({ exercise: lying, route: { kind: 'own', exerciseId: 'lying-curl' } })
+  })
+
+  it('a clean on that easier version from before the move counts once it has run since: the hotel’s lying curl counts for neither', () => {
+    const atHotel: Logged = { date: '2027-01-08', exerciseId: 'lying-curl', read: 'clean', load: 30, reps: 10 }
+    const home = new Set(['mats', 'seated-leg-curl'])
+    const before = [curl('2026-12-01', 'clean'), backedOff, atHotel]
+    const here = slotAtGym(atGym(before), undefined, home)
+    expect(here.exercise).toBe(seated)
+    expect(here.placement?.note).toBe('On Leg curls since Nordic negatives backed off: clean once; clean again and the slot goes back to Nordic negatives.')
+    // Its first clean at home since the move makes the two (Shawn, Nov 2): the slot goes back to the Nordics.
+    const back = slotAtGym(atGym([...before, curl('2027-01-12', 'clean')]), undefined, home)
+    expect(back).toMatchObject({ exercise: nordicMat, placement: { note: 'Back on Nordic negatives: Leg curls read clean twice.', returned: true }, route: { kind: 'own', exerciseId: 'nordic' } })
+  })
+
   it('a swap chosen for the session beats the gym, here or not; the route stays what the gym does without it', () => {
     const noMats = new Set(['seated-leg-curl'])
     const here = slotAtGym(atGym([]), 'lying-curl', noMats)
