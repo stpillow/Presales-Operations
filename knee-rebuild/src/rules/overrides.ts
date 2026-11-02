@@ -174,6 +174,29 @@ export function withCueAdded(edit: SlotEdit, text: string): SlotEdit {
   return { ...edit, cues: [...edit.cues, cleanCue(text)] }
 }
 
+/** What came off one of a slot's lists, for Put it back: which list, where it stood, and what it was (a cue's text, a substitution's id). */
+export interface RemovedItem {
+  kind: 'cue' | 'substitution'
+  index: number
+  value: string
+}
+
+/**
+ * A removed item put back where it stood, clamped to the list as it is now. A cue always goes back;
+ * a substitution only when it isn't on the list again (added back from the catalog meanwhile) and
+ * isn't the slot's own exercise, so Put it back never makes a repeat. Otherwise the edit is as it was.
+ */
+export function withPutBack(slot: Slot, edit: SlotEdit, removed: RemovedItem): SlotEdit {
+  if (removed.kind === 'cue') return { ...edit, cues: insertItem(edit.cues, removed.index, removed.value) }
+  if (removed.value === slot.exerciseId || edit.substitutionIds.includes(removed.value)) return edit
+  return { ...edit, substitutionIds: insertItem(edit.substitutionIds, removed.index, removed.value) }
+}
+
+/** Whether two edits hold the same lists in the same order: a change that comes to this has nothing to save. */
+export function sameEdit(a: SlotEdit, b: SlotEdit): boolean {
+  return sameList(a.cues, b.cues) && sameList(a.substitutionIds, b.substitutionIds)
+}
+
 /** A substitution added at the end of the list: once, and never the slot's own exercise. */
 export function withSubstitutionAdded(slot: Slot, edit: SlotEdit, exerciseId: string): SlotEdit {
   if (exerciseId === slot.exerciseId || edit.substitutionIds.includes(exerciseId)) return edit

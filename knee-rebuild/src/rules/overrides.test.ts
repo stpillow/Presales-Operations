@@ -16,8 +16,10 @@ import {
   overridesBySlot,
   removeItem,
   replaceItem,
+  sameEdit,
   slotEdit,
   withCueAdded,
+  withPutBack,
   withSubstitutionAdded,
 } from './overrides.ts'
 
@@ -246,6 +248,34 @@ describe('list edits', () => {
 
   it('adds a cue at the end, cleaned', () => {
     expect(withCueAdded({ cues: ['Feet high'], substitutionIds: [] }, ' Lower\nfor 3 s ')).toEqual({ cues: ['Feet high', 'Lower for 3 s'], substitutionIds: [] })
+  })
+
+  it('puts a removed cue back where it was, clamped to the list as it is now', () => {
+    const slot = legPress()
+    const edit = { cues: ['Feet high', 'Lower for 3 s'], substitutionIds: [...slot.substitutionIds] }
+    expect(withPutBack(slot, edit, { kind: 'cue', index: 1, value: 'No lockout' }).cues).toEqual(['Feet high', 'No lockout', 'Lower for 3 s'])
+    expect(withPutBack(slot, edit, { kind: 'cue', index: 9, value: 'No lockout' }).cues).toEqual(['Feet high', 'Lower for 3 s', 'No lockout'])
+    // A cue may repeat; only substitutions are kept to once each.
+    expect(withPutBack(slot, edit, { kind: 'cue', index: 0, value: 'Feet high' }).cues).toEqual(['Feet high', 'Feet high', 'Lower for 3 s'])
+    expect(edit.cues).toEqual(['Feet high', 'Lower for 3 s'])
+  })
+
+  it('puts a removed substitution back where it was, unless it is on the list again or is the slot’s own exercise', () => {
+    const slot = legPress()
+    const without = { cues: [...slot.cues], substitutionIds: ['leg-press-45', 'goblet-squat-bench'] }
+    expect(withPutBack(slot, without, { kind: 'substitution', index: 1, value: 'smith-box-squat' }).substitutionIds).toEqual(slot.substitutionIds)
+    // Added back from the catalog meanwhile: Put it back makes no repeat.
+    const readded = { ...without, substitutionIds: [...without.substitutionIds, 'smith-box-squat'] }
+    expect(withPutBack(slot, readded, { kind: 'substitution', index: 1, value: 'smith-box-squat' })).toEqual(readded)
+    expect(withPutBack(slot, without, { kind: 'substitution', index: 0, value: 'leg-press' })).toEqual(without)
+  })
+
+  it('tells two edits with the same lists apart from a change: order counts, and cues and substitutions are their own', () => {
+    const a = { cues: ['Feet high', 'Lower for 3 s'], substitutionIds: ['smith-box-squat'] }
+    expect(sameEdit(a, { cues: ['Feet high', 'Lower for 3 s'], substitutionIds: ['smith-box-squat'] })).toBe(true)
+    expect(sameEdit(a, { cues: ['Lower for 3 s', 'Feet high'], substitutionIds: ['smith-box-squat'] })).toBe(false)
+    expect(sameEdit(a, { cues: ['Feet high', 'Lower for 3 s'], substitutionIds: [] })).toBe(false)
+    expect(sameEdit({ cues: ['smith-box-squat'], substitutionIds: [] }, { cues: [], substitutionIds: ['smith-box-squat'] })).toBe(false)
   })
 
   it('adds a substitution at the end, once, and never the slot’s own exercise', () => {

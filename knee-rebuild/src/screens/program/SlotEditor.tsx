@@ -2,17 +2,29 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { PROGRAM } from '../../app/session.ts'
 import { Button } from '../../components/Button.tsx'
 import { clearProgramOverride, saveProgramOverride } from '../../db/repo.ts'
-import { cleanCue, cueProblem, insertItem, moveItem, overrideFor, removeItem, replaceItem, withCueAdded, withSubstitutionAdded, type SlotEdit } from '../../rules/overrides.ts'
+import {
+  cleanCue,
+  cueProblem,
+  moveItem,
+  overrideFor,
+  removeItem,
+  replaceItem,
+  sameEdit,
+  withCueAdded,
+  withPutBack,
+  withSubstitutionAdded,
+  type RemovedItem,
+  type SlotEdit,
+} from '../../rules/overrides.ts'
 import type { IsoDate, ProgramOverride, Slot } from '../../schema/index.ts'
 import { failedWords } from '../Locations.helpers.ts'
 import { RESET_ASK, SUBSTITUTION_ORDER_NOTE, addSections, cueCountWords, editorView, exerciseName, removedWords } from '../Program.helpers.ts'
 import { Group, LABEL, Note, Problem, RowButton, useFlash } from './parts.tsx'
 
 type Part = 'cues' | 'substitutions' | 'reset'
-type Removed = { kind: 'cue' | 'substitution'; index: number; value: string; words: string }
+type Removed = RemovedItem & { words: string }
 
 const STILL = 'the slot shows what the phone still has.'
-const sameEdit = (a: SlotEdit, b: SlotEdit) => JSON.stringify(a) === JSON.stringify(b)
 
 /**
  * One slot's editor, inline under it (no modal): its cues (reword, add, remove, reorder) and its
@@ -81,10 +93,9 @@ export function SlotEditor({ slot, override, today }: { slot: Slot; override: Pr
 
   const putBack = async () => {
     if (!removed) return
-    const { kind, index, value } = removed
     setRemoved(null)
-    if (kind === 'cue') await write('cues', { ...latest.current, cues: insertItem(latest.current.cues, index, value) })
-    else if (!latest.current.substitutionIds.includes(value)) await write('substitutions', { ...latest.current, substitutionIds: insertItem(latest.current.substitutionIds, index, value) })
+    // withPutBack decides where it goes and whether it can (no repeat); an edit it leaves as it was saves nothing.
+    await write(removed.kind === 'cue' ? 'cues' : 'substitutions', withPutBack(slot, latest.current, removed))
   }
 
   const reset = async () => {
