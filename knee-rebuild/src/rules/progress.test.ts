@@ -64,7 +64,7 @@ describe('consecutiveCleanDays', () => {
 })
 
 describe('advancePhase (rule 8)', () => {
-  const settings: Settings = { injuredSide: 'right', startDate: '2026-11-02', dumbbellMax: 80, restTimerSeconds: 60, painPerSet: false, currentPhase: 1, phaseEnteredWeek: 1, redFlag: { active: false, items: [] } }
+  const settings: Settings = { injuredSide: 'right', startDate: '2026-11-02', dumbbellMax: 80, restTimerSeconds: 60, painPerSet: false, currentPhase: 1, phaseEnteredWeek: 1, redFlag: { active: false, items: [] }, activeLocationId: 'planet-fitness', kit: ['ankle-strap', 'mini-band'] }
   it('moves to the next phase, entered in the confirming week', () => {
     expect(advancePhase(settings, { number: 1, toPhase: 2 }, true, 4)).toMatchObject({ currentPhase: 2, phaseEnteredWeek: 4 })
   })
