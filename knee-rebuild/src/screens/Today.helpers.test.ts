@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { parseHash, routeHash } from '../app/router.ts'
 import { program } from '../program/program.ts'
 import { availableEquipment } from '../rules/equipment.ts'
 import { suggestRun, type RunSuggestion } from '../rules/weekPlan.ts'
@@ -444,6 +445,9 @@ describe('the gym line and Change', () => {
   })
   it('ends with New location, which opens the editor on a new gym', () => {
     expect(NEW_LOCATION_HASH).toBe('#/location/new')
+    // The router's own route, both ways, so the link can't drift to a hash that lands back on Today.
+    expect(parseHash(NEW_LOCATION_HASH)).toEqual({ name: 'new-location' })
+    expect(routeHash({ name: 'new-location' })).toBe(NEW_LOCATION_HASH)
   })
 })
 
