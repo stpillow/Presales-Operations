@@ -16,6 +16,7 @@ import { MorningCheck } from './screens/MorningCheck.tsx'
 import { More } from './screens/More.tsx'
 import { NextUpdate } from './screens/NextUpdate.tsx'
 import { Program } from './screens/Program.tsx'
+import { Preview } from './screens/Preview.tsx'
 import { Progress } from './screens/Progress.tsx'
 import { RunLogger } from './screens/RunLogger.tsx'
 import { SessionRunner } from './screens/SessionRunner.tsx'
@@ -122,6 +123,8 @@ function Shell({ updateReady }: { updateReady: boolean }) {
               return <RunLogger />
             case 'week':
               return <Week />
+            case 'preview':
+              return <Preview date={route.date} />
             case 'progress':
               return <Progress />
             case 'gates':
