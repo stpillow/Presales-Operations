@@ -19,13 +19,16 @@ import {
   loadMax,
   loadStep,
   loadWords,
+  movedByEngine,
   prescriptionWords,
   rangeStopOptions,
   setWords,
   showsLoad,
   sideWords,
+  type SwapChoice,
 } from '../SessionRunner.helpers.ts'
 import { DoneBar } from './DoneBar.tsx'
+import { GymNotes, type GymAction } from './GymNotes.tsx'
 
 export interface ActiveCardProps {
   plan: SlotPlan
@@ -48,6 +51,14 @@ export interface ActiveCardProps {
   exercisePain: number | null
   onExercisePain: (value: number) => void
   swapped: boolean
+  /** Swap's list (`swapChoices`): the slot's own exercise, then its substitutions, each here or not. */
+  choices: SwapChoice[]
+  /** What "Back to" returns a swapped slot to: the exercise the plan runs without the swap. */
+  backToName: string
+  /** What the gym does to the slot, in words, and the marks and choices it offers (design section 4). */
+  gym: { lines: string[]; actions: GymAction[] }
+  /** Nothing on the slot's list is here and Shawn hasn't picked Do it anyway: no set to log, only the gym's offers and Swap. */
+  held: boolean
   busy: boolean
   error: string | null
   timer: ReactNode
@@ -69,7 +80,6 @@ const sideOrder = (side: string, injured: Side) => (side === 'both' || side === 
  */
 export function ActiveCard(props: ActiveCardProps) {
   const { plan, step, editing, slotSets, injuredSide } = props
-  const { substitutions } = plan
   const prescription = plan.prescriptions.find((p) => p.side === (editing?.side ?? step?.side)) ?? plan.prescriptions[0]
   const exercise = exerciseById(editing?.exerciseId ?? prescription?.exerciseId ?? plan.exercise.id)
   // The slot as it applies to the exercise on the card: after a swap, unit, targets and rule follow it.
@@ -100,7 +110,7 @@ export function ActiveCard(props: ActiveCardProps) {
   const blockedOnLoad = !editing && draft !== null && needsLoadPick(prescription, hasLoad, exercise.loadDirection, draft)
   const pain = props.painPerSet ? (draft?.pain ?? null) : props.exercisePain
   const blockedOnPain = !editing && step !== null && pain === null
-  const moved = prescription.exerciseId !== plan.slot.exerciseId && !props.swapped
+  const moved = movedByEngine(plan.slot.exerciseId, prescription.exerciseId, plan.route, props.swapped)
   const bothForUnilateral = !plan.slot.unilateral && exercise.unilateral
   const healthyStep = step && step.side !== 'both' && step.side !== injuredSide
   const budgetLine = healthyStep
@@ -159,6 +169,7 @@ export function ActiveCard(props: ActiveCardProps) {
           <p className="text-body text-on-dark-dim">{prescriptionWords(prescription, slot, exercise)}</p>
           {prescription.note ? <p className="text-small text-on-dark-dim">{prescription.note}</p> : null}
           {moved ? <p className="text-small text-on-dark">Moved to {exercise.name} by the engine.</p> : null}
+          <GymNotes lines={props.gym.lines} actions={props.gym.actions} busy={props.busy} />
           {bothForUnilateral ? <p className="text-small text-on-dark-dim">Logs as both sides: this slot is two-legged in the program.</p> : null}
           {exercise.sideMeaning ? <p className="text-small text-on-dark-dim">{exercise.sideMeaning}</p> : null}
         </header>
@@ -179,7 +190,7 @@ export function ActiveCard(props: ActiveCardProps) {
           )
         ) : null}
 
-        {!props.painPerSet ? painPicker : null}
+        {!props.painPerSet && !props.held ? painPicker : null}
 
         {doneRows.length > 0 ? (
           <ul aria-label="Logged sets" className="flex flex-col">
@@ -328,8 +339,8 @@ export function ActiveCard(props: ActiveCardProps) {
           </div>
         ) : null}
 
-        {!editing && step && draft ? (
-          panel === 'stop' ? (
+        {!editing && ((step && draft) || props.held) ? (
+          panel === 'stop' && step && draft ? (
             <div aria-label="Stop this exercise" className="flex flex-col gap-2">
               <p className="text-body text-on-dark">Why stop? The set logs with the count above, then this exercise is done for today, both sides.</p>
               {blockedOnLoad ? <p className="text-small text-on-dark">Enter the load you used above first.</p> : null}
@@ -345,18 +356,22 @@ export function ActiveCard(props: ActiveCardProps) {
           ) : panel === 'swap' ? (
             <div aria-label="Swap" className="flex flex-col gap-2">
               <p className="text-body text-on-dark">Swap for this session. The slot&apos;s job stays the same.</p>
-              {substitutions.map((sub) => (
+              {props.choices.map(({ exercise: choice, words }) => (
                 <Button
-                  key={sub.id}
+                  key={choice.id}
                   wide
+                  className="flex flex-col items-start gap-1 text-left"
                   onClick={() => {
-                    props.onSwap(sub.id)
+                    props.onSwap(choice.id)
                     setPanel(null)
                   }}
-                  aria-pressed={exercise.id === sub.id}
+                  aria-pressed={exercise.id === choice.id}
                 >
-                  {exercise.id === sub.id ? '✓ ' : ''}
-                  {sub.name}
+                  <span>
+                    {exercise.id === choice.id ? '✓ ' : ''}
+                    {choice.name}
+                  </span>
+                  <span className="text-small text-on-dark-dim">{words}</span>
                 </Button>
               ))}
               {props.swapped ? (
@@ -367,7 +382,7 @@ export function ActiveCard(props: ActiveCardProps) {
                     setPanel(null)
                   }}
                 >
-                  Back to {exerciseById(plan.slot.exerciseId).name}
+                  Back to {props.backToName}
                 </Button>
               ) : null}
               <Button variant="quiet" onClick={() => setPanel(null)}>
@@ -376,14 +391,16 @@ export function ActiveCard(props: ActiveCardProps) {
             </div>
           ) : (
             <div className="flex flex-wrap gap-2">
-              {substitutions.length > 0 ? (
+              {props.choices.length > 1 ? (
                 <Button variant="quiet" onClick={() => setPanel('swap')}>
                   Swap
                 </Button>
               ) : null}
-              <Button variant="quiet" onClick={() => setPanel('stop')}>
-                Stop this exercise
-              </Button>
+              {step && draft ? (
+                <Button variant="quiet" onClick={() => setPanel('stop')}>
+                  Stop this exercise
+                </Button>
+              ) : null}
             </div>
           )
         ) : null}

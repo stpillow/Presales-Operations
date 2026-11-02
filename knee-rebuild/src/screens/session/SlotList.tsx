@@ -6,14 +6,22 @@ export interface SlotStatus {
   mark: string
 }
 
-/** A slot's status in words with a mark: what's done, what's current, what's optional. */
-export function slotStatus(plan: SlotPlan, steps: readonly Step[], done: ReadonlySet<string>, stopped: ReadonlySet<string>, currentSlotId: string | null): SlotStatus {
+/** A slot's status in words with a mark: what's done, what's current, what's optional, what nothing here runs (`notHere`). */
+export function slotStatus(
+  plan: SlotPlan,
+  steps: readonly Step[],
+  done: ReadonlySet<string>,
+  stopped: ReadonlySet<string>,
+  currentSlotId: string | null,
+  notHere: ReadonlySet<string> = new Set(),
+): SlotStatus {
   const own = steps.filter((s) => s.slotId === plan.slot.id)
   const doneCount = own.filter((s) => done.has(s.key)).length
   if (stopped.has(plan.slot.id)) return { mark: '–', word: 'Stopped' }
   if (plan.slot.id === currentSlotId) return { mark: '●', word: 'Now' }
   if (own.length > 0 && doneCount >= own.length) return { mark: '✓', word: 'Done' }
   if (doneCount > 0) return { mark: '◐', word: `${doneCount} of ${own.length}` }
+  if (notHere.has(plan.slot.id)) return { mark: '×', word: 'Nothing here' }
   if (plan.slot.optional) return { mark: '○', word: 'Optional' }
   return { mark: '', word: '' }
 }
@@ -25,6 +33,7 @@ export function SlotList({
   done,
   stopped,
   currentSlotId,
+  notHere,
   onPick,
 }: {
   plans: readonly SlotPlan[]
@@ -32,6 +41,8 @@ export function SlotList({
   done: ReadonlySet<string>
   stopped: ReadonlySet<string>
   currentSlotId: string | null
+  /** Slots nothing at this gym runs, until Do it anyway (`notHereSlots`). */
+  notHere: ReadonlySet<string>
   onPick: (slotId: string) => void
 }) {
   const groupLabels = new Map<string, string>()
@@ -46,7 +57,7 @@ export function SlotList({
       <h2 className="font-sans text-lead font-semibold text-on-dark">This session</h2>
       <ol className="flex flex-col">
         {plans.map((plan) => {
-          const status = slotStatus(plan, steps, done, stopped, currentSlotId)
+          const status = slotStatus(plan, steps, done, stopped, currentSlotId, notHere)
           const groupId = plan.slot.groupId
           const header = groupId && !seenGroups.has(groupId) ? groupLabels.get(groupId) : undefined
           if (groupId) seenGroups.add(groupId)

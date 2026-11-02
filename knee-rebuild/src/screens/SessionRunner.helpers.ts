@@ -1,7 +1,9 @@
+import { DUMBBELLS, missingHere, type Available, type SlotRoute } from '../rules/equipment.ts'
 import { HELD_LOAD_INCREMENT_LB, RANGE_LADDER_DEG, type Prescription } from '../rules/prescription.ts'
 import type { Draft } from '../rules/prefill.ts'
 import { stepKey } from '../rules/runOrder.ts'
-import type { Exercise, LoadUnit, RepUnit, SessionTemplate, SetLog, SetSide, Side, Slot, StopReason, Workout } from '../schema/index.ts'
+import type { SwapOffer } from '../rules/runnerGym.ts'
+import type { Equipment, EquipmentId, Exercise, LoadUnit, RepUnit, Requirement, SessionTemplate, SetLog, SetSide, Side, Slot, StopReason, Workout } from '../schema/index.ts'
 
 /**
  * Pure helpers for the Session runner: what to prefill, what to call things, how to say a set in
@@ -204,8 +206,9 @@ export function buildSet(input: {
 
 /**
  * Swaps made in an earlier visit, recovered from the sets. An exercise id counts as a swap only when
- * it is neither the slot's own nor what the engine prescribed without a swap, so an engine move to an
- * easier version is never mistaken for a choice.
+ * it isn't what the engine prescribed without a swap, so an engine move to an easier version, or the
+ * gym's move to what is here, is never mistaken for a choice. The slot's own exercise counts too
+ * when the engine had moved the slot: Swap lists it (M4b), so Shawn ran it anyway.
  */
 export function swapsFromSets(
   plans: readonly { slot: Slot; prescriptions: readonly Pick<Prescription, 'exerciseId'>[] }[],
@@ -216,7 +219,7 @@ export function swapsFromSets(
     const last = newest(sets.filter((s) => s.slotId === slot.id))
     if (!last) continue
     const engine = new Set(prescriptions.map((p) => p.exerciseId))
-    if (last.exerciseId !== slot.exerciseId && !engine.has(last.exerciseId)) swaps[slot.id] = last.exerciseId
+    if (!engine.has(last.exerciseId)) swaps[slot.id] = last.exerciseId
   }
   return swaps
 }
@@ -241,6 +244,25 @@ export function parseStoredSwaps(raw: string | null): Record<string, string | nu
   }
 }
 
+/**
+ * The session's swaps less any that name what the plan now runs without a swap (`engine`, by slot):
+ * a mark at the gym since the pick can make it the gym's own pick, and then it is no swap.
+ */
+export function withoutEnginePicks(chosen: Record<string, string | undefined>, engine: ReadonlyMap<string, string>): Record<string, string | undefined> {
+  return Object.fromEntries(Object.entries(chosen).map(([slotId, id]) => [slotId, id !== undefined && id === engine.get(slotId) ? undefined : id]))
+}
+
+/** The slots Shawn picked Do it anyway on, as stored beside the swaps: a list of slot ids, anything else read as none. */
+export function parseStoredSlotIds(raw: string | null): string[] {
+  if (!raw) return []
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : []
+  } catch {
+    return []
+  }
+}
+
 export function loggedMaxPain(sets: readonly SetLog[]): number | null {
   const pains = sets.map((s) => s.painDuring).filter((p): p is number => p !== undefined)
   return pains.length ? Math.max(...pains) : null
@@ -259,4 +281,253 @@ export function countWords(count: number, repUnit: RepUnit, slot: Pick<Slot, 'un
   const unit = { reps: ' reps', seconds: ' s', minutes: ' min', yards: ' yd', steps: ' steps' }[repUnit]
   const perSide = !slot.unilateral && slot.perSideLabel ? ` ${slot.perSideLabel}` : ''
   return `${count}${unit}${perSide}`
+}
+
+/* The gym in words (M4b, design section 4). What is here, what moved and what to mark come from src/rules; these only say it. */
+
+export type ItemLike = Pick<Equipment, 'id' | 'name' | 'carried'>
+
+/** A list name inside a sentence: "seated leg press", but "Smith machine", which program.md capitalizes. */
+export function itemInSentence(name: string): string {
+  return /^Smith\b/.test(name) ? name : `${name.charAt(0).toLowerCase()}${name.slice(1)}`
+}
+
+const capitalize = (text: string) => `${text.charAt(0).toUpperCase()}${text.slice(1)}`
+
+function itemOf(id: EquipmentId, items: readonly ItemLike[]): { name: string; carried: boolean } {
+  const item = items.find((i) => i.id === id)
+  return item ? { name: item.name, carried: item.carried } : { name: id.replace(/-/g, ' '), carried: false }
+}
+
+const optionsOf = (r: Requirement): EquipmentId[] => (typeof r === 'string' ? [r] : r.anyOf)
+
+/** A carried item stands alone in its requirement (no either-or in the seed carries one): the bag, not the gym, lacks it. */
+function inBag(r: Requirement, items: readonly ItemLike[]): boolean {
+  return typeof r === 'string' && itemOf(r, items).carried
+}
+
+/** One requirement in words: "seated leg press", "step platforms or stair". */
+function requirementWords(r: Requirement, items: readonly ItemLike[]): string {
+  return optionsOf(r)
+    .map((id) => itemInSentence(itemOf(id, items).name))
+    .join(' or ')
+}
+
+/** What an exercise lacks, joined: "Smith machine and flat bench", "cable ankle strap in your bag". */
+function needsWords(missing: readonly Requirement[], items: readonly ItemLike[]): string {
+  return missing.map((r) => `${requirementWords(r, items)}${inBag(r, items) ? ' in your bag' : ''}`).join(' and ')
+}
+
+/**
+ * A slot the gym moved (`route.kind` moved): "Not at Hotel gym: Seated leg press. Using Goblet squat
+ * to a bench (no 45° leg press, no Smith machine)." First what the exercise the slot was on lacks,
+ * then what runs, then what each exercise passed over after it lacks, each item once. A carried item
+ * is the bag's: "Not in your bag: Cable ankle strap."
+ */
+export function movedWords(route: Pick<SlotRoute, 'passedOver'>, toName: string, gymName: string, items: readonly ItemLike[]): string {
+  const first = route.passedOver[0]?.missing ?? []
+  const atGym = first.filter((r) => !inBag(r, items))
+  const bag = first.filter((r) => inBag(r, items))
+  const said = new Set(first.flatMap(optionsOf))
+  const segments = [
+    atGym.length > 0 ? `Not at ${gymName}: ${capitalize(atGym.map((r) => requirementWords(r, items)).join(' and '))}` : '',
+    bag.length > 0 ? `Not in your bag: ${capitalize(bag.map((r) => requirementWords(r, items)).join(' and '))}` : '',
+  ].filter(Boolean)
+  const rest: string[] = []
+  for (const { missing } of route.passedOver.slice(1)) {
+    for (const r of missing) {
+      if (optionsOf(r).every((id) => said.has(id))) continue
+      const words = `no ${requirementWords(r, items)}${inBag(r, items) ? ' in your bag' : ''}`
+      if (!rest.includes(words)) rest.push(words)
+    }
+  }
+  const head = segments.length > 0 ? `${segments.join('. ')}.` : `Not at ${gymName}.`
+  return `${head} Using ${toName}${rest.length > 0 ? ` (${rest.join(', ')})` : ''}.`
+}
+
+/** A slot with nothing on its list here (`route.kind` none): "Nothing here for Step-off landing … (needs step platforms)." */
+export function nothingHereWords(exerciseName: string, missing: readonly Requirement[], items: readonly ItemLike[]): string {
+  return missing.length > 0 ? `Nothing here for ${exerciseName} (needs ${needsWords(missing, items)}).` : `Nothing here for ${exerciseName}.`
+}
+
+/** "Mark step platforms here" (setPresent). */
+export function markHereLabel(id: EquipmentId, items: readonly ItemLike[]): string {
+  return `Mark ${itemInSentence(itemOf(id, items).name)} here`
+}
+
+/** "Smith machine isn't here: mark it" (markOff), "Step platforms aren't here: mark them". */
+export function markOffLabel(id: EquipmentId, items: readonly ItemLike[]): string {
+  const { name } = itemOf(id, items)
+  return /[^s]s$/i.test(name) ? `${name} aren't here: mark them` : `${name} isn't here: mark it`
+}
+
+/** What no mark at a gym adds: dumbbells, which the gym's dumbbell max decides. */
+export const NO_DUMBBELLS_WORDS = "No dumbbells here: each gym's dumbbells are set in Where you train."
+
+/** What no mark at a gym adds: a carried item, which is Settings' kit ("In your bag" in Where you train). */
+export function notInBagWords(ids: readonly EquipmentId[], items: readonly ItemLike[]): string {
+  return `Not in your bag: ${ids.map((id) => itemInSentence(itemOf(id, items).name)).join(' and ')}. "In your bag" in Where you train adds ${ids.length > 1 ? 'them' : 'it'}.`
+}
+
+/** A prescription the rack capped (`Prescription.rackCapped`): question 73 keeps a clean on it from counting. */
+export function rackCappedWords(rackLb: number): string {
+  return rackLb > 0 ? `Rack-capped at ${rackLb} lb: this session won't count as clean.` : "Rack-capped: no dumbbells here, so this session won't count as clean."
+}
+
+/** The warm-up row: "Warm-up · bike 5 min · knee circuit 5 min", without the bike where there is none, and the line that says so. */
+export function warmUpWords(circuitMinutes: number | undefined, bikeHere: boolean): { line: string; noBike: string | null } {
+  const circuit = `knee circuit ${circuitMinutes ?? 5} min`
+  return bikeHere ? { line: `Warm-up · bike 5 min · ${circuit}`, noBike: null } : { line: `Warm-up · ${circuit}`, noBike: 'No upright bike here; nothing else is written for it.' }
+}
+
+export interface SwapChoice {
+  exercise: Exercise
+  /** What this gym lacks for it (`missingHere`); empty means here. */
+  missing: Requirement[]
+  here: boolean
+  /** "Here" or "Not here · needs Smith machine". */
+  words: string
+}
+
+/** Swap's list: the slot's own exercise, then its substitutions, in the program's order, each here or not. All stay tappable. */
+export function swapChoices(own: Exercise, substitutions: readonly Exercise[], available: Available, items: readonly ItemLike[]): SwapChoice[] {
+  return [own, ...substitutions].map((exercise) => {
+    const missing = missingHere(exercise, available)
+    return { exercise, missing, here: missing.length === 0, words: missing.length === 0 ? 'Here' : `Not here · needs ${needsWords(missing, items)}` }
+  })
+}
+
+export interface NotHereEntry {
+  label: string
+  /** The exercise the gym passed over: the one the slot's history put it on. */
+  from: string
+  /** What the slot runs: the gym's pick, a swap, or `from` again when Shawn ran it anyway. */
+  ran: string
+  kind: 'moved' | 'none'
+  ranFrom: boolean
+  logged: boolean
+}
+
+/** The slots the gym changed, for Finish: every slot not routed `own`, in session order. */
+export function notHereEntries(
+  plans: readonly { slot: Pick<Slot, 'id' | 'label'>; exercise: Pick<Exercise, 'id' | 'name'>; route: SlotRoute }[],
+  logged: ReadonlySet<string>,
+  nameOf: (exerciseId: string) => string,
+): NotHereEntry[] {
+  return plans.flatMap(({ slot, exercise, route }): NotHereEntry[] => {
+    if (route.kind === 'own') return []
+    const fromId = route.passedOver[0]?.exerciseId ?? route.exerciseId
+    return [{ label: slot.label, from: nameOf(fromId), ran: exercise.name, kind: route.kind, ranFrom: exercise.id === fromId, logged: logged.has(slot.id) }]
+  })
+}
+
+/** "Not at Hotel gym: 1 Leg press, both legs (Goblet squat to a bench instead); 7 Step-off landing (nothing here)." Null when the gym changed nothing. */
+export function notHereWords(gymName: string, entries: readonly NotHereEntry[]): string | null {
+  if (entries.length === 0) return null
+  const what = (e: NotHereEntry) => {
+    if (!e.ranFrom) return `${e.ran} instead`
+    if (e.kind === 'none') return e.logged ? 'nothing here; done anyway' : 'nothing here'
+    return e.logged ? 'done anyway' : 'not here'
+  }
+  return `Not at ${gymName}: ${entries.map((e) => `${e.label} ${e.from} (${what(e)})`).join('; ')}.`
+}
+
+/**
+ * What the card says the gym did to the slot (design section 4): the move or the nothing-here line
+ * while no swap chose (`route` still says what the gym would have done under a swap, and the swap's
+ * own offers speak then), and the rack cap whenever a side's prescription was capped.
+ */
+export function routeLines(input: {
+  route: SlotRoute
+  swapped: boolean
+  gymName: string
+  items: readonly ItemLike[]
+  nameOf: (exerciseId: string) => string
+  /** The gym's rack when a side's prescription was rack-capped; null when none was. */
+  rackCappedLb: number | null
+}): string[] {
+  const { route, items } = input
+  const lines: string[] = []
+  if (!input.swapped && route.kind === 'moved') lines.push(movedWords(route, input.nameOf(route.exerciseId), input.gymName, items))
+  if (!input.swapped && route.kind === 'none') lines.push(nothingHereWords(input.nameOf(route.exerciseId), route.passedOver[0]?.missing ?? [], items))
+  if (input.rackCappedLb !== null) lines.push(rackCappedWords(input.rackCappedLb))
+  return lines
+}
+
+/**
+ * Whether the card says "Moved to … by the engine": the exercise on it isn't the slot's own and
+ * no swap chose it, and it isn't the gym's move, which the gym's line says in words instead.
+ */
+export function movedByEngine(slotExerciseId: string, cardExerciseId: string, route: Pick<SlotRoute, 'kind' | 'exerciseId'>, swapped: boolean): boolean {
+  if (swapped || cardExerciseId === slotExerciseId) return false
+  return !(route.kind === 'moved' && cardExerciseId === route.exerciseId)
+}
+
+/** A Swap pick stored for the session: picking what the gym would run anyway (`engineId`) is no swap, so the slot follows the plan again. */
+export function swapValue(pickId: string | null, engineId: string): string | null {
+  return pickId === null || pickId === engineId ? null : pickId
+}
+
+export interface GymMark {
+  id: EquipmentId
+  /** True: `setPresent(…, true)`, "Mark … here". False: `markOff`, "… isn't here: mark it". */
+  here: boolean
+  label: string
+}
+
+/**
+ * A mark offer (`swapOffer` in src/rules/runnerGym.ts, or Do it anyway's) as words and buttons, read
+ * against what is here now: an item marked since the offer was made drops out, so a tap is never
+ * offered twice. Dumbbells and the bag get words, not a button: the dumbbell max and the kit set them.
+ */
+export function offerNotes(offer: SwapOffer | null, available: Available, items: readonly ItemLike[]): { lines: string[]; marks: GymMark[] } {
+  if (!offer) return { lines: [], marks: [] }
+  if (offer.kind === 'mark-off') {
+    return { lines: [], marks: offer.items.filter((id) => available.has(id)).map((id) => ({ id, here: false, label: markOffLabel(id, items) })) }
+  }
+  const bag = offer.bag.filter((id) => !available.has(id))
+  return {
+    lines: [...(offer.dumbbells && !available.has(DUMBBELLS) ? [NO_DUMBBELLS_WORDS] : []), ...(bag.length > 0 ? [notInBagWords(bag, items)] : [])],
+    marks: offer.items.filter((id) => !available.has(id)).map((id) => ({ id, here: true, label: markHereLabel(id, items) })),
+  }
+}
+
+/** The line after a mark is saved: "Marked here at Hotel gym: step platforms." */
+export function markedWords(here: boolean, id: EquipmentId, gymName: string, items: readonly ItemLike[]): string {
+  const name = itemInSentence(itemOf(id, items).name)
+  return here ? `Marked here at ${gymName}: ${name}.` : `Marked not here at ${gymName}: ${name}. Today offers "It's back" when it is.`
+}
+
+/** The Done bar's line on a slot with nothing here, before Do it anyway. */
+export function heldBarWords(gymName: string): string {
+  return `Nothing at ${gymName} for this slot: Skip, Do it anyway or Swap.`
+}
+
+/**
+ * When the run order has nothing left (`nextStep` is null): every required set is logged, or, with
+ * slots left that nothing here runs (`held`, as "7 Step-off landing"), every set this gym can run.
+ */
+export function doneWords(gymName: string, held: readonly string[]): { heading: string; line: string; bar: string } {
+  if (held.length === 0) return { heading: 'Every required set is logged', line: 'Optional slots are still open below. Finish when you’re done.', bar: 'Every required set is logged.' }
+  return {
+    heading: `Every set ${gymName} can run is logged`,
+    line: `Nothing here for ${held.join(', ')}: tap a row below for Skip, Do it anyway or Swap, or finish.`,
+    bar: `Every set ${gymName} can run is logged.`,
+  }
+}
+
+/**
+ * Finish's "Not logged": required slots not stopped with a step still open, as "1 Goblet squat to a
+ * bench", leaving out the slots nothing here runs (`held`), which the not-here line names.
+ */
+export function notLoggedLabels(
+  plans: readonly { slot: Pick<Slot, 'id' | 'label' | 'optional'>; exercise: Pick<Exercise, 'name'> }[],
+  steps: readonly { key: string; slotId: string }[],
+  done: ReadonlySet<string>,
+  stopped: ReadonlySet<string>,
+  held: ReadonlySet<string>,
+): string[] {
+  return plans
+    .filter((p) => !p.slot.optional && !stopped.has(p.slot.id) && !held.has(p.slot.id) && steps.some((s) => s.slotId === p.slot.id && !done.has(s.key)))
+    .map((p) => `${p.slot.label} ${p.exercise.name}`)
 }

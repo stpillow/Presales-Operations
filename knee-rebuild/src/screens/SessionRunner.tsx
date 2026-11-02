@@ -1,29 +1,61 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { navigate } from '../app/router.ts'
-import { planSession, PROGRAM, type Gym, type SlotPlan } from '../app/session.ts'
+import { availableAt, planSession, PROGRAM, type Gym, type SlotPlan } from '../app/session.ts'
 import { useToday } from '../app/today.ts'
 import { Button } from '../components/Button.tsx'
 import { RestTimer } from '../components/RestTimer.tsx'
 import { Screen } from '../components/Screen.tsx'
-import { useHistory, useLocation, useSetsFor, useSettings, useWorkout } from '../db/hooks.ts'
-import { deleteSet, deleteWorkout, SWAP_KEY_PREFIX, updateWorkout, upsertSet, type History } from '../db/repo.ts'
+import { useHistory, useLocation, useLocations, useSetsFor, useSettings, useWorkout } from '../db/hooks.ts'
+import { deleteSet, deleteWorkout, markOff, setPresent, setWorkoutLocation, SWAP_KEY_PREFIX, updateWorkout, upsertSet, type History } from '../db/repo.ts'
 import { exerciseById } from '../program/program.ts'
 import { effectiveSlot } from '../rules/effectiveSlot.ts'
-import { locationIdOf } from '../rules/locations.ts'
+import { WARM_UP_BIKE } from '../rules/equipment.ts'
+import { gymLocked, listedLocations, locationIdOf } from '../rules/locations.ts'
 import { loggedPain, painRewriteAllowed, type Draft } from '../rules/prefill.ts'
 import { firstOpenStepOf, nextStep, openStepForSide, restAfter, sessionSteps, type Step } from '../rules/runOrder.ts'
+import { notHereSlots, swapOffer, type SwapOffer } from '../rules/runnerGym.ts'
 import { healthySideTargets } from '../rules/unilateral.ts'
 import type { IsoDate, Location, SessionTemplate, SetLog, SetSide, Settings, StopReason, Workout } from '../schema/index.ts'
 import { ActiveCard } from './session/ActiveCard.tsx'
 import { DoneBar } from './session/DoneBar.tsx'
 import { EndPanel, FinishPanel } from './session/EndPanels.tsx'
+import { GymLine } from './session/GymLine.tsx'
+import type { GymAction } from './session/GymNotes.tsx'
 import { SlotList } from './session/SlotList.tsx'
 import { Summary } from './session/Summary.tsx'
-import { buildSet, lastRpeFor, loggedMaxPain, mergeSwaps, parseStoredSwaps, setStepKey, stopReasonLabel, swapsFromSets, templateForWorkout } from './SessionRunner.helpers.ts'
+import {
+  buildSet,
+  doneWords,
+  heldBarWords,
+  lastRpeFor,
+  loggedMaxPain,
+  markedWords,
+  mergeSwaps,
+  notHereEntries,
+  notHereWords,
+  notLoggedLabels,
+  offerNotes,
+  parseStoredSlotIds,
+  parseStoredSwaps,
+  routeLines,
+  setStepKey,
+  stopReasonLabel,
+  swapChoices,
+  swapsFromSets,
+  swapValue,
+  templateForWorkout,
+  warmUpWords,
+  withoutEnginePicks,
+  type GymMark,
+} from './SessionRunner.helpers.ts'
 import { shortDateWords } from './Today.helpers.ts'
 
 const COOL_DOWN_MS = 800
 const SHOW_GO_FOR_SECONDS = 300
+const ITEMS = PROGRAM.equipment
+/** The items in the bag (`carried`): Settings' kit at every gym, never a mark at one (PROGRAM-QUESTIONS 75). */
+const CARRIED = ITEMS.filter((item) => item.carried).map((item) => item.id)
+const nameOf = (exerciseId: string) => exerciseById(exerciseId).name
 
 function readStoredSwaps(key: string): Record<string, string | null> {
   try {
@@ -33,12 +65,21 @@ function readStoredSwaps(key: string): Record<string, string | null> {
   }
 }
 
-function writeStoredSwaps(key: string, value: Record<string, string | null> | null): void {
+function readStoredSlotIds(key: string): string[] {
+  try {
+    return parseStoredSlotIds(window.localStorage.getItem(key))
+  } catch {
+    return []
+  }
+}
+
+/** Swaps and Do it anyway, per workout, under SWAP_KEY_PREFIX (so Reset clears both); null removes the key. */
+function writeStored(key: string, value: Record<string, string | null> | readonly string[] | null): void {
   try {
     if (value === null) window.localStorage.removeItem(key)
     else window.localStorage.setItem(key, JSON.stringify(value))
   } catch {
-    // Private browsing: the swap still holds for this visit and is recovered from the sets once one is logged.
+    // Private browsing: the choice still holds for this visit, and a swap is recovered from the sets once one is logged.
   }
 }
 
@@ -94,18 +135,30 @@ export function SessionRunner({ workoutId }: { workoutId: string }) {
 
 type RunnerProps = { workout: Workout; template: SessionTemplate; sets: SetLog[]; settings: Settings; history: History; today: IsoDate; lead: string }
 
-/** The runner plans at the workout's own gym, stamped at Start (absent means Planet Fitness), not the active one. */
+/**
+ * The runner plans at the workout's own gym, stamped at Start (absent means Planet Fitness), not the
+ * active one. A Change of gym (before the first set) starts the runner afresh there: offers and marks
+ * made at the old gym don't follow it.
+ */
 function RunnerAtGym(props: RunnerProps) {
   const location = useLocation(locationIdOf(props.workout))
   if (location === undefined || location === null) {
     return <Screen title={`Session ${props.template.letter}`} lead="Opening storage…">{null}</Screen>
   }
-  return <Runner {...props} location={location} />
+  return <Runner key={location.id} {...props} location={location} />
 }
 
 function Runner({ workout, template, sets, settings, history, today, lead, location }: RunnerProps & { location: Location }) {
   const storageKey = `${SWAP_KEY_PREFIX}${workout.id}`
+  const anywayKey = `${storageKey}:anyway`
+  const locations = useLocations()
   const [stored, setStored] = useState<Record<string, string | null>>(() => readStoredSwaps(storageKey))
+  /** Slots Shawn picked Do it anyway on: nothing on their list is here, and they run regardless. */
+  const [runAnyway, setRunAnyway] = useState<string[]>(() => readStoredSlotIds(anywayKey))
+  /** What the last Swap pick offers to mark at this gym, for its slot (`swapOffer`, made at the pick, read against what is here now). */
+  const [offer, setOffer] = useState<{ slotId: string; offer: SwapOffer } | null>(null)
+  /** The line after a mark is saved, on the slot it was made from. */
+  const [marked, setMarked] = useState<{ slotId: string; text: string } | null>(null)
   const [focusSlot, setFocusSlot] = useState<string | null>(null)
   const [pinnedKey, setPinnedKey] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -134,9 +187,11 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
   const bringToTop = () => setScrollTick((n) => n + 1)
 
   const gym = useMemo<Gym>(() => ({ location, kit: settings.kit }), [location, settings.kit])
+  const available = useMemo(() => availableAt(gym), [gym])
   const planInput = { template, week: workout.week, settings, history, gym, before: workout.date }
   const unswapped = useMemo(() => planSession(planInput), [template, workout.week, workout.date, settings, history, gym])
-  const chosen = useMemo(() => mergeSwaps(swapsFromSets(unswapped, sets), stored), [unswapped, sets, stored])
+  const engineBySlot = useMemo(() => new Map(unswapped.map((p) => [p.slot.id, p.exercise.id])), [unswapped])
+  const chosen = useMemo(() => withoutEnginePicks(mergeSwaps(swapsFromSets(unswapped, sets), stored), engineBySlot), [unswapped, sets, stored, engineBySlot])
   const plans = useMemo(() => planSession({ ...planInput, chosenExercise: chosen }), [template, workout.week, workout.date, settings, history, gym, chosen])
   const steps = useMemo(
     () => sessionSteps(plans.map((p) => ({ slotId: p.slot.id, ...(p.slot.groupId ? { groupId: p.slot.groupId } : {}), optional: p.slot.optional, sides: p.prescriptions.map((x) => ({ side: x.side, sets: x.sets })) }))),
@@ -144,17 +199,31 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
   )
   const done = useMemo(() => new Set(sets.map(setStepKey)), [sets])
   const stopped = useMemo(() => new Set(sets.filter((s) => s.stopped).map((s) => s.slotId)), [sets])
+  const loggedSlots = useMemo(() => new Set(sets.map((s) => s.slotId)), [sets])
+  // Slots nothing here runs, left for Skip, Do it anyway or Swap: never the run order's automatic next step (PROGRAM-QUESTIONS 83).
+  const notHere = useMemo(
+    () =>
+      notHereSlots(
+        plans.map((p) => ({ slotId: p.slot.id, route: p.route })),
+        new Set(runAnyway),
+        new Set(Object.keys(chosen).filter((slotId) => chosen[slotId] !== undefined)),
+        loggedSlots,
+      ),
+    [plans, runAnyway, chosen, loggedSlots],
+  )
   const last = newest(sets)
   const editing = editingId ? (sets.find((s) => s.id === editingId) ?? null) : null
 
-  const pinned = pinnedKey ? (steps.find((s) => s.key === pinnedKey && !done.has(s.key) && !stopped.has(s.slotId)) ?? null) : null
-  const focused = focusSlot ? firstOpenStepOf(steps, focusSlot, done, stopped) : null
-  const current: Step | null = pinned ?? focused ?? (focusSlot ? null : nextStep(steps, done, stopped, last ? setStepKey(last) : null))
+  const pinned = pinnedKey ? (steps.find((s) => s.key === pinnedKey && !done.has(s.key) && !stopped.has(s.slotId) && !notHere.has(s.slotId)) ?? null) : null
+  // A tap on a slot with nothing here lands on it without a set to log, until Do it anyway.
+  const focused = focusSlot && !notHere.has(focusSlot) ? firstOpenStepOf(steps, focusSlot, done, stopped) : null
+  const current: Step | null = pinned ?? focused ?? (focusSlot ? null : nextStep(steps, done, stopped, last ? setStepKey(last) : null, notHere))
   const activeSlotId = editing?.slotId ?? pinned?.slotId ?? focusSlot ?? current?.slotId ?? null
   const activePlan: SlotPlan | undefined = plans.find((p) => p.slot.id === activeSlotId)
-  const fallback = nextStep(steps, done, stopped, last ? setStepKey(last) : null)
+  const held = activePlan !== undefined && editing === null && notHere.has(activePlan.slot.id)
+  const fallback = nextStep(steps, done, stopped, last ? setStepKey(last) : null, notHere)
 
-  const restStart = last?.loggedAt && restAfter(steps, setStepKey(last), done, stopped) ? Date.parse(last.loggedAt) : null
+  const restStart = last?.loggedAt && restAfter(steps, setStepKey(last), done, stopped, notHere) ? Date.parse(last.loggedAt) : null
   const timer: ReactNode =
     restStart !== null && restStart !== skippedRest ? (
       <RestTimer startedAt={restStart} seconds={settings.restTimerSeconds} hideAfterSeconds={SHOW_GO_FOR_SECONDS} onSkip={() => setSkippedRest(restStart)} />
@@ -243,10 +312,75 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
     })
   }
 
-  function swap(slotId: string, exerciseId: string | null) {
-    const next = { ...stored, [slotId]: exerciseId }
+  /** Skip: leave a slot with nothing here and go on in the run order; Finish names it. */
+  function skip() {
+    setFocusSlot(null)
+    setPinnedKey(null)
+    setEditingId(null)
+  }
+
+  /** Do it anyway: the slot runs like any other, and the card offers to mark what it lacks here. */
+  function doAnyway(slotId: string) {
+    const next = [...new Set([...runAnyway, slotId])]
+    setRunAnyway(next)
+    writeStored(anywayKey, next)
+    setPinnedKey(null)
+    setFocusSlot(slotId)
+  }
+
+  /**
+   * A Swap pick. Picking what the gym would run anyway is no swap; on a slot with nothing here that
+   * is its own exercise, so the pick is Do it anyway. Any other pick keeps what it offers to mark
+   * (`swapOffer`): what a pick that isn't here lacks, or what the exercise on the card needed that a
+   * pick that is here doesn't.
+   */
+  function swap(plan: SlotPlan, exerciseId: string | null) {
+    const slotId = plan.slot.id
+    const value = swapValue(exerciseId, engineBySlot.get(slotId) ?? plan.slot.exerciseId)
+    const next = { ...stored, [slotId]: value }
     setStored(next)
-    writeStoredSwaps(storageKey, next)
+    writeStored(storageKey, next)
+    setMarked(null)
+    const leftId = plan.prescriptions[0]?.exerciseId ?? plan.exercise.id
+    if (exerciseId !== null && value === null && plan.route.kind === 'none') {
+      setOffer(null)
+      doAnyway(slotId)
+      return
+    }
+    const pending = exerciseId === null || exerciseId === leftId ? null : swapOffer(exerciseById(leftId), exerciseById(exerciseId), available, CARRIED)
+    setOffer(pending ? { slotId, offer: pending } : null)
+  }
+
+  /** "Mark Smith machine here" or "Smith machine isn't here: mark it", at this session's gym. */
+  function mark(slotId: string, m: GymMark) {
+    void write(
+      async () => {
+        if (m.here) await setPresent(location.id, m.id, true)
+        else await markOff(location.id, m.id, today)
+      },
+      () => setMarked({ slotId, text: markedWords(m.here, m.id, location.name, ITEMS) }),
+    )
+  }
+
+  /** What the card says the gym does to a slot, and the taps it offers: Skip and Do it anyway, then the marks. */
+  function gymFor(plan: SlotPlan): { lines: string[]; actions: GymAction[] } {
+    const slotId = plan.slot.id
+    const swapped = chosen[slotId] !== undefined
+    const capped = plan.prescriptions.some((p) => p.rackCapped === true)
+    const lines = routeLines({ route: plan.route, swapped, gymName: location.name, items: ITEMS, nameOf, rackCappedLb: capped ? location.dumbbellMaxLb : null })
+    // Run anyway (Do it anyway, or a set logged): offer to mark what its exercise lacks, as a pick that isn't here does.
+    const anyway = !swapped && plan.route.kind === 'none' && !notHere.has(slotId)
+    const placed = exerciseById(plan.route.exerciseId)
+    const pending = anyway ? swapOffer(placed, placed, available, CARRIED) : offer?.slotId === slotId ? offer.offer : null
+    const notes = offerNotes(pending, available, ITEMS)
+    const actions: GymAction[] = notHere.has(slotId)
+      ? [
+          { label: 'Skip', onPress: skip },
+          { label: 'Do it anyway', onPress: () => doAnyway(slotId) },
+        ]
+      : []
+    for (const m of notes.marks) actions.push({ label: m.label, onPress: () => mark(slotId, m) })
+    return { lines: [...lines, ...notes.lines, ...(marked?.slotId === slotId ? [marked.text] : [])], actions }
   }
 
   function pickSide(slotId: string, side: SetSide) {
@@ -259,7 +393,8 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
     void write(
       async () => {
         await deleteWorkout(workout.id)
-        writeStoredSwaps(storageKey, null)
+        writeStored(storageKey, null)
+        writeStored(anywayKey, null)
       },
       () => navigate({ name: 'today' }),
     )
@@ -269,7 +404,8 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
     if (sets.length === 0) return discard()
     void write(async () => {
       await updateWorkout(workout.id, { ...(maxPain !== null ? { maxPainDuring: maxPain } : {}), finishedAt: new Date().toISOString(), status: 'finished' })
-      writeStoredSwaps(storageKey, null)
+      writeStored(storageKey, null)
+      writeStored(anywayKey, null)
     })
   }
 
@@ -278,7 +414,8 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
     void write(
       async () => {
         await updateWorkout(workout.id, { finishedAt: new Date().toISOString(), status: 'abandoned' })
-        writeStoredSwaps(storageKey, null)
+        writeStored(storageKey, null)
+        writeStored(anywayKey, null)
       },
       () => navigate({ name: 'today' }),
     )
@@ -289,31 +426,49 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
     bringToTop()
   }
 
-  const notLogged = plans.filter((p) => !p.slot.optional && !stopped.has(p.slot.id) && steps.some((s) => s.slotId === p.slot.id && !done.has(s.key))).map((p) => `${p.slot.label} ${p.exercise.name}`)
+  const notLogged = notLoggedLabels(plans, steps, done, stopped, notHere)
+  const notHereLine = notHereWords(location.name, notHereEntries(plans, loggedSlots, nameOf))
+  const finished = doneWords(
+    location.name,
+    plans.filter((p) => !p.slot.optional && notHere.has(p.slot.id)).map((p) => `${p.slot.label} ${p.exercise.name}`),
+  )
   const staleDay = workout.date < today
   const busy = saving || cooling
   const lift = PROGRAM.warmUp.lift
-  const circuitMinutes = lift.circuitMinutesByPhase[String(workout.phase)]
+  const warmUp = warmUpWords(lift.circuitMinutesByPhase[String(workout.phase)], available.has(WARM_UP_BIKE))
 
   const stopOfActive = activePlan && stopped.has(activePlan.slot.id) ? slotSetsOf(activePlan.slot.id).find((s) => s.stopped) : undefined
   const nextName = fallback ? (plans.find((p) => p.slot.id === fallback.slotId)?.exercise.name ?? 'the next slot') : null
   const idleBar = fallback
     ? {
-        line: stopOfActive ? `Stopped: ${stopReasonLabel(stopOfActive.stopReason).toLowerCase()}. This exercise is done for today.` : 'All sets for this slot are logged.',
+        line: held
+          ? heldBarWords(location.name)
+          : stopOfActive
+            ? `Stopped: ${stopReasonLabel(stopOfActive.stopReason).toLowerCase()}. This exercise is done for today.`
+            : 'All sets for this slot are logged.',
         label: `Next: ${nextName}`,
-        onPress: () => {
-          setFocusSlot(null)
-          setPinnedKey(null)
-          setEditingId(null)
-        },
+        onPress: skip,
       }
-    : { line: 'Every required set is logged.', label: 'Finish session', onPress: () => openPanel('finish') }
+    : { line: held ? heldBarWords(location.name) : finished.bar, label: 'Finish session', onPress: () => openPanel('finish') }
 
   const sidesFor = (plan: SlotPlan) =>
-    plan.slot.unilateral && !plan.slot.injuredOnly ? plan.prescriptions.map((p) => ({ side: p.side, open: openStepForSide(steps, plan.slot.id, p.side, done, stopped) !== null })) : []
+    plan.slot.unilateral && !plan.slot.injuredOnly && !notHere.has(plan.slot.id)
+      ? plan.prescriptions.map((p) => ({ side: p.side, open: openStepForSide(steps, plan.slot.id, p.side, done, stopped) !== null }))
+      : []
 
   return (
     <Screen title={`Session ${template.letter}`} lead={lead}>
+      <GymLine
+        location={location}
+        locations={locations ? listedLocations(locations) : undefined}
+        locked={gymLocked(sets.length)}
+        busy={busy}
+        onPick={(locationId) =>
+          void write(async () => {
+            await setWorkoutLocation(workout.id, locationId)
+          })
+        }
+      />
       <div className="-mt-4 flex flex-wrap items-center justify-between gap-2">
         <Button variant="quiet" onClick={() => navigate({ name: 'today' })}>
           Today
@@ -336,14 +491,15 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
       {sets.length === 0 || showWarmUp ? (
         <section aria-label="Warm-up" className="flex flex-col gap-2">
           <p className="flex items-center justify-between gap-3 text-body text-on-dark">
-            Warm-up · bike 5 min · knee circuit {circuitMinutes ?? 5} min
+            {warmUp.line}
             <Button variant="quiet" onClick={() => setShowWarmUp((v) => !v)}>
               {showWarmUp ? 'Hide' : 'Show'}
             </Button>
           </p>
+          {warmUp.noBike ? <p className="text-small text-on-dark">{warmUp.noBike}</p> : null}
           {showWarmUp ? (
             <ol className="flex flex-col gap-1">
-              <li className="text-small text-on-dark-dim">{lift.bike}</li>
+              {warmUp.noBike ? null : <li className="text-small text-on-dark-dim">{lift.bike}</li>}
               {lift.circuit.map((item) => (
                 <li key={item} className="text-small text-on-dark-dim">
                   {item}
@@ -356,7 +512,7 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
 
       <div ref={topRef} className="scroll-mt-4">
         {panel === 'finish' ? (
-          <FinishPanel notLogged={notLogged} loggedCount={sets.length} loggedMax={loggedMaxPain(sets)} busy={busy} onFinish={finish} onBack={() => setPanel(null)} />
+          <FinishPanel notHere={notHereLine} notLogged={notLogged} loggedCount={sets.length} loggedMax={loggedMaxPain(sets)} busy={busy} onFinish={finish} onBack={() => setPanel(null)} />
         ) : panel === 'end' ? (
           <EndPanel loggedCount={sets.length} busy={busy} onEnd={end} onBack={() => setPanel(null)} />
         ) : activePlan ? (
@@ -376,6 +532,10 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
             exercisePain={exercisePain(activePlan.slot.id, editing?.exerciseId ?? activePlan.prescriptions[0]?.exerciseId ?? activePlan.exercise.id)}
             onExercisePain={(v) => setExercisePain(activePlan.slot.id, editing?.exerciseId ?? activePlan.prescriptions[0]?.exerciseId ?? activePlan.exercise.id, v)}
             swapped={chosen[activePlan.slot.id] !== undefined}
+            choices={swapChoices(exerciseById(activePlan.slot.exerciseId), activePlan.substitutions, available, ITEMS)}
+            backToName={nameOf(engineBySlot.get(activePlan.slot.id) ?? activePlan.slot.exerciseId)}
+            gym={gymFor(activePlan)}
+            held={held}
             busy={busy}
             error={error}
             timer={timer}
@@ -384,14 +544,14 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
             onSave={(set, draft) => saveEdit(set, activePlan, draft)}
             onRemove={(set) => void write(() => deleteSet(set.id), () => setEditingId(null))}
             onEdit={(set) => setEditingId(set ? set.id : null)}
-            onSwap={(id) => swap(activePlan.slot.id, id)}
+            onSwap={(id) => swap(activePlan, id)}
             onPickSide={(side) => pickSide(activePlan.slot.id, side)}
           />
         ) : (
           <>
             <section aria-label="Now" className="flex flex-col gap-2 rounded-md bg-navy-lift p-4">
-              <h2 className="font-sans text-h3 font-semibold text-on-dark">Every required set is logged</h2>
-              <p className="text-body text-on-dark-dim">Optional slots are still open below. Finish when you&apos;re done.</p>
+              <h2 className="font-sans text-h3 font-semibold text-on-dark">{finished.heading}</h2>
+              <p className="text-body text-on-dark-dim">{finished.line}</p>
             </section>
             <DoneBar timer={timer} line={idleBar.line} label={idleBar.label} disabled={busy} onPress={idleBar.onPress} />
           </>
@@ -404,6 +564,7 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
         done={done}
         stopped={stopped}
         currentSlotId={activeSlotId}
+        notHere={notHere}
         onPick={(slotId) => {
           setEditingId(null)
           setPanel(null)

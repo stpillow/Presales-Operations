@@ -2,8 +2,24 @@ import { useState } from 'react'
 import { Button } from '../../components/Button.tsx'
 import { PAIN_SCALE, ScalePicker } from '../../components/ScalePicker.tsx'
 
-/** Finish, inline: what wasn't logged, max pain during the session, then the write. */
-export function FinishPanel({ notLogged, loggedCount, loggedMax, busy, onFinish, onBack }: { notLogged: string[]; loggedCount: number; loggedMax: number | null; busy: boolean; onFinish: (maxPain: number | null) => void; onBack: () => void }) {
+/** Finish, inline: what the gym changed (`notHere`, in words), what wasn't logged, max pain during the session, then the write. */
+export function FinishPanel({
+  notHere,
+  notLogged,
+  loggedCount,
+  loggedMax,
+  busy,
+  onFinish,
+  onBack,
+}: {
+  notHere: string | null
+  notLogged: string[]
+  loggedCount: number
+  loggedMax: number | null
+  busy: boolean
+  onFinish: (maxPain: number | null) => void
+  onBack: () => void
+}) {
   const [maxPain, setMaxPain] = useState<number | null>(loggedMax)
   if (loggedCount === 0) {
     return (
@@ -22,12 +38,13 @@ export function FinishPanel({ notLogged, loggedCount, loggedMax, busy, onFinish,
   return (
     <section aria-label="Finish session" className="flex flex-col gap-4 rounded-md bg-navy-lift p-4">
       <h2 className="font-sans text-h3 font-semibold text-on-dark">Finish the session</h2>
+      {notHere ? <p className="text-body text-on-dark-dim">{notHere}</p> : null}
       {notLogged.length > 0 ? (
         <p className="text-body text-on-dark-dim">
           Not logged: {notLogged.join(', ')}. They keep last session&apos;s prescription.
         </p>
       ) : (
-        <p className="text-body text-on-dark-dim">Every required set is logged.</p>
+        <p className="text-body text-on-dark-dim">{notHere ? 'Every other required set is logged.' : 'Every required set is logged.'}</p>
       )}
       <ScalePicker label="Max pain during the session" value={maxPain} options={PAIN_SCALE} onChange={setMaxPain} />
       <Button variant="primary" wide disabled={busy} onClick={() => onFinish(maxPain)}>
