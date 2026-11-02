@@ -109,11 +109,43 @@ describe('a capped clean counts neither way (Shawn, Nov 2)', () => {
   })
 })
 
+describe('a capped back-off backs off from the capped load (Shawn, Nov 2)', () => {
+  const hurt = (over: Partial<SetLog> = {}) => three('w3', 'db-rdl', { load: 25, rackCapped: true, painDuring: 6, ...over })
+  it('the capped session that read back-off is the baseline, in that one case', () => {
+    const got = exerciseHistory(attachChecks([home1, home2, hotel], [...homeSets, ...hurt()], checks), 'db-rdl')
+    expect(got.readings).toEqual(['back-off', 'clean', 'clean'])
+    expect(ids(got.lastSets)).toEqual(ids(hurt()))
+  })
+  it('so does a capped hold that makes two holds in a row', () => {
+    const held = attachChecks([home2, hotel], [...three('w2', 'db-rdl', { painDuring: 4 }), ...hurt({ painDuring: 4 })], checks)
+    const got = exerciseHistory(held, 'db-rdl')
+    expect(got.readings).toEqual(['hold', 'hold'])
+    expect(ids(got.lastSets)).toEqual(ids(hurt()))
+  })
+  it('a capped hold alone repeats the last uncapped session', () => {
+    const held = attachChecks([home2, hotel], [...three('w2', 'db-rdl'), ...hurt({ painDuring: 4 })], checks)
+    expect(ids(exerciseHistory(held, 'db-rdl').lastSets)).toEqual(ids(three('w2', 'db-rdl')))
+  })
+  it('a capped clean after the capped back-off is left out, so the back-off still works from the capped load', () => {
+    const hotel2 = workout('w4', '2026-11-12', { locationId: 'hotel' })
+    const after = attachChecks([home2, hotel, hotel2], [...three('w2', 'db-rdl'), ...hurt(), ...three('w4', 'db-rdl', { load: 25, rackCapped: true })], [...checks, check('2026-11-13')])
+    const got = exerciseHistory(after, 'db-rdl')
+    expect(got.readings).toEqual(['back-off', 'clean'])
+    expect(ids(got.lastSets)).toEqual(ids(hurt()))
+  })
+  it('an uncapped session since then is the baseline again', () => {
+    const home3 = workout('w4', '2026-11-12')
+    const after = attachChecks([home2, hotel, home3], [...three('w2', 'db-rdl'), ...hurt(), ...three('w4', 'db-rdl', { load: 15 })], [...checks, check('2026-11-13')])
+    expect(ids(exerciseHistory(after, 'db-rdl').lastSets)).toEqual(ids(three('w4', 'db-rdl')))
+  })
+})
+
 describe('without the field, history behaves as today', () => {
   const plain = attachChecks([home1, home2, hotel], [...homeSets, ...three('w3', 'db-rdl', { load: 25 }), ...hotelSplit], checks)
   it('readings and last sets match history.ts exactly', () => {
     for (const exerciseId of ['db-rdl', 'split-squat', 'leg-press']) {
-      expect(cappedExerciseReadings(plain, exerciseId, 'right')).toEqual(exerciseReadings(plain, exerciseId, 'right'))
+      expect(cappedExerciseReadings(plain, exerciseId, 'right').map(({ date, reading }) => ({ date, reading }))).toEqual(exerciseReadings(plain, exerciseId, 'right'))
+      expect(cappedExerciseReadings(plain, exerciseId, 'right').every((r) => !r.rackCapped)).toBe(true)
       expect(exerciseHistory(plain, exerciseId, 'right')).toEqual({
         readings: exerciseReadings(plain, exerciseId, 'right').map((r) => r.reading.result),
         lastSets: lastSetsBySide(plain, exerciseId),
@@ -136,6 +168,10 @@ describe('feeding prescribe', () => {
     prescribe({ slot, exercise: rdl, substitutions: [], ...history, week: 3, injuredSide: 'right', dumbbellMax: 80, redFlagActive: false })[0]
   it('back home after a capped clean at the hotel: the two home cleans stand, so 60 lb moves up a step, never from 25 lb', () => {
     expect(next(exerciseHistory(records, 'db-rdl'))).toMatchObject({ load: 65, basis: 'progress-load' })
+  })
+  it('back home after a capped back-off at the hotel: 0.75 × the capped 25 lb, not 0.75 × 60 lb', () => {
+    const hurt = attachChecks([home1, home2, hotel], [...homeSets, ...three('w3', 'db-rdl', { load: 25, rackCapped: true, painDuring: 6 })], checks)
+    expect(next(exerciseHistory(hurt, 'db-rdl'))).toMatchObject({ load: 15, basis: 'back-off', note: 'Back off: load × 0.75, rounded down to 15 lb.' })
   })
   it('without the cap the hotel session would have been the baseline, and clean enough to progress from', () => {
     const raw = { readings: exerciseReadings(records, 'db-rdl').map((r) => r.reading.result), lastSets: lastSetsBySide(records, 'db-rdl') }
