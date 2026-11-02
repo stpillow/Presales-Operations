@@ -19,7 +19,7 @@ import {
   checklistSections,
   coverageWeek,
   currentTemplates,
-  keptLines,
+  keptRows,
   kitAfter,
   kitRows,
   lackWords,
@@ -30,6 +30,8 @@ import {
   outcomeWords,
   rackChoiceWords,
   rackNote,
+  removedExtraWords,
+  removeExtraAsk,
   shortDate,
   startWords,
   startedFromWords,
@@ -332,11 +334,28 @@ describe('What this changes', () => {
   })
 })
 
-describe('keptLines', () => {
+describe('keptRows', () => {
   it("lists what was typed with its day, then the list's items no session uses", () => {
     const gym: Location = { ...marriott, present: [...marriott.present, 'treadmill'], extras: [{ id: 'extra-1', text: 'Kettlebells', addedOn: '2026-11-10' }] }
-    expect(keptLines(gym, program.equipment, program.exercises)).toEqual(['Kettlebells, typed Nov 10', 'Treadmill, on program.md’s list'])
-    expect(keptLines(marriott, program.equipment, program.exercises)).toEqual([])
+    expect(keptRows(gym, program.equipment, program.exercises).map((r) => r.text)).toEqual(['Kettlebells, typed Nov 10', 'Treadmill, on program.md’s list'])
+    expect(keptRows(marriott, program.equipment, program.exercises)).toEqual([])
+  })
+  it('a typed line carries its id, so it can be taken back; a list item is taken back by marking it Not here (M4b review)', () => {
+    const gym: Location = {
+      ...marriott,
+      present: [...marriott.present, 'treadmill'],
+      extras: [
+        { id: 'extra-1', text: 'Kettlebels', addedOn: '2026-11-10' },
+        { id: 'extra-2', text: 'Kettlebells', addedOn: '2026-11-10' },
+      ],
+    }
+    expect(keptRows(gym, program.equipment, program.exercises)).toEqual([
+      { key: 'extra:extra-1', text: 'Kettlebels, typed Nov 10', extraId: 'extra-1', typed: 'Kettlebels' },
+      { key: 'extra:extra-2', text: 'Kettlebells, typed Nov 10', extraId: 'extra-2', typed: 'Kettlebells' },
+      { key: 'item:Treadmill', text: 'Treadmill, on program.md’s list', extraId: null, typed: null },
+    ])
+    expect(removeExtraAsk('Kettlebels')).toBe('Take “Kettlebels” off this gym and the next-update list? Nothing else changes.')
+    expect(removedExtraWords('Kettlebels')).toBe('“Kettlebels” is off the list.')
   })
 })
 

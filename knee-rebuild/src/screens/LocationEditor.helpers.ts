@@ -310,13 +310,35 @@ export function changesView(input: {
 
 // --- Kept for the next program update ----------------------------------------
 
-/** This gym's lines of the next-update list: what was typed (with the day), then list items no session uses. */
-export function keptLines(
+export interface KeptRow {
+  key: string
+  /** "Kettlebells, typed Nov 10", or "Treadmill, on program.md’s list". */
+  text: string
+  /** A typed line's id, which Remove takes back (`removeExtra`); null for a list item, which Not here takes back. */
+  extraId: string | null
+  /** The typed text, for Remove's ask; null for a list item. */
+  typed: string | null
+}
+
+/** This gym's lines of the next-update list (`forNextProgramUpdate`): what was typed (with the day), then list items no session uses. */
+export function keptRows(
   location: Pick<Location, 'name' | 'present' | 'extras' | 'markedOff'>,
   vocabulary: readonly Pick<Equipment, 'id' | 'name'>[],
   exercises: readonly Pick<Exercise, 'requires' | 'stageRequires'>[],
-): string[] {
-  return forNextProgramUpdate([location], vocabulary, exercises).map((note) =>
-    note.addedOn ? `${note.text}, typed ${shortDate(note.addedOn)}` : `${note.text}, on program.md’s list`,
-  )
+): KeptRow[] {
+  const typed = location.extras.map((extra) => ({ key: `extra:${extra.id}`, text: `${extra.text}, typed ${shortDate(extra.addedOn)}`, extraId: extra.id, typed: extra.text }))
+  const listed = forNextProgramUpdate([location], vocabulary, exercises)
+    .filter((note) => note.addedOn === undefined)
+    .map((note) => ({ key: `item:${note.text}`, text: `${note.text}, on program.md’s list`, extraId: null, typed: null }))
+  return [...typed, ...listed]
+}
+
+/** Remove's ask, the first of two taps (as Archive's). */
+export function removeExtraAsk(typed: string): string {
+  return `Take “${typed.trim()}” off this gym and the next-update list? Nothing else changes.`
+}
+
+/** After a typed line is taken back. */
+export function removedExtraWords(typed: string): string {
+  return `“${typed.trim()}” is off the list.`
 }

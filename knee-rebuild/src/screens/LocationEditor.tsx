@@ -7,7 +7,7 @@ import { Screen } from '../components/Screen.tsx'
 import { Stepper } from '../components/Stepper.tsx'
 import { Tap } from '../components/Tap.tsx'
 import { useActiveLocation, useLocations, useSettings } from '../db/hooks.ts'
-import { addExtra, addLocation, markOff, renameLocation, setActiveLocation, setDumbbellMax, setKit, setPresent } from '../db/repo.ts'
+import { addExtra, addLocation, markOff, removeExtra, renameLocation, setActiveLocation, setDumbbellMax, setKit, setPresent } from '../db/repo.ts'
 import { equipmentChecklist, usedEquipment, type Available } from '../rules/equipment.ts'
 import { extraTooLong } from '../rules/locations.ts'
 import { itemOutcome, notHereWrite, typedOutcome, type TypedOutcome } from '../rules/whereYouTrain.ts'
@@ -25,7 +25,7 @@ import {
   coverageWeek,
   currentTemplates,
   extraTooLongWords,
-  keptLines,
+  keptRows,
   kitAfter,
   kitRows,
   markedWords,
@@ -36,8 +36,11 @@ import {
   rackGridNote,
   rackNote,
   rackSaved,
+  removedExtraWords,
+  removeExtraAsk,
   startWords,
   startedFromWords,
+  type KeptRow,
 } from './LocationEditor.helpers.ts'
 import { failedWords } from './Locations.helpers.ts'
 
@@ -181,7 +184,7 @@ function NewLocation({ locations }: { locations: Location[] }) {
   )
 }
 
-type Field = 'name' | 'rack' | 'kit' | 'typed' | 'use' | `group:${string}`
+type Field = 'name' | 'rack' | 'kit' | 'typed' | 'kept' | 'use' | `group:${string}`
 type Problem = { field: Field; text: string } | null
 
 function EditLocation({ location, locations, settings, activeId }: { location: Location; locations: Location[]; settings: Settings; activeId: string }) {
@@ -224,7 +227,7 @@ function EditLocation({ location, locations, settings, activeId }: { location: L
     items: PROGRAM.equipment,
     gymName: location.name,
   })
-  const kept = keptLines(location, PROGRAM.equipment, PROGRAM.exercises)
+  const kept = keptRows(location, PROGRAM.equipment, PROGRAM.exercises)
 
   const mark = (group: string, itemId: EquipmentId, here: boolean) =>
     void run(`group:${group}`, async () => {
@@ -303,16 +306,8 @@ function EditLocation({ location, locations, settings, activeId }: { location: L
         ))}
       </Section>
 
-      <Section label="Kept for the next program update" saved={false} problem={null}>
-        {kept.length > 0 ? (
-          <ul className="flex flex-col gap-1 text-body text-on-dark-dim wrap-anywhere">
-            {kept.map((line) => (
-              <li key={line}>{line}</li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-body text-on-dark-dim">Nothing yet. What you type that no exercise uses is kept here.</p>
-        )}
+      <Section label="Kept for the next program update" saved={savedField === 'kept'} problem={problemFor('kept')}>
+        {kept.length > 0 ? <KeptList rows={kept} onRemove={(extraId) => run('kept', () => removeExtra(location.id, extraId))} /> : <p className="text-body text-on-dark-dim">Nothing yet. What you type that no exercise uses is kept here.</p>}
         <Button variant="quiet" onClick={() => navigate({ name: 'next-update' })}>
           For the next program update
         </Button>
@@ -619,6 +614,67 @@ function TypedSection({
         </div>
       ) : null}
     </Section>
+  )
+}
+
+/**
+ * The gym's next-update lines, each typed one with a Remove that asks once, inline, as Archive does
+ * (a typo or a mistaken paste comes off the list); a list item comes off by marking it Not here.
+ */
+function KeptList({ rows, onRemove }: { rows: readonly KeptRow[]; onRemove: (extraId: string) => Promise<boolean> }) {
+  const [armed, setArmed] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [removed, setRemoved] = useState<string | null>(null)
+  const remove = async (extraId: string, typed: string) => {
+    setBusy(true)
+    const ok = await onRemove(extraId)
+    setBusy(false)
+    if (ok) {
+      setArmed(null)
+      setRemoved(removedExtraWords(typed))
+    }
+  }
+  return (
+    <div className="flex flex-col gap-2">
+      {removed ? (
+        <p role="status" className="text-body text-on-dark wrap-anywhere">
+          {removed}
+        </p>
+      ) : null}
+      <ul className="flex flex-col gap-2 text-body text-on-dark-dim">
+        {rows.map(({ key, text, extraId, typed }) => (
+          <li key={key} className="flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-3">
+              <span className="min-w-0 wrap-anywhere">{text}</span>
+              {extraId !== null && armed !== extraId ? (
+                <Button
+                  variant="quiet"
+                  className="shrink-0"
+                  disabled={busy}
+                  onClick={() => {
+                    setRemoved(null)
+                    setArmed(extraId)
+                  }}
+                >
+                  Remove
+                </Button>
+              ) : null}
+            </div>
+            {extraId !== null && typed !== null && armed === extraId ? (
+              <div className="flex flex-col gap-2">
+                <p className="text-body text-on-dark wrap-anywhere">{removeExtraAsk(typed)}</p>
+                <Button wide disabled={busy} onClick={() => void remove(extraId, typed)}>
+                  Yes, remove it
+                </Button>
+                <Button variant="quiet" wide disabled={busy} onClick={() => setArmed(null)}>
+                  Keep it
+                </Button>
+              </div>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }
 
