@@ -45,7 +45,8 @@ export interface RunSuggestion {
 /**
  * What a scheduled run should be. Strides on Wednesdays and the tempo on Fridays come from
  * Phase 3 ("from week 8", "from week 10 if Gate 2 was clean": being in Phase 3 means Gate 2
- * passed), counted from the week the phase was entered. A hold or back-off morning suggests a swap.
+ * passed), counted from the week the phase was entered. A hold or back-off morning suggests a swap;
+ * with no check yet the miles stand and the strides, tempo and faster effort wait for a clean one.
  */
 export function suggestRun(input: {
   session: DaySession
@@ -55,7 +56,7 @@ export function suggestRun(input: {
   milesSoFar: number
   currentPhase: number
   phaseWeek: number
-  /** Today's morning reading, or null when no check was logged today. */
+  /** Today's morning reading, or null when no check was logged today (the miles stand; the hard parts wait). */
   morning: ReadingResult | null
 }): RunSuggestion | null {
   const type = runTypeFor(input.session)
@@ -75,12 +76,20 @@ export function suggestRun(input: {
     if (share > left) reasons.push(`capped at the ${left} miles left under this week's ${input.target}`)
   }
   const phase3 = input.currentPhase >= 3
+  const plannedStrides = type === 'easy' && phase3
   const plannedTempo = type === 'long' && phase3 && input.phaseWeek >= 3
-  const strides = type === 'easy' && phase3 && !swapSuggested
-  const tempo = plannedTempo && !swapSuggested
   // Every Friday from Phase 2 on, never in a deload week, and not on top of Phase 3's tempo,
   // which is that Friday's hard effort (PROGRAM-QUESTIONS 29, Shawn's Nov 1 call).
-  const fasterAllowed = type === 'long' && input.currentPhase >= 2 && !isDeloadWeek(input.week) && !plannedTempo && !swapSuggested
+  const plannedFaster = type === 'long' && input.currentPhase >= 2 && !isDeloadWeek(input.week) && !plannedTempo
+  // The hard parts need a clean morning: a hold or back-off swaps them out, and no check yet is
+  // unknown, which is not clean (PROGRAM-QUESTIONS 60). The miles stand either way.
+  const clean = input.morning === 'clean'
+  const strides = plannedStrides && clean
+  const tempo = plannedTempo && clean
+  const fasterAllowed = plannedFaster && clean
+  if (input.morning === null && (plannedStrides || plannedTempo || plannedFaster)) {
+    reasons.push('log the morning check first; strides, the tempo and any faster effort wait on a clean morning')
+  }
   if (strides) reasons.push('finish with 4 × 15 s strides building to about 85%, full walk-back between')
   if (tempo) reasons.push('carry a 2 × 5 min comfortably-hard segment with 3 min easy between')
   if (fasterAllowed) reasons.push('one faster effort is allowed today')

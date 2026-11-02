@@ -91,6 +91,21 @@ describe('suggestRun', () => {
   it('says when no morning check was logged', () => {
     expect(suggestRun({ ...base, session: 'run:easy', morning: null })?.reasons[0]).toContain('no morning check')
   })
+  it('with no morning check yet, the miles stand but strides, the tempo and the faster effort wait (PROGRAM-QUESTIONS 60)', () => {
+    const waiting = 'log the morning check first; strides, the tempo and any faster effort wait on a clean morning'
+    const tempoDay = { ...base, session: 'run:long' as const, currentPhase: 3, phaseWeek: 3, week: 10, target: 17 }
+    expect(suggestRun({ ...tempoDay, morning: 'clean' })).toMatchObject({ miles: 7, tempo: true })
+    expect(suggestRun({ ...tempoDay, morning: null })).toEqual({
+      type: 'long', miles: 7, strides: false, tempo: false, fasterAllowed: false, swapSuggested: false,
+      reasons: ['no morning check yet today', waiting],
+    })
+    expect(suggestRun({ ...base, session: 'run:easy', currentPhase: 3, phaseWeek: 1, week: 8, morning: null })).toMatchObject({ strides: false, swapSuggested: false })
+    const faster = suggestRun({ ...base, session: 'run:long', currentPhase: 2, phaseWeek: 2, week: 5, morning: null })
+    expect(faster).toMatchObject({ fasterAllowed: false, swapSuggested: false })
+    expect(faster?.reasons).toContain(waiting)
+    // Nothing to hold back in Phase 1: the line would only say what isn't on the plan anyway.
+    expect(suggestRun({ ...base, session: 'run:mbr', morning: null })?.reasons).toEqual(['no morning check yet today'])
+  })
 })
 
 describe('weekDays', () => {
