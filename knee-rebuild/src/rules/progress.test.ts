@@ -21,7 +21,7 @@ describe('loadSeries', () => {
   })
 })
 
-describe('symmetrySeries (PROGRAM-QUESTIONS 59)', () => {
+describe('symmetrySeries (PROGRAM-QUESTIONS 111)', () => {
   it('compares loads when they differ, counts when they match', () => {
     const records = attachChecks(
       [workout('w1', '2026-12-01'), workout('w2', '2026-12-08')],
@@ -32,6 +32,23 @@ describe('symmetrySeries (PROGRAM-QUESTIONS 59)', () => {
       { date: '2026-12-01', percent: 80, basis: 'load', injured: 20, other: 25 },
       { date: '2026-12-08', percent: 87.5, basis: 'count', injured: 7, other: 8 },
     ])
+  })
+  it('compares loads when one side carries none: bodyweight against a load is 0%, never 100% by counts', () => {
+    // A back-off took the injured side's 5 lb to 0 (backOffLoad(5, 5)); the other side kept 20 lb. Both did 8 reps.
+    const records = attachChecks(
+      [workout('w1', '2026-12-15'), workout('w2', '2026-12-22')],
+      [set('w1', 'right', 1, 0, 8), set('w1', 'right', 2, 0, 8), set('w1', 'left', 1, 20, 8), set('w1', 'left', 2, 20, 8), set('w2', 'right', 1, 0, 10), set('w2', 'left', 1, 0, 10)],
+      [],
+    )
+    expect(symmetrySeries(records, 'bulgarian-split-squat', 'right')).toEqual([
+      { date: '2026-12-15', percent: 0, basis: 'load', injured: 0, other: 20 },
+      // No load on either side: the counts are compared.
+      { date: '2026-12-22', percent: 100, basis: 'count', injured: 10, other: 10 },
+    ])
+  })
+  it('leaves out a session where only the other side carried no load: there is no percent of 0 lb', () => {
+    const records = attachChecks([workout('w1', '2026-12-15')], [set('w1', 'right', 1, 10, 8), set('w1', 'left', 1, 0, 8)], [])
+    expect(symmetrySeries(records, 'bulgarian-split-squat', 'right')).toEqual([])
   })
   it('skips a session missing either side', () => {
     const records = attachChecks([workout('w1', '2026-12-01')], [set('w1', 'right', 1, 20, 8)], [])

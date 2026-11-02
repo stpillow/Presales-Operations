@@ -38,7 +38,7 @@ export function loadSeries(records: readonly WorkoutRecord[], exerciseId: string
 export interface SymmetryPoint {
   date: IsoDate
   percent: number
-  /** What was compared: the heaviest loads, or the counts when the loads match or there is no load. */
+  /** What was compared: the heaviest loads when they differ (a 0 included), else the counts. */
   basis: 'load' | 'count'
   injured: number
   other: number
@@ -46,8 +46,11 @@ export interface SymmetryPoint {
 
 /**
  * Symmetry over time for a two-sided exercise: per session, the injured side's best set over the
- * other side's. Loads are compared when they differ (the healthy side may lift more, rule 5); when
- * they match or there is no load, the reps or seconds are (PROGRAM-QUESTIONS 59).
+ * other side's. Loads are compared whenever they differ, a 0 included (the healthy side may lift
+ * more, rule 5): the injured side at bodyweight against 20 lb reads 0%, as the gate's load test
+ * reads it, never 100% by counts. Only when the loads are equal (both 0 included) are the reps or
+ * seconds compared, since rule 5 sets the healthy side's count from the injured side's. A session
+ * where only the other side carried no load has no percent and is left out (PROGRAM-QUESTIONS 111).
  */
 export function symmetrySeries(records: readonly WorkoutRecord[], exerciseId: string, injuredSide: Side): SymmetryPoint[] {
   const other: Side = injuredSide === 'left' ? 'right' : 'left'
@@ -58,7 +61,7 @@ export function symmetrySeries(records: readonly WorkoutRecord[], exerciseId: st
     const a = bestSet(own.filter((s) => s.side === injuredSide))
     const b = bestSet(own.filter((s) => s.side === other))
     if (!a || !b) continue
-    const byLoad = a.load > 0 && b.load > 0 && a.load !== b.load
+    const byLoad = a.load !== b.load
     const injured = byLoad ? a.load : count(a)
     const healthy = byLoad ? b.load : count(b)
     const percent = symmetryPercent(injured, healthy)
