@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest'
 import programMd from '../../docs/program.md?raw'
 import phasesChart from '../../docs/media/image1.png?inline'
 import mileageChart from '../../docs/media/image2.png?inline'
+import { planSession } from '../app/session.ts'
+import { homeLocation } from '../db/migrations.ts'
 import { program, templateFor } from '../program/program.ts'
 import { fallbacksAfter } from '../rules/equipment.ts'
 import { substitutionProblem } from '../rules/overrides.ts'
 import { parseInline, parseMarkdown, type Block } from '../rules/markdown.ts'
-import { Settings, type ProgramOverride, type Slot } from '../schema/index.ts'
+import { DEFAULT_KIT, Settings, type ProgramOverride, type Slot } from '../schema/index.ts'
 import {
   CHART_SIZES,
   CUE_COUNT_FROM,
@@ -114,6 +116,25 @@ describe('editorView: what the editor shows for a slot', () => {
     expect(view.detail).toBe('Edited Nov 16: your substitutions, program.md’s cues.')
     expect(view.writtenCues).toBeNull()
     expect(view.writtenSubstitutions).toEqual(['45° leg press', 'Smith machine box squat', 'Goblet squat to a bench'])
+  })
+})
+
+describe('the lists the Program screen shows are the lists the runner runs', () => {
+  it('drops an imported edit the slot can’t count or step, as planSession does (PROGRAM-QUESTIONS 130)', () => {
+    // A carry, counted in yards, on Phase 1 A's leg press, counted in reps: the repo refuses it, but a file can bring it.
+    const misfit = edit({ substitutionIds: ['farmers-carry', 'smith-box-squat'] })
+    const slot = seedSlot('p1-a', 'p1a-1')
+    expect(editorView(slot, misfit).substitutions.map((s) => s.id)).toEqual(['smith-box-squat'])
+    const row = phaseScreen(settingsIn(), '2026-11-10', [misfit]).sessions[0]?.rows[0]
+    expect(row?.substitutions).toEqual(['Smith machine box squat'])
+    const ran = planSession({
+      template: templateFor(1, 'A'),
+      week: 2,
+      settings: settingsIn(),
+      history: { workouts: [], setLogs: [], morningChecks: [], runs: [], gateTests: [], sessionMoves: [], programOverrides: [misfit] },
+      gym: { location: homeLocation(80, program.planetFitness, '2026-11-02', program.equipmentListVersion), kit: DEFAULT_KIT },
+    })
+    expect(ran[0]?.slot.substitutionIds).toEqual(['smith-box-squat'])
   })
 })
 

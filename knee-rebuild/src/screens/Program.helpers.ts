@@ -12,9 +12,13 @@ import { coverageWeek, currentTemplates, shortDate } from './LocationEditor.help
  * program.md as reference. Words and view models only; the decisions are src/rules/overrides.ts's.
  */
 
-/** The catalog, by id and as a set of ids, for names and for dropping ids it no longer has. */
+/**
+ * The catalog by id: for names, and handed to the overrides as the runner hands it (`planSession`),
+ * so an edit naming an id it no longer has, or one the slot can't count or step (an imported file's;
+ * the repo refuses one), is dropped here as it is there, and the screen shows the lists that run.
+ */
 const BY_ID: ReadonlyMap<string, Exercise> = new Map(PROGRAM.exercises.map((e) => [e.id, e]))
-export const KNOWN_EXERCISES: ReadonlySet<string> = new Set(BY_ID.keys())
+export const KNOWN_EXERCISES: ReadonlyMap<string, Exercise> = BY_ID
 
 const nameOf = (id: string) => BY_ID.get(id)?.name ?? id
 

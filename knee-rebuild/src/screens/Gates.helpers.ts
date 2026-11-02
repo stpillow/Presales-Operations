@@ -585,7 +585,8 @@ function awayGymName(locationId: string, gyms: Gyms): string | null {
  */
 function templatesAsRun(program: Pick<ProgramLike, 'templates' | 'exercises'>, history: Pick<HistoryLike, 'programOverrides'>): SessionTemplate[] {
   const bySlot = overridesBySlot(history.programOverrides ?? [])
-  const known = new Set(program.exercises.map((e) => e.id))
+  // The catalog's exercises, as the runner hands them: an edit naming one the slot can't count or step is dropped here too.
+  const known = new Map(program.exercises.map((e) => [e.id, e]))
   return program.templates.map((template) => applyToTemplate(template, bySlot, known))
 }
 

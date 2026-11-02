@@ -344,6 +344,9 @@ describe('What this changes', () => {
     expect(templatesAsRun(s, [])).toEqual(currentTemplates(s))
     const retired: ProgramOverride = { slotId: 'p1a-1', substitutionIds: ['retired-press', 'smith-box-squat'], editedOn: '2026-11-16' }
     expect(templatesAsRun(s, [retired])[0]?.slots[0]?.substitutionIds).toEqual(['smith-box-squat'])
+    // An imported file's edit the slot can't count (a carry, in yards, on a reps slot) is dropped, as the runner drops it.
+    const misfit: ProgramOverride = { slotId: 'p1a-1', substitutionIds: ['farmers-carry', 'smith-box-squat'], editedOn: '2026-11-16' }
+    expect(templatesAsRun(s, [misfit])[0]?.slots[0]?.substitutionIds).toEqual(['smith-box-squat'])
     // program.md's templates are never written.
     expect(currentTemplates(s)[0]?.slots[0]?.substitutionIds).toEqual(['leg-press-45', 'smith-box-squat', 'goblet-squat-bench'])
   })

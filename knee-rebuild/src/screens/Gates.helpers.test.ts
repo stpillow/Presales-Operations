@@ -212,6 +212,8 @@ describe('done criterion: gate 1 evaluates from logged data alone', () => {
     for (const other of [
       { slotId: 'p1b-1', substitutionIds: ['bulgarian-split-squat'], editedOn: '2026-11-16' },
       { slotId: 'p1a-1', substitutionIds: ['single-leg-leg-press-retired'], editedOn: '2026-11-16' },
+      // An imported file's edit the repo would refuse: a leg press on the carry, counted in yards. The runner drops it, so the phase doesn't run it.
+      { slotId: 'p1c-7', substitutionIds: ['suitcase-carry', 'single-leg-leg-press'], editedOn: '2026-11-16' },
     ] satisfies ProgramOverride[]) {
       const row = byId(gatesView({ today: TODAY, settings: settings(), history: { ...history, programOverrides: [other] }, program: PROGRAM }), 'g1-sl-leg-press')
       if (row.kind !== 'symmetry') throw new Error('expected a symmetry item')

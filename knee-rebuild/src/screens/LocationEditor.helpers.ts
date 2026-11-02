@@ -247,8 +247,8 @@ export function currentTemplates(settings: Settings): SessionTemplate[] {
   return (['A', 'B', 'C'] as const).flatMap((letter) => currentTemplate(settings, letter) ?? [])
 }
 
-/** The catalog's exercise ids: an edit naming one the seed no longer has is dropped, as `planSession` drops it. */
-const KNOWN_IDS: ReadonlySet<string> = new Set(PROGRAM.exercises.map((e) => e.id))
+/** The catalog by id, as `planSession` hands it: an edit naming an exercise the seed no longer has, or one the slot can't count or step, is dropped. */
+const KNOWN: ReadonlyMap<string, Exercise> = new Map(PROGRAM.exercises.map((e) => [e.id, e]))
 
 /**
  * The current phase's sessions as they run: the Program screen's edits laid over program.md's
@@ -257,7 +257,7 @@ const KNOWN_IDS: ReadonlySet<string> = new Set(PROGRAM.exercises.map((e) => e.id
  */
 export function templatesAsRun(settings: Settings, overrides: readonly ProgramOverride[]): SessionTemplate[] {
   const bySlot = overridesBySlot(overrides)
-  return currentTemplates(settings).map((template) => applyToTemplate(template, bySlot, KNOWN_IDS))
+  return currentTemplates(settings).map((template) => applyToTemplate(template, bySlot, KNOWN))
 }
 
 type ItemLike = Pick<Equipment, 'id' | 'name' | 'carried'>
