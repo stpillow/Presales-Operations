@@ -7,6 +7,7 @@ import {
   phaseName,
   runLabel,
   runWeekWords,
+  suggestionWords,
   sessionLabel,
   sessionLetter,
   sessionNote,
@@ -341,5 +342,19 @@ describe('run days', () => {
     const check = { id: 'm', date: '2026-11-04', appliesTo: null, stiffnessUnder30Min: true, worseThanYesterday: true, visibleSwelling: false, warmth: false, painChangePoints: 1, redFlags: [] }
     const v = view('2026-11-04', {}, { morningChecks: [check] })
     expect(v.body.kind === 'run' && v.body.suggestion?.swapSuggested).toBe(true)
+    expect(v.body.kind === 'run' && v.body.suggestion && suggestionWords(v.body.suggestion).headline).toBe('Suggested: a 30 to 40 minute elliptical or rower swap')
+  })
+  it('prints the engine’s headline and its reasons as sentences, writing no prescription of its own (M4 review)', () => {
+    const clean = check('2026-11-06')
+    const v = view('2026-11-06', {}, { runs: [run('2026-11-02', 3), run('2026-11-04', 3, 'easy')], morningChecks: [clean] })
+    if (v.body.kind !== 'run' || !v.body.suggestion) throw new Error('expected a run suggestion')
+    expect(suggestionWords(v.body.suggestion)).toEqual({ headline: `Suggested: ${v.body.suggestion.headline}`, reasons: [] })
+    expect(suggestionWords(v.body.suggestion).headline).toBe('Suggested: 4 miles')
+    // Outside the plan the engine has no miles; whatever it says is what the screen prints.
+    const late = view('2027-01-29', { currentPhase: 3, phaseEnteredWeek: 8 }, { morningChecks: [check('2027-01-29')] })
+    if (late.body.kind !== 'run' || !late.body.suggestion) throw new Error('expected a run suggestion')
+    expect(suggestionWords(late.body.suggestion).headline).toBe(`Suggested: ${late.body.suggestion.headline}`)
+    expect(suggestionWords(late.body.suggestion).reasons).toEqual(late.body.suggestion.reasons.map((r) => `${r.charAt(0).toUpperCase()}${r.slice(1)}.`))
+    expect(suggestionWords(late.body.suggestion).reasons).toContain('Carry a 2 × 5 min comfortably-hard segment with 3 min easy between.')
   })
 })

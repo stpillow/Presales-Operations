@@ -229,6 +229,18 @@ export type TodayBody =
 type RunBody = Extract<TodayBody, { kind: 'run' }>
 
 /**
+ * The engine's suggestion as the screen prints it: "Suggested: " and the rule's own headline, then
+ * each reason as a sentence. Nothing here writes a prescription; the miles, swap or "easy, by feel"
+ * all come from suggestRun.
+ */
+export function suggestionWords(suggestion: Pick<RunSuggestion, 'headline' | 'reasons'>): { headline: string; reasons: string[] } {
+  return {
+    headline: `Suggested: ${suggestion.headline}`,
+    reasons: suggestion.reasons.map((r) => `${r.charAt(0).toUpperCase()}${r.slice(1)}.`),
+  }
+}
+
+/**
  * "This week: 3 of 10 miles", and the cap's reason after it only when the rule says it capped the
  * week ("· last week read hold: capped at last week’s 6 miles"); "This week: 2 miles" outside the plan.
  */

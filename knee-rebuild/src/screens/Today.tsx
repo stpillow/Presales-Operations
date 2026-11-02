@@ -8,7 +8,7 @@ import { Screen } from '../components/Screen.tsx'
 import { useHistory, useSettings } from '../db/hooks.ts'
 import { putWorkout, reopenWorkout } from '../db/repo.ts'
 import type { IsoDate, Settings } from '../schema/index.ts'
-import { newWorkoutId, runLabel, runWeekWords, todayView, type OpenWorkout, type TodayBody, type TodayView, type YesterdayLine } from './Today.helpers.ts'
+import { newWorkoutId, runLabel, runWeekWords, suggestionWords, todayView, type OpenWorkout, type TodayBody, type TodayView, type YesterdayLine } from './Today.helpers.ts'
 
 const LABEL = 'font-mono text-small uppercase tracking-[0.22em] text-on-dark-muted'
 const SECTION = 'flex flex-col gap-4'
@@ -225,7 +225,7 @@ function FinishedBlock({ body }: { body: Lift }) {
 }
 
 function RunBlock({ body }: { body: Extract<TodayBody, { kind: 'run' }> }) {
-  const s = body.suggestion
+  const s = body.suggestion ? suggestionWords(body.suggestion) : null
   return (
     <section aria-label="Scheduled session" className={SECTION}>
       <h2 className={HEADING}>{body.label}</h2>
@@ -236,12 +236,10 @@ function RunBlock({ body }: { body: Extract<TodayBody, { kind: 'run' }> }) {
         </p>
       ) : s ? (
         <div className="flex flex-col gap-1">
-          <p className="text-body text-on-dark">
-            {s.swapSuggested ? 'Suggested: a 30 to 40 minute elliptical or rower swap' : `Suggested: ${s.miles === null ? 'easy, by feel' : `${s.miles} miles`}`}
-          </p>
+          <p className="text-body text-on-dark">{s.headline}</p>
           {s.reasons.map((r) => (
             <p key={r} className="text-small text-on-dark-dim">
-              {r.charAt(0).toUpperCase() + r.slice(1)}.
+              {r}
             </p>
           ))}
         </div>
