@@ -132,3 +132,31 @@ Method: the same five-angle workflow as M3 (data integrity; rule fidelity and pl
 
 Not fixed, logged: a run with Time left untouched saves 0 minutes (runs measure miles; low); the run logger's swap heading is still its own words rather than the rule's headline (cosmetic; the decision is the rule's).
 
+## Findings, M4b (Nov 2, 2026)
+
+Method: the same five-angle workflow (data integrity; rule fidelity and placement against Shawn's answers; the runner, Today and Where you train against the brief and design sections 4 and 5; security and robustness of typed text, routes and storage; edge cases across gyms, phases and the home gym), three skeptics per finding, two confirmations to survive. 20 reported, 19 survived. A rules fixer, then a screens fixer (who also took six loose ends the builders left), then an independent verifier who confirmed all 19 and re-ran the brief's browser drive: 93 of 93 checks at 390 and 375 px, with Planet Fitness's rows and week-2 cards identical to a fresh install's.
+
+| # | Finding | Fix |
+|---|---|---|
+| 61 | One session at an away gym pinned a slot to an exercise the home gym lacks, so Planet Fitness read "Nothing here" | The slot runs the first exercise between the one it moved from and the history's pick that this gym has (PROGRAM-QUESTIONS 89) |
+| 62 | A stair session in another slot brought B6 back before its own back-off was served (question 84) | The slot counts as moved only once this slot has run the easier version (PROGRAM-QUESTIONS 88) |
+| 63 | A rack-capped hold after a back-off re-prescribed the load that backed off | The capped session stays the baseline (PROGRAM-QUESTIONS 90) |
+| 64 | At a gym with no dumbbells, bodyweight-capable exercises asked for a dumbbell load that couldn't be logged | Bodyweight first sessions at rack 0 (PROGRAM-QUESTIONS 91) |
+| 65 | Do it anyway or a Swap pick on dumbbell work at a gym with no dumbbells gave a set that could never be logged, with no undo | The card asks for the rack's weight or takes the pick back |
+| 66 | Swap's "Here" on the exercise the plan runs did nothing when the rack held it off the card | Said in words; the pick follows the plan |
+| 67 | A moved, swapped or backed-off slot showed cues written for the exercise it left | "Cues written for Leg press, both legs" whenever the exercise differs |
+| 68 | A unilateral slot moved to a two-legged exercise never said "one leg at a time" | Said on the card |
+| 69 | Today's moves came from a different rule than the plan, so Today and the runner disagreed | One rule (`gymChanges.ts`) for both |
+| 70 | The runner's Change left Today on the old gym | Change sets the active gym too |
+| 71 | A back-dated run swap stored today's active gym | The swap takes its own day's gym (re-fixed by the verifier when a tap carried across days) |
+| 72 | A typed rack weight wasn't snapped to 5 lb | Snapped |
+| 73 | Two gym names with no letters or digits counted as the same name; a name that shows nothing was accepted | Refused in its own sentence |
+| 74 | Typed equipment had no length limit and no way to remove it | 80 characters, said in words; two-tap Remove |
+| 75 | The name counter counted UTF-16 units, the schema code points | Code points both |
+| 76 | The dumbbellMax guard missed destructuring in parameters | Broadened |
+| 77 | (loose end) A rack-capped card said the cap twice; a rack-moved card said the move twice | Said once, by the engine's note |
+| 78 | (loose end) Today's heading counted Nothing-here slots as moves; Finish listed a partly logged slot as not logged | "change"; "Not finished" |
+| 79 | (verifier) Vitest's module cache let the guards pass with a new untested rule module | `fsModuleCache: false`; a test pins it |
+
+Not fixed, logged: names that differ only by spacing count as different (question 92); the swap-gym note's wording after a tap. Not driven in a browser: Phase 2 and 3 card lines (covered by a live-seed helper test); WebKit (only Chromium is installed).
+

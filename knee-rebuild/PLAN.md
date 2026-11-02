@@ -2,7 +2,7 @@
 
 The status page. Ticked when done, not when started. Questions about the program live in [PROGRAM-QUESTIONS.md](PROGRAM-QUESTIONS.md); the questions for Shawn before M1 are at the bottom.
 
-**Now:** M4b (where you train) in review: built, and the adversarial review's findings fixed on the branch (PROGRAM-QUESTIONS 88 to 107); then M5, M6.
+**Now:** M4b (where you train) reviewed and merging; M5 (gates and progress) built and verified on a staging branch, merging next; then M6.
 **Last updated:** Nov 2, 2026
 
 ## Milestones
@@ -79,7 +79,8 @@ Done when Shawn can type a gym's name, mark what it has or lacks, add equipment 
 - [x] Screens: add and edit locations, add typed equipment, switch the active location from Today
 - [x] Typed equipment no exercise uses is kept and listed for the next program.md update; the app never invents an exercise for it
 - [x] Run swaps (elliptical, rower) respect what the location has
-- [ ] Adversarial review: findings fixed on the branch (PROGRAM-QUESTIONS 88 to 107); the re-verification and the brief's browser drive come before merge
+- [x] Adversarial review: 20 findings, 19 survived three skeptics, all fixed and re-verified (`docs/review-plan.md` 61 to 79; PROGRAM-QUESTIONS 88 to 107); the brief's browser drive passed 93 of 93 checks at 390 and 375 px
+- [ ] Shawn: a session at a second gym on the phone
 
 ### M5 · Gates and progress
 Done when gate 1 evaluates from logged data alone and the hop-test symmetry matches the worked example.
