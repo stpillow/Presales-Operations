@@ -148,6 +148,14 @@ export function newWorkoutId(date: IsoDate, templateId: string, taken: readonly 
   return `${base}-${n}`
 }
 
+/**
+ * The workout Start writes: in progress, stamped with when it started and the gym it runs at (the
+ * active one, M4b), so the runner plans there and its sets stay there even after Today switches gyms.
+ */
+export function newWorkout(input: Pick<Workout, 'id' | 'date' | 'templateId' | 'phase' | 'week' | 'isDeload'> & { startedAt: string; locationId: string }): Workout {
+  return { ...input, status: 'in-progress' }
+}
+
 export interface YesterdayLine {
   label: string
   result: ReadingResult

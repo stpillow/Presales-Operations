@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { MorningCheck, Run, SessionTemplate, SetLog, Settings, Workout } from '../schema/index.ts'
 import {
   dateWords,
+  newWorkout,
   newWorkoutId,
   openWorkouts,
   phaseName,
@@ -174,6 +175,26 @@ describe('todaysWorkout', () => {
     const early = workout('w1', '2026-11-03', 'abandoned', 'p1-a', '2026-11-03T08:00:00Z')
     const late = workout('w2', '2026-11-03', 'abandoned', 'p1-a', '2026-11-03T10:00:00Z')
     expect(todaysWorkout([early, late], '2026-11-03', 'p1-a')?.id).toBe('w2')
+  })
+})
+
+describe('newWorkout', () => {
+  it('is the session Start writes: in progress, stamped with the time and the active gym (M4b)', () => {
+    const workout = newWorkout({ id: '2026-11-10-p1-a', date: '2026-11-10', templateId: 'p1-a', phase: 1, week: 2, isDeload: false, startedAt: '2026-11-10T11:00:00.000Z', locationId: 'loc-1' })
+    expect(workout).toEqual({
+      id: '2026-11-10-p1-a',
+      date: '2026-11-10',
+      templateId: 'p1-a',
+      phase: 1,
+      week: 2,
+      isDeload: false,
+      startedAt: '2026-11-10T11:00:00.000Z',
+      status: 'in-progress',
+      locationId: 'loc-1',
+    })
+  })
+  it('stamps Planet Fitness too, rather than leaving it to the absent-means-Planet-Fitness reading', () => {
+    expect(newWorkout({ id: 'w', date: '2026-11-10', templateId: 'p1-a', phase: 1, week: 2, isDeload: false, startedAt: '2026-11-10T11:00:00.000Z', locationId: 'planet-fitness' }).locationId).toBe('planet-fitness')
   })
 })
 

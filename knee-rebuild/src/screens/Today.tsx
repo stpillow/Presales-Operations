@@ -5,10 +5,10 @@ import { useToday } from '../app/today.ts'
 import { Button } from '../components/Button.tsx'
 import { ReadingWord, readingSentence } from '../components/ReadingWord.tsx'
 import { Screen } from '../components/Screen.tsx'
-import { useHistory, useSettings } from '../db/hooks.ts'
+import { useActiveLocation, useHistory, useSettings } from '../db/hooks.ts'
 import { putWorkout, reopenWorkout } from '../db/repo.ts'
-import type { IsoDate, Settings } from '../schema/index.ts'
-import { newWorkoutId, runLabel, runWeekWords, suggestionWords, todayView, type OpenWorkout, type TodayBody, type TodayView, type YesterdayLine } from './Today.helpers.ts'
+import type { IsoDate, Location, Settings } from '../schema/index.ts'
+import { newWorkout, newWorkoutId, runLabel, runWeekWords, suggestionWords, todayView, type OpenWorkout, type TodayBody, type TodayView, type YesterdayLine } from './Today.helpers.ts'
 
 const LABEL = 'font-mono text-small uppercase tracking-[0.22em] text-on-dark-muted'
 const SECTION = 'flex flex-col gap-4'
@@ -24,15 +24,16 @@ export function Today() {
   const today = useToday()
   const settings = useSettings()
   const history = useHistory()
+  const activeLocation = useActiveLocation()
 
-  if (settings === undefined || history === undefined) {
+  if (settings === undefined || history === undefined || activeLocation === undefined || (settings !== null && activeLocation === null)) {
     return (
       <Screen title="Today" lead="Opening storage…">
         <p className="text-body text-on-dark-dim">Reading what is logged on this phone.</p>
       </Screen>
     )
   }
-  if (settings === null) {
+  if (settings === null || activeLocation === null) {
     return (
       <Screen title="Today" lead="No settings yet.">
         <p className="text-body text-on-dark-dim">The injured side and the start date are set in Settings.</p>
@@ -58,7 +59,7 @@ export function Today() {
       {view.body.kind === 'before-start' ? (
         <BeforeStartBlock line={view.body.line} />
       ) : view.body.kind === 'lift' ? (
-        <LiftBlock body={view.body} settings={settings} today={today} takenIds={history.workouts.map((w) => w.id)} />
+        <LiftBlock body={view.body} settings={settings} location={activeLocation} today={today} takenIds={history.workouts.map((w) => w.id)} />
       ) : view.body.kind === 'run' ? (
         <RunBlock body={view.body} />
       ) : (
@@ -122,7 +123,7 @@ function BeforeStartBlock({ line }: { line: string }) {
   )
 }
 
-function LiftBlock({ body, settings, today, takenIds }: { body: Lift; settings: Settings; today: IsoDate; takenIds: string[] }) {
+function LiftBlock({ body, settings, location, today, takenIds }: { body: Lift; settings: Settings; location: Location; today: IsoDate; takenIds: string[] }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const { template, workout, label, letter } = body
@@ -151,16 +152,18 @@ function LiftBlock({ body, settings, today, takenIds }: { body: Lift; settings: 
     setError(null)
     const id = newWorkoutId(today, template.id, takenIds)
     try {
-      await putWorkout({
-        id,
-        date: today,
-        templateId: template.id,
-        phase: settings.currentPhase,
-        week: body.week,
-        isDeload: body.isDeload,
-        startedAt: new Date().toISOString(),
-        status: 'in-progress',
-      })
+      await putWorkout(
+        newWorkout({
+          id,
+          date: today,
+          templateId: template.id,
+          phase: settings.currentPhase,
+          week: body.week,
+          isDeload: body.isDeload,
+          startedAt: new Date().toISOString(),
+          locationId: location.id,
+        }),
+      )
       navigate({ name: 'session', workoutId: id })
     } catch (e: unknown) {
       setError(`Could not save today’s session: ${e instanceof Error ? e.message : String(e)}.`)
