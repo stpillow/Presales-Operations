@@ -369,11 +369,6 @@ export function notInBagWords(ids: readonly EquipmentId[], items: readonly ItemL
   return `Not in your bag: ${ids.map((id) => itemInSentence(itemOf(id, items).name)).join(' and ')}. "In your bag" in Where you train adds ${ids.length > 1 ? 'them' : 'it'}.`
 }
 
-/** A prescription the rack capped (`Prescription.rackCapped`): question 73 keeps a clean on it from counting. */
-export function rackCappedWords(rackLb: number): string {
-  return rackLb > 0 ? `Rack-capped at ${rackLb} lb: this session won't count as clean.` : "Rack-capped: no dumbbells here, so this session won't count as clean."
-}
-
 /** The warm-up row: "Warm-up · bike 5 min · knee circuit 5 min", without the bike where there is none, and the line that says so. */
 export function warmUpWords(circuitMinutes: number | undefined, bikeHere: boolean): { line: string; noBike: string | null } {
   const circuit = `knee circuit ${circuitMinutes ?? 5} min`
@@ -435,22 +430,14 @@ export function notHereWords(gymName: string, entries: readonly NotHereEntry[]):
 /**
  * What the card says the gym did to the slot (design section 4): the move or the nothing-here line
  * while no swap chose (`route` still says what the gym would have done under a swap, and the swap's
- * own offers speak then), and the rack cap whenever a side's prescription was capped.
+ * own offers speak then). A rack cap is said once, by the engine's note on the card ("The rack stops
+ * at 25 lb and nothing is written to swap to: 25 lb, rack-capped, so the session won’t count as clean.").
  */
-export function routeLines(input: {
-  route: SlotRoute
-  swapped: boolean
-  gymName: string
-  items: readonly ItemLike[]
-  nameOf: (exerciseId: string) => string
-  /** The gym's rack when a side's prescription was rack-capped; null when none was. */
-  rackCappedLb: number | null
-}): string[] {
+export function routeLines(input: { route: SlotRoute; swapped: boolean; gymName: string; items: readonly ItemLike[]; nameOf: (exerciseId: string) => string }): string[] {
   const { route, items } = input
   const lines: string[] = []
   if (!input.swapped && route.kind === 'moved') lines.push(movedWords(route, input.nameOf(route.exerciseId), input.gymName, items))
   if (!input.swapped && route.kind === 'none') lines.push(nothingHereWords(input.nameOf(route.exerciseId), route.passedOver[0]?.missing ?? [], items))
-  if (input.rackCappedLb !== null) lines.push(rackCappedWords(input.rackCappedLb))
   return lines
 }
 

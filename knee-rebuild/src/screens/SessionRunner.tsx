@@ -375,8 +375,7 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
     const slotId = plan.slot.id
     const swapped = chosen[slotId] !== undefined
     const cardId = plan.prescriptions[0]?.exerciseId ?? plan.exercise.id
-    const capped = plan.prescriptions.some((p) => p.rackCapped === true)
-    const lines = routeLines({ route: plan.route, swapped, gymName: location.name, items: ITEMS, nameOf, rackCappedLb: capped ? location.dumbbellMaxLb : null })
+    const lines = routeLines({ route: plan.route, swapped, gymName: location.name, items: ITEMS, nameOf })
     const pickLine = swapped ? pickNotHereWords(exerciseById(cardId), available, location.name, ITEMS) : null
     const standingId = standingMarkFor({ routeKind: plan.route.kind, routeExerciseId: plan.route.exerciseId, swapped, cardId, held: notHere.has(slotId) })
     const standing = standingId ? swapOffer(exerciseById(standingId), exerciseById(standingId), available, CARRIED) : null

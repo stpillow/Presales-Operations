@@ -7,7 +7,7 @@ export interface GymAction {
 
 /**
  * What the gym does to the slot on the card, in words (design section 4): "Not at Hotel gym: …",
- * "Nothing here for …" with Skip and Do it anyway, "Rack-capped at 25 lb: …", and the marks a
+ * "Nothing here for …" with Skip and Do it anyway, and the marks a
  * Swap pick or Do it anyway offers. The words and the offers come from the runner's helpers and
  * src/rules/runnerGym.ts; this only lays them out.
  */

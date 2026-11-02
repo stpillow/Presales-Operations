@@ -35,7 +35,6 @@ import {
   parseStoredSwaps,
   pickNotHereWords,
   prescriptionWords,
-  rackCappedWords,
   rangeStopOptions,
   routeLines,
   setWords,
@@ -221,11 +220,6 @@ describe('the gym in words (M4b, design section 4)', () => {
   it('says what no mark at a gym adds: a carried item is the bag’s', () => {
     expect(notInBagWords(['ankle-strap'], items)).toBe('Not in your bag: cable ankle strap. "In your bag" in Where you train adds it.')
   })
-  it('a rack-capped prescription says it won’t count as clean', () => {
-    expect(rackCappedWords(25)).toBe("Rack-capped at 25 lb: this session won't count as clean.")
-    expect(rackCappedWords(0)).toBe("Rack-capped: no dumbbells here, so this session won't count as clean.")
-  })
-
   it('the warm-up drops the bike where there is none, and says nothing else is written for it', () => {
     expect(warmUpWords(5, true)).toEqual({ line: 'Warm-up · bike 5 min · knee circuit 5 min', noBike: null })
     expect(warmUpWords(10, false)).toEqual({ line: 'Warm-up · knee circuit 10 min', noBike: 'No upright bike here; nothing else is written for it.' })
@@ -263,16 +257,17 @@ describe('the gym in words (M4b, design section 4)', () => {
 
   const nameOf = (id: string) => exerciseById(id).name
 
-  it('the card says what the gym did to the slot, unless a swap chose, and a rack cap', () => {
+  it('the card says what the gym did to the slot, unless a swap chose', () => {
     const moved: SlotRoute = { kind: 'moved', exerciseId: 'goblet-squat-bench', passedOver: [{ exerciseId: 'leg-press', missing: ['seated-leg-press'] }] }
-    const base = { gymName: hotel, items, nameOf, rackCappedLb: null }
+    const base = { gymName: hotel, items, nameOf }
     expect(routeLines({ ...base, route: moved, swapped: false })).toEqual(['Not at Hotel gym: Seated leg press. Using Goblet squat to a bench.'])
     expect(routeLines({ ...base, route: moved, swapped: true })).toEqual([])
     const none: SlotRoute = { kind: 'none', exerciseId: 'step-off-landing', passedOver: [{ exerciseId: 'step-off-landing', missing: ['step-platforms'] }] }
     expect(routeLines({ ...base, route: none, swapped: false })).toEqual(['Nothing here for Step-off landing from a 6–8 in. step, stuck for 2 s (needs step platforms).'])
     const own: SlotRoute = { kind: 'own', exerciseId: 'db-rdl', passedOver: [] }
     expect(routeLines({ ...base, route: own, swapped: false })).toEqual([])
-    expect(routeLines({ ...base, route: own, swapped: true, rackCappedLb: 25 })).toEqual(["Rack-capped at 25 lb: this session won't count as clean."])
+    // A rack cap is the engine's note on the card ("… 25 lb, rack-capped, so the session won’t count as clean."): the gym's lines don't say it twice.
+    expect(routeLines({ ...base, route: own, swapped: true })).toEqual([])
   })
 
   it('says the engine moved the card only when the gym did not: the gym’s line says that', () => {
