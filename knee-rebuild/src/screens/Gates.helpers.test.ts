@@ -4,7 +4,7 @@ import { addDays, weekOf } from '../rules/calendar.ts'
 import { evaluateGate } from '../rules/gates.ts'
 import { attachChecks } from '../rules/history.ts'
 import { advancePhase, loadTestPrefill, phaseEntryWeek } from '../rules/progress.ts'
-import { Settings, type Gate, type GateTest, type IsoDate, type Location, type MorningCheck, type Run, type SetLog, type Workout } from '../schema/index.ts'
+import { Settings, type Gate, type GateTest, type IsoDate, type Location, type MorningCheck, type ProgramOverride, type Run, type SetLog, type Workout } from '../schema/index.ts'
 import {
   CALF_RAISE_EXERCISE_IDS,
   advanceQuestion,
@@ -195,6 +195,29 @@ describe('done criterion: gate 1 evaluates from logged data alone', () => {
     const legPress = byId(gatesView({ today: TODAY, settings: settings(), history, program: PROGRAM }), 'g1-sl-leg-press')
     if (legPress.kind !== 'symmetry') throw new Error('expected a symmetry item')
     expect(legPress.entry.prefill).toBeNull()
+  })
+
+  it('reads the lists the sessions run: a Program edit that puts the test’s exercise on a Phase 1 slot lets its session prefill the test', () => {
+    const logged = loggedPhase1()
+    const sl = workout('2026-11-19', { id: 'w-sl' })
+    const slSets = [set('w-sl', 'single-leg-leg-press', 'right', 1, 80, { reps: 10 }), set('w-sl', 'single-leg-leg-press', 'left', 1, 100, { reps: 10 })]
+    // Shawn added the single-leg leg press to Phase 1 A's leg press substitutions, so a Phase 1 session can run it.
+    const edit: ProgramOverride = { slotId: 'p1a-1', substitutionIds: ['leg-press-45', 'single-leg-leg-press'], editedOn: '2026-11-16' }
+    const history: HistoryLike = { ...logged, workouts: [...logged.workouts, sl], setLogs: [...logged.setLogs, ...slSets], programOverrides: [edit] }
+    const legPress = byId(gatesView({ today: TODAY, settings: settings(), history, program: PROGRAM }), 'g1-sl-leg-press')
+    if (legPress.kind !== 'symmetry') throw new Error('expected a symmetry item')
+    expect(legPress.entry.prefill).toMatchObject({ date: '2026-11-19', injured: 80, other: 100 })
+    expect(legPress.entry.prefillLine).toBe('Prefilled from Thursday Nov 19’s session: Single-leg leg press, 80 lb right and 100 lb left, the heaviest set on each side. Change either to what the test lifted.')
+    // An edit to another slot, or one naming an exercise the catalog no longer has, leaves Phase 1 as program.md writes it.
+    for (const other of [
+      { slotId: 'p1b-1', substitutionIds: ['bulgarian-split-squat'], editedOn: '2026-11-16' },
+      { slotId: 'p1a-1', substitutionIds: ['single-leg-leg-press-retired'], editedOn: '2026-11-16' },
+    ] satisfies ProgramOverride[]) {
+      const row = byId(gatesView({ today: TODAY, settings: settings(), history: { ...history, programOverrides: [other] }, program: PROGRAM }), 'g1-sl-leg-press')
+      if (row.kind !== 'symmetry') throw new Error('expected a symmetry item')
+      expect(row.entry.prefill).toBeNull()
+      expect(row.entry.prefillLine).toBe('Phase 1 doesn’t run this exercise (Single-leg leg press), so no session can prefill this test. Enter the loads from the test.')
+    }
   })
 
   it('a phase that runs the test’s exercise but hasn’t logged both sides yet says "yet"', () => {

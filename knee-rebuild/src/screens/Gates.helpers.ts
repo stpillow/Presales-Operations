@@ -3,11 +3,12 @@ import { evaluateGate, inWriteOrder, type GateContext, type GateItemResult, type
 import { attachChecks, subjectReadings, type SubjectReading, type WorkoutRecord } from '../rules/history.ts'
 import { weekOf } from '../rules/calendar.ts'
 import { locationOrHome } from '../rules/locations.ts'
+import { applyToTemplate, overridesBySlot } from '../rules/overrides.ts'
 import { advanceWaitsFor, awaitingMorningCheck, loadTestPrefill, phaseEntryWeek, type LoadTestPrefill, type LoadTestSession } from '../rules/progress.ts'
 import { progressionSuspended, stopMessage, type RedFlagState } from '../rules/redFlags.ts'
 import { phaseRunsExercise } from '../rules/session.ts'
 import { bestOfTrials, meetsSymmetry, symmetryPercent } from '../rules/unilateral.ts'
-import type { Exercise, Gate, GateItem, GateTest, IsoDate, Location, Phase, Program, Settings, Side } from '../schema/index.ts'
+import type { Exercise, Gate, GateItem, GateTest, IsoDate, Location, Phase, Program, SessionTemplate, Settings, Side } from '../schema/index.ts'
 import { dateWords, runLabel, shortDateWords, workoutLabel } from './Today.helpers.ts'
 
 /**
@@ -19,7 +20,7 @@ import { dateWords, runLabel, shortDateWords, workoutLabel } from './Today.helpe
  * composes the answers and names them. The program pieces are passed in, so tests use fixtures.
  */
 
-export type HistoryLike = Pick<History, 'workouts' | 'setLogs' | 'morningChecks' | 'runs' | 'gateTests' | 'sessionMoves'>
+export type HistoryLike = Pick<History, 'workouts' | 'setLogs' | 'morningChecks' | 'runs' | 'gateTests' | 'sessionMoves' | 'programOverrides'>
 export type ProgramLike = Pick<Program, 'gates' | 'phases' | 'exercises' | 'redFlags' | 'templates' | 'weeklyTemplate'>
 
 /** Which catalog exercises count as the single-leg calf raise for gate 2 (the M5 brief). */
@@ -576,6 +577,18 @@ function awayGymName(locationId: string, gyms: Gyms): string | null {
   return active && there && there.id !== active.id ? there.name : null
 }
 
+/**
+ * The templates as their sessions run: the Program screen's edits laid over program.md's lists
+ * (`applyToTemplate`, as `planSession` lays them), an exercise the catalog no longer has dropped.
+ * Whether a phase runs a test's exercise is read from these, so the prefill follows the lists the
+ * runner's routing and Swap offer.
+ */
+function templatesAsRun(program: Pick<ProgramLike, 'templates' | 'exercises'>, history: Pick<HistoryLike, 'programOverrides'>): SessionTemplate[] {
+  const bySlot = overridesBySlot(history.programOverrides ?? [])
+  const known = new Set(program.exercises.map((e) => e.id))
+  return program.templates.map((template) => applyToTemplate(template, bySlot, known))
+}
+
 function symmetryEntry(item: GateItem, gate: Gate, history: HistoryLike, records: readonly WorkoutRecord[], injuredSide: Side, program: ProgramLike, gyms: Gyms): SymmetryEntry {
   const key = item.testItem ?? null
   const threshold = lineOf(item)
@@ -588,8 +601,9 @@ function symmetryEntry(item: GateItem, gate: Gate, history: HistoryLike, records
   // from the latest SetLogs per side"); hop tests have no logged exercise to start from.
   const exerciseId = item.prefillExerciseId
   const exercise = exerciseId ? (program.exercises.find((e) => e.id === exerciseId) ?? null) : null
-  // A phase that runs no slot of the exercise can't produce a session to prefill from (PROGRAM-QUESTIONS 114).
-  const runs = exercise !== null && phaseRunsExercise(program.templates, gate.fromPhase, exercise.id)
+  // A phase that runs no slot of the exercise can't produce a session to prefill from (PROGRAM-QUESTIONS 114),
+  // read from the lists as edited, which is what its sessions run (PROGRAM-QUESTIONS 127).
+  const runs = exercise !== null && phaseRunsExercise(templatesAsRun(program, history), gate.fromPhase, exercise.id)
   const found = exercise && runs ? loadTestPrefill(records, exercise.id, injuredSide) : null
   const prefill = found?.prefill ?? null
   const unit = exercise && exercise.loadUnit !== 'none' ? exercise.loadUnit : 'lb'
