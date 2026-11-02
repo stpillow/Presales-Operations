@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { navigate } from '../app/router.ts'
 import { PROGRAM } from '../app/session.ts'
 import { useToday } from '../app/today.ts'
@@ -371,7 +371,29 @@ function SideFields({
  * trial starts as the words "Not entered" with an Enter button that puts it at 0; Clear takes it back.
  */
 function TrialField({ label, unit, step, value, onChange }: { label: string; unit: string; step: number; value: Trial; onChange: (value: Trial) => void }) {
-  if (value === null) {
+  // Enter and Clear each remove the button just tapped, so focus moves on to what replaced it (the
+  // new field, or Enter again) instead of falling to the page and losing a VoiceOver user's place.
+  const box = useRef<HTMLDivElement>(null)
+  const moveFocus = useRef<'input' | 'button' | null>(null)
+  useEffect(() => {
+    const target = moveFocus.current
+    if (!target) return
+    moveFocus.current = null
+    box.current?.querySelector<HTMLElement>(target)?.focus()
+  }, [value === null])
+  const enter = () => {
+    moveFocus.current = 'input'
+    onChange(0)
+  }
+  const clear = () => {
+    moveFocus.current = 'button'
+    onChange(null)
+  }
+  return <div ref={box}>{value === null ? <EmptyTrial label={label} unit={unit} onEnter={enter} /> : <FilledTrial label={label} unit={unit} step={step} value={value} onChange={onChange} onClear={clear} />}</div>
+}
+
+function EmptyTrial({ label, unit, onEnter }: { label: string; unit: string; onEnter: () => void }) {
+  {
     return (
       <div className="flex flex-wrap items-center justify-between gap-3">
         <span className="text-body text-on-dark-dim">
@@ -380,17 +402,20 @@ function TrialField({ label, unit, step, value, onChange }: { label: string; uni
         </span>
         <div className="flex items-center gap-3">
           <span className="text-small text-on-dark-muted">Not entered</span>
-          <Button aria-label={`Enter ${label.toLowerCase()}, starting at 0`} onClick={() => onChange(0)}>
+          <Button aria-label={`Enter ${label.toLowerCase()}, starting at 0`} onClick={onEnter}>
             Enter
           </Button>
         </div>
       </div>
     )
   }
+}
+
+function FilledTrial({ label, unit, step, value, onChange, onClear }: { label: string; unit: string; step: number; value: number; onChange: (value: Trial) => void; onClear: () => void }) {
   return (
     <div className="flex flex-col gap-1">
       <Stepper label={label} unit={unit} decimal step={step} min={0} max={MAX_INCHES} value={value} onChange={onChange} />
-      <Button variant="quiet" className="self-end" aria-label={`Clear ${label.toLowerCase()}: back to not entered`} onClick={() => onChange(null)}>
+      <Button variant="quiet" className="self-end" aria-label={`Clear ${label.toLowerCase()}: back to not entered`} onClick={onClear}>
         Clear
       </Button>
     </div>
@@ -437,13 +462,28 @@ function AdvanceBlock({
   onCancel: () => void
   onYes: () => void
 }) {
+  // The confirm replaces the button just tapped: focus goes to its question, and back to Advance
+  // phase when it closes, so a VoiceOver user is never left on nothing.
+  const box = useRef<HTMLElement>(null)
+  const opened = useRef(false)
+  useEffect(() => {
+    if (confirming) {
+      opened.current = true
+      box.current?.querySelector<HTMLElement>('[data-confirm-question]')?.focus()
+    } else if (opened.current) {
+      opened.current = false
+      box.current?.querySelector<HTMLElement>('button')?.focus()
+    }
+  }, [confirming])
   return (
-    <section aria-label="Advance phase" className={SECTION}>
+    <section ref={box} aria-label="Advance phase" className={SECTION}>
       <h2 className={HEADING}>Advance phase</h2>
       <p className="text-small text-on-dark-muted">The phase never advances on its own: every item has to pass, then you say yes.</p>
       {confirming ? (
         <div className="flex flex-col gap-3 rounded-sm border border-paper p-4">
-          <p className="text-body text-on-dark">{body.question}</p>
+          <p data-confirm-question tabIndex={-1} className="text-body text-on-dark">
+            {body.question}
+          </p>
           <div className="flex flex-wrap gap-3">
             <Button variant="primary" disabled={busy} onClick={onYes}>
               {saving ? 'Saving…' : 'Yes, advance'}
