@@ -17,7 +17,10 @@ import { backOffMoves, effectiveReading, type Placement } from './prescription.t
  * at a time.
  *
  * Readings are the exercise's, from every session that logged it (as `prescribe` reads them), so
- * "after" is by session: the records are in date order (`attachChecks`).
+ * "after" is by session: the records are in date order (`attachChecks`). The move itself is the
+ * slot's: a slot is on its easier version only once that version has run on this slot since the
+ * move, so a stair session in Session C never puts Session B's lateral step-down on the stair
+ * before B has served its own back-off (PROGRAM-QUESTIONS 88).
  */
 
 export interface SlotExerciseInput {
@@ -44,6 +47,8 @@ export interface SlotExercise {
 
 const happened = (r: WorkoutRecord) => r.workout.status === 'finished' || r.workout.status === 'abandoned'
 const logs = (r: WorkoutRecord, exerciseId: string) => happened(r) && r.sets.some((s) => s.exerciseId === exerciseId)
+/** Whether the record logged this exercise on this slot. */
+const logsOn = (r: WorkoutRecord, slotId: string, exerciseId: string) => happened(r) && r.sets.some((s) => s.slotId === slotId && s.exerciseId === exerciseId)
 
 function lastSessionOf(records: readonly WorkoutRecord[], exerciseId: string): number {
   for (let i = records.length - 1; i >= 0; i--) {
@@ -59,15 +64,17 @@ function historyOf(input: SlotExerciseInput, exercise: Exercise): { readings: Re
 
 /**
  * Where a back-off on this exercise moved the slot: the first exercise after it on the list that
- * was logged after its last session, when its standing reading is back-off and a back-off on it
- * moves the slot (not a load cut a swap happened to follow). Null when the slot hasn't moved.
+ * this slot logged after the exercise's last session, when its standing reading is back-off and a
+ * back-off on it moves the slot (not a load cut a swap happened to follow). Null when the slot
+ * hasn't moved. Another slot running that exercise doesn't move this one (PROGRAM-QUESTIONS 88).
  */
 function movedFrom(input: SlotExerciseInput, list: readonly Exercise[], exercise: Exercise): Exercise | null {
   const { readings, lastSets } = historyOf(input, exercise)
   if (effectiveReading(readings) !== 'back-off') return null
   if (!backOffMoves({ slot: input.slot, exercise, lastSets, injuredSide: input.injuredSide })) return null
   const at = lastSessionOf(input.records, exercise.id)
-  return list.slice(list.findIndex((e) => e.id === exercise.id) + 1).find((e) => input.records.some((r, i) => i > at && logs(r, e.id))) ?? null
+  const after = list.slice(list.findIndex((e) => e.id === exercise.id) + 1)
+  return after.find((e) => input.records.some((r, i) => i > at && logsOn(r, input.slot.id, e.id))) ?? null
 }
 
 function leadingCleans(readings: readonly ReadingResult[]): number {
@@ -88,8 +95,9 @@ export function slotExercise(input: SlotExerciseInput): SlotExercise {
   if (from === null) return { exercise: on, ...historyOf(input, on) }
   const easier = on.name
   const back = from.name
-  // The slot is on the easier version only once it has run since the move (`movedFrom`), so the most
-  // recent clean is always one since the move: cleans from before it alone never serve the back-off.
+  // The slot is on the easier version only once it has run on this slot since the move (`movedFrom`),
+  // so the most recent clean is always one since the move: cleans from before it, or from another
+  // slot, never serve the back-off alone.
   const cleans = leadingCleans(historyOf(input, on).readings)
   if (cleans >= 2) {
     return { exercise: from, ...historyOf(input, from), placement: { note: `Back on ${back}: ${easier} read clean twice.`, returned: true } }

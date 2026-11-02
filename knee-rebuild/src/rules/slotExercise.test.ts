@@ -224,7 +224,7 @@ describe('slotExercise: one step at a time down a longer list', () => {
   const stair = ex({ ...stepUp, id: 'step-up-stair', name: 'Step-up on the lowest stair' })
   const split = ex({ id: 'split-squat', name: 'Split squat', pattern: 'single-leg', loadType: 'dumbbell-each', unilateral: true })
   const slot: Slot = { ...nordicSlot, id: 'p1c-1', exerciseId: 'step-up', substitutionIds: ['step-up-stair', 'split-squat'], repsMin: 10, repsMax: 10, progressionRule: 'height-then-load', heightIn: 6, heightMaxIn: 8, loadBeforeHeightLb: 20 }
-  const at6 = (date: string, exerciseId: string, read: Read): Logged => ({ date, exerciseId, read, reps: 10, over: { heightIn: 6, loadUnit: 'lb' } })
+  const at6 = (date: string, exerciseId: string, read: Read): Logged => ({ date, exerciseId, read, reps: 10, over: { heightIn: 6, loadUnit: 'lb', slotId: 'p1c-1' } })
   const steps = (entries: readonly Logged[]) => slotExercise(input(entries, { slot, own: stepUp, substitutions: [stair, split] }))
 
   it('a step-up backed off at its starting height with nothing in the hands goes to the stair', () => {
@@ -248,6 +248,38 @@ describe('slotExercise: one step at a time down a longer list', () => {
     const twice = steps([...base, at6('2027-01-16', 'step-up-stair', 'clean'), at6('2027-01-20', 'step-up-stair', 'clean')])
     expect(twice.exercise).toBe(stepUp)
     expect(twice.placement).toEqual({ note: 'Back on Step-up: Step-up on the lowest stair read clean twice.', returned: true })
+  })
+})
+
+describe('slotExercise: the move is the slot’s own, its readings every slot’s (PROGRAM-QUESTIONS 84 and 88)', () => {
+  // Phase 2 B6 (lateral step-down, then the stair) and C1 (step-up, then the stair): both slots log the stair.
+  const lsd = ex({ id: 'lateral-step-down', name: 'Lateral step-down', pattern: 'single-leg', loadType: 'step-height', loadUnit: 'in', increment: 2, heightIncrementIn: 2, holdsLoad: 'dumbbell-each', unilateral: true })
+  const stair = ex({ ...lsd, id: 'step-up-stair', name: 'Step-up on the lowest stair' })
+  const b6: Slot = { ...nordicSlot, id: 'p2b-6', exerciseId: 'lateral-step-down', substitutionIds: ['step-up-stair'], repsMin: 10, repsMax: 10, progressionRule: 'height-then-load', heightIn: 6, heightMaxIn: 8 }
+  const at6 = (date: string, exerciseId: string, read: Read, slotId: string): Logged => ({ date, exerciseId, read, reps: 10, over: { heightIn: 6, loadUnit: 'lb', slotId } })
+  const onB6 = (entries: readonly Logged[]) => input(entries, { slot: b6, own: lsd, substitutions: [stair] })
+  const backedOffB6 = at6('2027-01-05', 'lateral-step-down', 'back-off', 'p2b-6')
+
+  it('a stair session in another slot after the back-off doesn’t put B6 on the stair: its back-off is served first', () => {
+    const entries = [at6('2026-12-03', 'step-up-stair', 'clean', 'p1c-1'), backedOffB6, at6('2027-01-07', 'step-up-stair', 'clean', 'p2c-1')]
+    const { placed, p } = plan(onB6(entries))
+    expect(placed.exercise).toBe(lsd)
+    expect(placed.placement).toBeUndefined()
+    expect(p).toMatchObject({ exerciseId: 'step-up-stair', basis: 'back-off', note: 'Back off: the easier version, Step-up on the lowest stair.' })
+  })
+
+  it('two stair cleans in another slot, with a B week missed, still leave B6’s back-off to serve', () => {
+    const entries = [backedOffB6, at6('2027-01-07', 'step-up-stair', 'clean', 'p2c-1'), at6('2027-01-14', 'step-up-stair', 'clean', 'p2c-1')]
+    const { placed, p } = plan(onB6(entries))
+    expect(placed.exercise).toBe(lsd)
+    expect(p).toMatchObject({ exerciseId: 'step-up-stair', basis: 'back-off' })
+  })
+
+  it('once B6 has run the stair, the stair’s cleans from every slot count toward the two', () => {
+    const entries = [backedOffB6, at6('2027-01-07', 'step-up-stair', 'clean', 'p2c-1'), at6('2027-01-12', 'step-up-stair', 'clean', 'p2b-6')]
+    const placed = slotExercise(onB6(entries))
+    expect(placed.exercise).toBe(lsd)
+    expect(placed.placement).toEqual({ note: 'Back on Lateral step-down: Step-up on the lowest stair read clean twice.', returned: true })
   })
 })
 
