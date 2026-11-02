@@ -312,13 +312,31 @@ export interface EndLabel {
   leader: boolean
 }
 
-/** A reference line and where its words sit: above the line, at whichever end of the plot the data leaves clearer. */
+/**
+ * A reference line and where its words sit: above the line, or under it when the next line up is
+ * closer than a label's height, at whichever end of the plot the data leaves clearer.
+ */
 export interface RefLine {
   value: number
   y: number
   label: string
   labelX: number
   anchor: 'start' | 'end'
+  /** The words sit under the line: another gate's line runs too close above it to fit them there. */
+  below: boolean
+}
+
+/** A reference label's baseline from its line: 5 px above, or 13 px below. */
+export const REF_ABOVE_DY = -5
+export const REF_BELOW_DY = 13
+/** The room a reference label needs between its line and the next one up. */
+const REF_LABEL_ROOM = 18
+
+/** The box a reference label's words take, from where they sit. */
+export function refLabelBox(ref: Pick<RefLine, 'y' | 'label' | 'labelX' | 'anchor' | 'below'>): { x0: number; x1: number; y0: number; y1: number } {
+  const w = textWidth(ref.label, 12, false)
+  const x0 = ref.anchor === 'start' ? ref.labelX : ref.labelX - w
+  return { x0, x1: x0 + w, y0: ref.below ? ref.y + 2 : ref.y - 16, y1: ref.below ? ref.y + 16 : ref.y - 2 }
 }
 
 export interface LineChartGeometry {
@@ -427,14 +445,18 @@ export function lineChartGeometry(input: {
     plot,
     xs,
     ticks: axis.ticks.map((v) => ({ value: v, y: round2(y(v)) })),
-    refs: (input.refs ?? []).map((ref) => {
+    refs: (input.refs ?? []).map((ref, _, all) => {
       const ry = round2(y(ref.value))
-      const w = textWidth(ref.label, 12, false)
-      const left = { x0: plot.left + 4, x1: plot.left + 4 + w, y0: ry - 16, y1: ry - 2 }
-      const right = { x0: plot.right - 4 - w, x1: plot.right - 4, y0: ry - 16, y1: ry - 2 }
+      // A gate line closer above than a label's height (an axis stretched to 200% puts 80% and 90%
+      // 10 px apart): the words go under this line, so neither hairline runs through them and the
+      // two labels never meet. Only when they fit above the axis.
+      const above = all.map((r) => round2(y(r.value))).filter((oy) => oy < ry)
+      const crowded = above.some((oy) => ry - oy < REF_LABEL_ROOM)
+      const below = crowded && ry + 16 <= plot.bottom
+      const at = (anchor: 'start' | 'end') => refLabelBox({ y: ry, label: ref.label, labelX: anchor === 'start' ? plot.left + 4 : plot.right - 4, anchor, below })
       const dots = lines.map((l) => l.dots)
-      const atRight = crossings(dots, right) < crossings(dots, left)
-      return { value: ref.value, y: ry, label: ref.label, labelX: atRight ? right.x1 : left.x0, anchor: atRight ? ('end' as const) : ('start' as const) }
+      const atRight = crossings(dots, at('end')) < crossings(dots, at('start'))
+      return { value: ref.value, y: ry, label: ref.label, labelX: atRight ? plot.right - 4 : plot.left + 4, anchor: atRight ? ('end' as const) : ('start' as const), below }
     }),
     lines,
     ends,

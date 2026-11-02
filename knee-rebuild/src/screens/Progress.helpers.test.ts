@@ -40,6 +40,7 @@ import {
   pickedRow,
   progressView,
   readoutText,
+  refLabelBox,
   scaleLinear,
   spreadLabels,
   stepIndex,
@@ -401,6 +402,55 @@ describe('reference labels keep clear of the data', () => {
     // Far from the line on both sides, it stays at the left.
     const high = lineChartGeometry({ width: 343, height: 200, margin, dates: ['2026-11-07', '2026-12-12'], lines: [{ key: 's', points: [{ date: '2026-11-07', value: 98 }, { date: '2026-12-12', value: 100 }] }], axis, refs })
     expect(high.refs[0]).toMatchObject({ anchor: 'start', labelX: 48 })
+  })
+
+  describe('two gate lines close together keep their words apart and unstruck', () => {
+    const margin = { top: 24, right: 56, bottom: 28, left: 44 }
+    const refs = symmetryRefs(program.gates)
+    const chart = (percents: number[]) => {
+      const dates = percents.map((_, i) => `2026-11-${String(3 + 7 * i).padStart(2, '0')}`)
+      const points = percents.map((percent, i) => ({ date: dates[i] ?? '', percent, basis: 'count' as const, injured: percent, other: 100 }))
+      return lineChartGeometry({
+        width: 343,
+        height: 200,
+        margin,
+        dates,
+        lines: [{ key: 's', points: points.map((p) => ({ date: p.date, value: p.percent })) }],
+        axis: symmetryAxis(points, refs),
+        refs: refs.map((r) => ({ value: r.percent, label: r.label })),
+        extremeFor: 's',
+      })
+    }
+    const clearOfEachOther = (geo: ReturnType<typeof chart>) => {
+      const [low, high] = geo.refs
+      if (!low || !high) throw new Error('expected two gate lines')
+      const lowBox = refLabelBox(low)
+      const highBox = refLabelBox(high)
+      // Neither label sits across the other gate's hairline, and the two boxes don't meet.
+      expect(low.y < lowBox.y0 || low.y > lowBox.y1).toBe(true)
+      expect(high.y < lowBox.y0 || high.y > lowBox.y1).toBe(true)
+      expect(low.y < highBox.y0 || low.y > highBox.y1).toBe(true)
+      expect(lowBox.y1 < highBox.y0 || highBox.y1 < lowBox.y0).toBe(true)
+    }
+
+    it('a 200% count symmetry puts the lines 10 px apart: the 80% label goes under its line', () => {
+      const geo = chart([90, 200])
+      const [low, high] = geo.refs
+      expect((low?.y ?? 0) - (high?.y ?? 0)).toBeLessThan(12)
+      expect(low?.below).toBe(true)
+      expect(high?.below).toBe(false)
+      clearOfEachOther(geo)
+    })
+
+    it('a 300% outlier, 5 px apart, the same', () => {
+      clearOfEachOther(chart([300]))
+    })
+
+    it('with room between the lines both labels sit above them, as before', () => {
+      const geo = chart([85, 95])
+      expect(geo.refs.map((r) => r.below)).toEqual([false, false])
+      clearOfEachOther(geo)
+    })
   })
 })
 
