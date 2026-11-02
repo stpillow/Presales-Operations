@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
 import { navigate } from '../app/router.ts'
 import { PROGRAM } from '../app/session.ts'
 import { useToday } from '../app/today.ts'
@@ -6,11 +6,14 @@ import { Button } from '../components/Button.tsx'
 import { Screen } from '../components/Screen.tsx'
 import { Stepper } from '../components/Stepper.tsx'
 import { Tap } from '../components/Tap.tsx'
+import { exportBackup, markExported, readStored, replaceAll } from '../db/backup.ts'
 import { useSettings } from '../db/hooks.ts'
 import { defaultSettings, ensureSettings, resetAll, saveSettings, saveSettingsAndMoves } from '../db/repo.ts'
-import type { IsoDate, Settings as SettingsRecord } from '../schema/index.ts'
+import { backupFileName, backupText, lostOnImport, parseBackup, sizeProblem, summarize, type Backup, type BackupSummary, type BackupTable } from '../rules/backup.ts'
+import type { IsoDate, IsoDateTime, Settings as SettingsRecord } from '../schema/index.ts'
 import {
   DUMBBELLS_LINE,
+  IMPORT_CONFIRM,
   REST_MAX,
   REST_MIN,
   REST_STEP,
@@ -19,10 +22,17 @@ import {
   clearedSettings,
   dateWords,
   errorWords,
+  exportedOnWords,
+  holdsWords,
+  lastExportWords,
+  lostWords,
+  migratedWords,
   painWords,
   phaseWords,
   redFlagView,
   restTimerWords,
+  shareFailure,
+  shareRoute,
   sideWords,
   deloadWeeksLine,
   startDateChange,
@@ -35,7 +45,7 @@ const ERASED = 'Everything on this phone was erased. Settings are back to their 
 const FLASH_MS = 1500
 
 /** Which part of the screen a save, a Saved word or a problem belongs to. */
-type Field = 'injuredSide' | 'startDate' | 'restTimerSeconds' | 'painPerSet' | 'redFlag' | 'reset'
+type Field = 'injuredSide' | 'startDate' | 'restTimerSeconds' | 'painPerSet' | 'redFlag' | 'export' | 'reset'
 type Problem = { field: Field; text: string } | null
 type ResetStep = 'idle' | 'confirm' | 'erasing'
 
@@ -139,6 +149,14 @@ function SettingsForm({ stored }: { stored: SettingsRecord }) {
       const change = await saveSettingsAndMoves(next, (stored, moves) => startDateChange(stored.startDate, next.startDate, moves, stored.phaseEnteredWeek))
       setMovesNotice(change.notice)
     })
+  }
+
+  /**
+   * Records an export once the file has left the phone: shown at once, written through the repo's
+   * read-modify-write so nothing else on the row is touched, and said Saved like any change.
+   */
+  async function recordExport(exportedAt: IsoDateTime): Promise<void> {
+    await save({ lastExportedAt: exportedAt }, 'export', () => markExported(exportedAt))
   }
 
   /** The rule's refusal in words, or null once the cleared state is on its way to storage. */
@@ -260,10 +278,9 @@ function SettingsForm({ stored }: { stored: SettingsRecord }) {
 
       {flagFirst ? null : redFlag}
 
-      <Section label="Backup" saved={false} problem={null}>
-        <p className="text-body text-on-dark-dim">Export JSON arrives in M6.</p>
-        <p className="text-body text-on-dark-dim">Import JSON arrives in M6.</p>
-      </Section>
+      <ExportSection today={today} lastExportedAt={draft.lastExportedAt} saved={savedField === 'export'} problem={problemFor('export')} onExported={recordExport} />
+
+      <ImportSection today={today} onImported={(text) => setNotice(text)} />
 
       <ResetSection
         step={resetStep}
@@ -495,7 +512,9 @@ function ResetSection({
         </Button>
       ) : (
         <>
-          <p className="text-body text-on-dark">This erases every session, set, morning check, run and setting on this phone. There is no undo.</p>
+          <p className="text-body text-on-dark">
+            This erases every session, set, morning check, run, gate test, gym, Program edit and setting on this phone. There is no undo; export first to keep a copy.
+          </p>
           <Button wide disabled={step === 'erasing'} onClick={onErase}>
             {step === 'erasing' ? 'Erasing…' : 'Yes, erase everything'}
           </Button>
@@ -504,6 +523,262 @@ function ResetSection({
           </Button>
         </>
       )}
+    </Section>
+  )
+}
+
+/** A link or file picker that looks and taps like a secondary Button: 44 px, a word on it. */
+const LINK_BUTTON = 'tap flex w-full items-center justify-center rounded-sm border border-on-dark-faint bg-navy-lift px-6 py-3 text-center font-sans text-body font-medium text-on-dark wrap-anywhere'
+
+/** A file ready to leave the phone: what it holds, and how it goes (the share sheet, or a link). */
+interface ReadyFile {
+  file: File
+  name: string
+  exportedAt: IsoDateTime
+  summary: BackupSummary
+  /** Rows that wouldn't import back as they are, in words; kept in the file all the same. */
+  unreadable: string[]
+  route: 'share' | 'download'
+  /** The download link's object URL; revoked when the file is replaced or the section goes. */
+  url: string | null
+}
+
+function holdsLine(summary: BackupSummary): string {
+  const { headline, also } = holdsWords(summary)
+  return also ? `${headline}. ${also}` : `${headline}.`
+}
+
+/**
+ * Export (M6 brief, section 2): "Export JSON" reads every table into one file and says what it
+ * holds; a second tap hands it to the share sheet (Save to Files, AirDrop) where the phone takes a
+ * file, or saves it through a download link. The export is recorded once the file has gone.
+ */
+function ExportSection({
+  today,
+  lastExportedAt,
+  saved,
+  problem,
+  onExported,
+}: {
+  today: IsoDate
+  lastExportedAt: IsoDateTime | undefined
+  saved: boolean
+  problem: string | null
+  onExported: (exportedAt: IsoDateTime) => Promise<void>
+}) {
+  const [ready, setReady] = useState<ReadyFile | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const url = ready?.url
+    return () => {
+      if (url) URL.revokeObjectURL(url)
+    }
+  }, [ready])
+
+  async function prepare(): Promise<void> {
+    setBusy(true)
+    setNotice(null)
+    setError(null)
+    try {
+      const exportedAt = new Date().toISOString()
+      const { backup, unreadable } = await exportBackup(exportedAt)
+      const name = backupFileName(today)
+      const file = new File([backupText(backup)], name, { type: 'application/json' })
+      const route = shareRoute(typeof navigator === 'undefined' ? undefined : navigator, file)
+      setReady({ file, name, exportedAt, summary: summarize(backup), unreadable, route, url: route === 'download' ? URL.createObjectURL(file) : null })
+    } catch (e) {
+      setReady(null)
+      setError(`Nothing was exported (${errorWords(e)}).`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function share(file: ReadyFile): Promise<void> {
+    setBusy(true)
+    setNotice(null)
+    setError(null)
+    try {
+      await navigator.share({ files: [file.file], title: file.name })
+      setReady(null)
+      setNotice(`${file.name} went to the share sheet. Keep it off this phone: in Files on iCloud Drive, or on a Mac.`)
+      await onExported(file.exportedAt)
+    } catch (e) {
+      const failure = shareFailure(e)
+      if (failure === 'closed') setNotice('Not exported: the share sheet closed before the file went anywhere. Share the file again when ready.')
+      else if (failure === 'needs-tap') setNotice('The phone wants a fresh tap before it shares. Tap Share the file again.')
+      else {
+        // The sheet itself failed: the same file goes through a download link instead.
+        setReady({ ...file, route: 'download', url: URL.createObjectURL(file.file) })
+        setError(`The share sheet failed (${errorWords(e)}). Save the file with the link instead.`)
+      }
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function downloaded(file: ReadyFile): void {
+    setNotice(`${file.name} is saving to Downloads. Keep a copy off this phone: in Files on iCloud Drive, or on a Mac.`)
+    setError(null)
+    void onExported(file.exportedAt)
+  }
+
+  return (
+    <Section label="Export" saved={saved} problem={problem}>
+      <p className="text-body text-on-dark">{lastExportWords(lastExportedAt, today)}</p>
+      <Note>One JSON file with everything on this phone. iOS can clear a home-screen app’s storage when it goes unused, so keep a recent file somewhere else.</Note>
+      <Button wide disabled={busy} onClick={() => void prepare()}>
+        {busy && !ready ? 'Reading…' : ready ? 'Export JSON again' : 'Export JSON'}
+      </Button>
+      {ready ? (
+        <>
+          <p className="text-body text-on-dark-dim wrap-anywhere">
+            {ready.name}: {holdsLine(ready.summary)}
+          </p>
+          {ready.unreadable.length > 0 ? (
+            <div role="alert" className="flex flex-col gap-1">
+              <p className="text-body text-on-dark">
+                {ready.unreadable.length === 1 ? 'One row' : `${ready.unreadable.length} rows`} on this phone no longer read as the app stores them. The file keeps them as
+                they are, but importing it would be refused until they are fixed:
+              </p>
+              <ul className="flex list-disc flex-col gap-1 pl-6">
+                {ready.unreadable.map((line) => (
+                  <li key={line} className="text-small text-on-dark-dim wrap-anywhere">
+                    {line}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {ready.route === 'share' ? (
+            <Button variant="primary" wide disabled={busy} onClick={() => void share(ready)}>
+              {busy ? 'Sharing…' : 'Share the file'}
+            </Button>
+          ) : ready.url ? (
+            <a href={ready.url} download={ready.name} onClick={() => downloaded(ready)} className={LINK_BUTTON}>
+              Save {ready.name}
+            </a>
+          ) : null}
+        </>
+      ) : null}
+      {notice ? (
+        <p role="status" className="text-body text-on-dark">
+          {notice}
+        </p>
+      ) : null}
+      {error ? (
+        <p role="alert" className="text-body text-on-dark">
+          {error}
+        </p>
+      ) : null}
+    </Section>
+  )
+}
+
+/** A file read and accepted by the rules, waiting on the inline confirm. */
+interface PendingImport {
+  name: string
+  backup: Backup
+  migratedFrom: number | null
+  file: BackupSummary
+  phone: BackupSummary
+  lost: { table: BackupTable; count: number }[]
+}
+
+/**
+ * Import (M6 brief, section 2): a file picker for `.json`. The whole file is read by the rules
+ * before anything is touched; a refusal says why in words. An accepted file shows what it holds,
+ * what this phone holds now and what the file lacks, then an inline confirm; Yes replaces every
+ * table in one transaction, all or nothing.
+ */
+function ImportSection({ today, onImported }: { today: IsoDate; onImported: (notice: string) => void }) {
+  const inputId = useId()
+  const [pending, setPending] = useState<PendingImport | null>(null)
+  const [step, setStep] = useState<'idle' | 'reading' | 'writing'>('idle')
+  const [refusal, setRefusal] = useState<string | null>(null)
+
+  async function choose(event: ChangeEvent<HTMLInputElement>): Promise<void> {
+    const input = event.currentTarget
+    const picked = input.files?.[0]
+    // Cleared at once, so picking the same file again reads it again.
+    input.value = ''
+    if (!picked) return
+    setPending(null)
+    setRefusal(null)
+    const size = sizeProblem(picked.size)
+    if (size) {
+      setRefusal(size)
+      return
+    }
+    setStep('reading')
+    try {
+      const read = parseBackup(await picked.text())
+      if (!read.ok) {
+        setRefusal(read.refusal)
+        return
+      }
+      const phone = await readStored()
+      setPending({
+        name: picked.name,
+        backup: read.backup,
+        migratedFrom: read.migratedFrom,
+        file: summarize(read.backup),
+        phone: summarize(phone),
+        lost: lostOnImport(phone, read.backup),
+      })
+    } catch (e) {
+      setRefusal(`The file couldn’t be read (${errorWords(e)}). Nothing was imported.`)
+    } finally {
+      setStep('idle')
+    }
+  }
+
+  async function replace(file: PendingImport): Promise<void> {
+    setStep('writing')
+    setRefusal(null)
+    try {
+      await replaceAll(file.backup, PROGRAM, today)
+      setPending(null)
+      onImported(`Imported ${file.name}. This phone now holds what the file holds: ${holdsLine(file.file)}`)
+    } catch (e) {
+      setRefusal(`Nothing was imported (${errorWords(e)}); this phone still holds what it held.`)
+    } finally {
+      setStep('idle')
+    }
+  }
+
+  return (
+    <Section label="Import" saved={false} problem={null}>
+      <Note>A file from Export JSON. Importing replaces everything on this phone with what the file holds; nothing is merged.</Note>
+      <label htmlFor={inputId} aria-disabled={step !== 'idle'} className={`${LINK_BUTTON} ${step === 'idle' ? '' : 'pointer-events-none opacity-50'}`}>
+        {step === 'reading' ? 'Reading the file…' : 'Choose a backup file'}
+      </label>
+      <input id={inputId} type="file" accept=".json,application/json" disabled={step !== 'idle'} onChange={(e) => void choose(e)} className="sr-only" />
+      {refusal ? (
+        <p role="alert" className="text-body text-on-dark">
+          {refusal}
+        </p>
+      ) : null}
+      {pending ? (
+        <div className="flex flex-col gap-3">
+          <p className="text-body text-on-dark wrap-anywhere">
+            {pending.name}, exported {exportedOnWords(pending.backup.exportedAt)}: {holdsLine(pending.file)}
+          </p>
+          {migratedWords(pending.migratedFrom) ? <Note>{migratedWords(pending.migratedFrom)}</Note> : null}
+          <p className="text-body text-on-dark-dim">This phone now: {holdsLine(pending.phone)}</p>
+          {lostWords(pending.lost) ? <p className="text-body text-on-dark">{lostWords(pending.lost)}</p> : null}
+          <p className="text-lead font-medium text-on-dark">{IMPORT_CONFIRM}</p>
+          <Button wide disabled={step === 'writing'} onClick={() => void replace(pending)}>
+            {step === 'writing' ? 'Replacing…' : 'Yes, replace everything'}
+          </Button>
+          <Button variant="quiet" wide disabled={step === 'writing'} onClick={() => setPending(null)}>
+            Keep what’s here
+          </Button>
+        </div>
+      ) : null}
     </Section>
   )
 }

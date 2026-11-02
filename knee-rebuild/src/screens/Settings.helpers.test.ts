@@ -1,7 +1,17 @@
 import { describe, expect, it } from 'vitest'
+import type { BackupSummary } from '../rules/backup.ts'
 import type { SessionMove, Settings } from '../schema/index.ts'
 import {
   DUMBBELLS_LINE,
+  IMPORT_CONFIRM,
+  exportedOnWords,
+  holdsWords,
+  lastExportWords,
+  lostWords,
+  migratedWords,
+  rangeWords,
+  shareFailure,
+  shareRoute,
   REST_MIN,
   REST_STEP,
   SIDES,
@@ -221,5 +231,73 @@ describe('errorWords', () => {
     expect(errorWords(new Error('QuotaExceededError: storage is full'))).toBe('QuotaExceededError: storage is full')
     expect(errorWords('nope')).toBe('nope')
     expect(errorWords(new Error('  '))).toBe('no reason was given')
+  })
+})
+
+describe('backup words (M6)', () => {
+  const summary = (over: Partial<BackupSummary> = {}): BackupSummary => ({
+    counts: { workouts: 24, setLogs: 312, morningChecks: 30, runs: 41, gateTests: 2, sessionMoves: 1, locations: 3, programOverrides: 0 },
+    archivedGyms: 0,
+    first: '2026-11-02',
+    last: '2026-12-20',
+    ...over,
+  })
+
+  it('says when the last export was, in New York days', () => {
+    expect(lastExportWords(undefined, '2026-11-20')).toBe('No export from this phone yet.')
+    expect(lastExportWords('2026-11-20T15:00:00.000Z', '2026-11-20')).toBe('Last export: today.')
+    // 10:30 pm on Nov 19 in New York: yesterday on the 20th, though it is the 20th in UTC.
+    expect(lastExportWords('2026-11-20T03:30:00.000Z', '2026-11-20')).toBe('Last export: yesterday.')
+    expect(lastExportWords('2026-11-11T15:00:00.000Z', '2026-11-20')).toBe('Last export: 9 days ago.')
+    expect(exportedOnWords('2026-12-22T02:00:00.000Z')).toBe('Monday Dec 21')
+  })
+
+  it('says what a file holds as the brief has it, then the rest', () => {
+    expect(holdsWords(summary())).toEqual({
+      headline: '312 sets, 41 runs, 3 gyms, from Nov 2 to Dec 20',
+      also: 'Also 24 sessions, 30 morning checks, 2 gate tests and 1 session move.',
+    })
+    const one = summary({ counts: { workouts: 1, setLogs: 1, morningChecks: 0, runs: 1, gateTests: 0, sessionMoves: 0, locations: 2, programOverrides: 3 }, archivedGyms: 1, first: '2026-11-03', last: '2026-11-03' })
+    expect(holdsWords(one)).toEqual({ headline: '1 set, 1 run, 1 gym, on Nov 3', also: 'Also 1 session, 3 Program edits and 1 archived gym.' })
+    const empty = summary({ counts: { workouts: 0, setLogs: 0, morningChecks: 0, runs: 0, gateTests: 0, sessionMoves: 0, locations: 1, programOverrides: 0 }, first: null, last: null })
+    expect(holdsWords(empty)).toEqual({ headline: '0 sets, 0 runs, 1 gym; nothing logged yet', also: null })
+  })
+
+  it('names the years only when the range crosses one', () => {
+    expect(rangeWords('2026-12-28', '2027-01-03')).toBe('from Dec 28, 2026 to Jan 3, 2027')
+    expect(rangeWords('2026-11-02', '2026-11-02')).toBe('on Nov 2')
+    expect(rangeWords(null, null)).toBeNull()
+  })
+
+  it('names what an import would erase, or nothing', () => {
+    expect(lostWords([])).toBeNull()
+    expect(lostWords([{ table: 'setLogs', count: 8 }])).toBe('It would erase 8 sets on this phone that the file doesn’t have.')
+    expect(lostWords([{ table: 'workouts', count: 1 }, { table: 'setLogs', count: 8 }, { table: 'runs', count: 1 }])).toBe(
+      'It would erase 1 session, 8 sets and 1 run on this phone that the file doesn’t have.',
+    )
+    expect(IMPORT_CONFIRM).toBe('Replace everything on this phone with this file?')
+  })
+
+  it('says when a file was read forward from an older version', () => {
+    expect(migratedWords(null)).toBeNull()
+    expect(migratedWords(2)).toBe('Written by an older version of the app (schema version 2); it was read forward to this one.')
+  })
+
+  it('shares through the share sheet only where it takes a file, else offers a download link', () => {
+    const file = new File(['{}'], 'knee-rebuild-2026-12-20.json', { type: 'application/json' })
+    expect(shareRoute(undefined, file)).toBe('download')
+    expect(shareRoute({}, file)).toBe('download')
+    // An older share sheet that shares links but no files.
+    expect(shareRoute({ share: () => Promise.resolve() }, file)).toBe('download')
+    expect(shareRoute({ share: () => Promise.resolve(), canShare: () => false }, file)).toBe('download')
+    expect(shareRoute({ share: () => Promise.resolve(), canShare: () => { throw new TypeError('no') } }, file)).toBe('download')
+    expect(shareRoute({ share: () => Promise.resolve(), canShare: (data) => data.files[0] === file }, file)).toBe('share')
+  })
+
+  it('tells a closed share sheet from one that wants a fresh tap or failed', () => {
+    expect(shareFailure(new DOMException('cancelled', 'AbortError'))).toBe('closed')
+    expect(shareFailure(new DOMException('no activation', 'NotAllowedError'))).toBe('needs-tap')
+    expect(shareFailure(new DOMException('bad', 'DataError'))).toBe('failed')
+    expect(shareFailure('nope')).toBe('failed')
   })
 })

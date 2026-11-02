@@ -1,7 +1,8 @@
 import { DAYS, DELOAD_WEEKS, addDays, dayOf, daysBetween, isDeloadWeek, isMonday, weekOf } from '../rules/calendar.ts'
 import { rebaseMoves, rebaseWeekNumber } from '../rules/moves.ts'
 import { clearRedFlag, stopMessage, type RedFlagState } from '../rules/redFlags.ts'
-import { IsoDate, type Day, type Phase, type RedFlag, type SessionMove, type Settings, type Side } from '../schema/index.ts'
+import { TABLE_WORDS, daysSinceExport, exportDay, type BackupSummary, type BackupTable } from '../rules/backup.ts'
+import { IsoDate, type Day, type IsoDateTime, type Phase, type RedFlag, type SessionMove, type Settings, type Side } from '../schema/index.ts'
 
 /**
  * Pure helpers for the Settings screen: words for dates, the start-date check, the red-flag state
@@ -178,4 +179,104 @@ export function clearedSettings(settings: Settings, note: string, today: IsoDate
 export function errorWords(error: unknown): string {
   const text = error instanceof Error ? error.message : String(error)
   return text.trim().length > 0 ? text.trim() : 'no reason was given'
+}
+
+// ---------------------------------------------------------------------------------------------
+// Backup: export and import (M6). What a file is and whether it may be imported is
+// src/rules/backup.ts's call; these name its answers and pick how the phone hands the file over.
+
+/** The inline confirm before an import (M6 brief, section 2). */
+export const IMPORT_CONFIRM = 'Replace everything on this phone with this file?'
+
+/** "Last export: 9 days ago." from the stored stamp, counted in America/New_York days by the rule. */
+export function lastExportWords(lastExportedAt: IsoDateTime | undefined, today: IsoDate): string {
+  const days = daysSinceExport(lastExportedAt, today)
+  if (days === null) return 'No export from this phone yet.'
+  if (days === 0) return 'Last export: today.'
+  if (days === 1) return 'Last export: yesterday.'
+  return `Last export: ${days} days ago.`
+}
+
+/** "Monday Dec 21": the day a file was written, in New York. */
+export function exportedOnWords(exportedAt: IsoDateTime): string {
+  return dateWords(exportDay(exportedAt))
+}
+
+/** "a", "a and b", "a, b and c". */
+function andList(words: readonly string[]): string {
+  if (words.length <= 1) return words[0] ?? ''
+  return `${words.slice(0, -1).join(', ')} and ${words.at(-1) ?? ''}`
+}
+
+function count(table: BackupTable, n: number): string {
+  return `${n} ${n === 1 ? TABLE_WORDS[table].one : TABLE_WORDS[table].many}`
+}
+
+/** "Nov 2", or "Nov 2, 2026" when the year has to be said. */
+function shortDate(date: IsoDate, withYear: boolean): string {
+  const [year, month, day] = date.split('-').map(Number)
+  const monthWord = month === undefined ? '' : (MONTH_WORDS[month - 1] ?? '')
+  return withYear ? `${monthWord} ${day ?? ''}, ${year ?? ''}` : `${monthWord} ${day ?? ''}`
+}
+
+/** "from Nov 2 to Dec 20", "on Nov 2", "from Dec 28, 2026 to Jan 3, 2027"; null with nothing logged. */
+export function rangeWords(first: IsoDate | null, last: IsoDate | null): string | null {
+  if (first === null || last === null) return null
+  const years = first.slice(0, 4) !== last.slice(0, 4)
+  if (first === last) return `on ${shortDate(first, false)}`
+  return `from ${shortDate(first, years)} to ${shortDate(last, years)}`
+}
+
+/**
+ * What a file, or the phone, holds, in the brief's words: "312 sets, 41 runs, 3 gyms, from Nov 2
+ * to Dec 20", then the rest that is there ("Also 24 sessions, 30 morning checks and 2 Program
+ * edits."), or null when nothing else is. Gyms count the listed ones; archived ones are in the rest.
+ */
+export function holdsWords(summary: BackupSummary): { headline: string; also: string | null } {
+  const { counts } = summary
+  const listed = counts.locations - summary.archivedGyms
+  const range = rangeWords(summary.first, summary.last)
+  const head = `${count('setLogs', counts.setLogs)}, ${count('runs', counts.runs)}, ${count('locations', listed)}`
+  const headline = range ? `${head}, ${range}` : `${head}; nothing logged yet`
+  const rest = (['workouts', 'morningChecks', 'gateTests', 'sessionMoves', 'programOverrides'] as const).filter((t) => counts[t] > 0).map((t) => count(t, counts[t]))
+  if (summary.archivedGyms > 0) rest.push(`${summary.archivedGyms} archived ${summary.archivedGyms === 1 ? 'gym' : 'gyms'}`)
+  return { headline, also: rest.length > 0 ? `Also ${andList(rest)}.` : null }
+}
+
+/** "It would erase 8 sets and 1 run on this phone that the file doesn’t have.", or null when the file has everything the phone does. */
+export function lostWords(lost: readonly { table: BackupTable; count: number }[]): string | null {
+  if (lost.length === 0) return null
+  return `It would erase ${andList(lost.map((l) => count(l.table, l.count)))} on this phone that the file doesn’t have.`
+}
+
+/** A file from an older app, carried forward: said so, so a surprise in it has a reason. */
+export function migratedWords(from: number | null): string | null {
+  return from === null ? null : `Written by an older version of the app (schema version ${from}); it was read forward to this one.`
+}
+
+/** What can share a file: the browser's navigator, or a stand-in in a test. */
+export interface ShareTarget {
+  share?: unknown
+  canShare?: (data: { files: File[] }) => boolean
+}
+
+/**
+ * How the phone hands the file over (M6 brief): the share sheet where it takes files (iOS 15 on:
+ * Save to Files, AirDrop), else a download link. A share sheet that can't take a file is no use.
+ */
+export function shareRoute(target: ShareTarget | undefined, file: File): 'share' | 'download' {
+  if (!target || typeof target.share !== 'function' || typeof target.canShare !== 'function') return 'download'
+  try {
+    return target.canShare({ files: [file] }) ? 'share' : 'download'
+  } catch {
+    return 'download'
+  }
+}
+
+/** Why a share didn't finish: closed by hand, refused for want of a fresh tap, or failed outright. */
+export function shareFailure(error: unknown): 'closed' | 'needs-tap' | 'failed' {
+  const name = typeof error === 'object' && error !== null && 'name' in error ? (error as { name: unknown }).name : null
+  if (name === 'AbortError') return 'closed'
+  if (name === 'NotAllowedError') return 'needs-tap'
+  return 'failed'
 }
