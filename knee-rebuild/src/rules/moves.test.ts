@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { SessionMove } from '../schema/index.ts'
 import { dateOf } from './calendar.ts'
-import { dayMovable, loggedOn, moveAllowed, rebaseMoves, undoableMove, type MoveContext } from './moves.ts'
+import { dayMovable, loggedOn, moveAllowed, rebaseMoves, undoableMove, type MoveContext, rebaseWeekNumber, weekShift } from './moves.ts'
 
 // Start Monday Nov 2 2026: week 1 runs Nov 2 (Mon) to Nov 8 (Sun).
 const base: MoveContext = { startDate: '2026-11-02', week: 1, currentWeek: 1, runs: [], workouts: [] }
@@ -111,5 +111,21 @@ describe('rebaseMoves', () => {
   })
   it('refuses start dates that are not whole weeks apart, since weekdays would not line up', () => {
     expect(() => rebaseMoves(moves, '2026-11-02', '2026-11-10')).toThrow(RangeError)
+  })
+})
+
+describe('rebaseWeekNumber', () => {
+  it('keeps a stored week on its calendar week when the start date moves', () => {
+    // Phase 2 entered in week 4 under a Nov 2 start (Nov 23). A Nov 9 start makes Nov 23 week 3.
+    expect(weekShift('2026-11-02', '2026-11-09')).toBe(-1)
+    expect(rebaseWeekNumber(4, '2026-11-02', '2026-11-09')).toBe(3)
+    expect(rebaseWeekNumber(4, '2026-11-02', '2026-10-26')).toBe(5)
+    expect(rebaseWeekNumber(4, '2026-11-02', '2026-11-02')).toBe(4)
+  })
+  it('never goes below week 1', () => {
+    expect(rebaseWeekNumber(1, '2026-11-02', '2026-11-30')).toBe(1)
+  })
+  it('refuses dates that are not whole weeks apart', () => {
+    expect(() => rebaseWeekNumber(4, '2026-11-02', '2026-11-05')).toThrow(RangeError)
   })
 })

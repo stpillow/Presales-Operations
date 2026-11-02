@@ -1,6 +1,21 @@
 import type { Day, IsoDate, Run, SessionMove, Workout } from '../schema/index.ts'
 import { dateOf, daysBetween } from './calendar.ts'
 
+/** Whole program weeks a stored week number moves by when the start date changes; throws unless whole weeks apart. */
+export function weekShift(oldStart: IsoDate, newStart: IsoDate): number {
+  const days = daysBetween(newStart, oldStart)
+  if (days % 7 !== 0) throw new RangeError(`start dates ${oldStart} and ${newStart} are not whole weeks apart`)
+  return days / 7
+}
+
+/**
+ * A stored program-week number (the week a phase was entered) kept on its calendar week when the
+ * start date changes, never below week 1 (PROGRAM-QUESTIONS 61).
+ */
+export function rebaseWeekNumber(week: number, oldStart: IsoDate, newStart: IsoDate): number {
+  return Math.max(1, week + weekShift(oldStart, newStart))
+}
+
 /**
  * The limits on moving a session (PROMPT rule 10 says only "to another day in the same week";
  * PROGRAM-QUESTIONS 59 records the reading taken). A move swaps two days, so a day that already
@@ -78,9 +93,7 @@ export interface RebasedMoves {
  * and drop any that would land before week 1. Throws when the two dates aren't whole weeks apart.
  */
 export function rebaseMoves(moves: readonly SessionMove[], oldStart: IsoDate, newStart: IsoDate): RebasedMoves {
-  const days = daysBetween(newStart, oldStart)
-  if (days % 7 !== 0) throw new RangeError(`start dates ${oldStart} and ${newStart} are not whole weeks apart`)
-  const shift = days / 7
+  const shift = weekShift(oldStart, newStart)
   const kept = moves.map((m) => ({ ...m, week: m.week + shift })).filter((m) => m.week >= 1)
   return { moves: kept, dropped: moves.length - kept.length }
 }

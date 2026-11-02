@@ -1,5 +1,5 @@
 import { DAYS, DELOAD_WEEKS, addDays, dayOf, daysBetween, isDeloadWeek, isMonday, weekOf } from '../rules/calendar.ts'
-import { rebaseMoves } from '../rules/moves.ts'
+import { rebaseMoves, rebaseWeekNumber } from '../rules/moves.ts'
 import { clearRedFlag, stopMessage, type RedFlagState } from '../rules/redFlags.ts'
 import { IsoDate, type Day, type Phase, type RedFlag, type SessionMove, type Settings, type Side } from '../schema/index.ts'
 
@@ -88,6 +88,8 @@ export interface StartDateChange {
   dropped: number
   /** How many moves were dropped, in words; null when none was. */
   notice: string | null
+  /** The week the current phase was entered, kept on its calendar week (PROGRAM-QUESTIONS 61). */
+  phaseEnteredWeek: number
 }
 
 /**
@@ -95,9 +97,13 @@ export interface StartDateChange {
  * each one so it stays on its calendar dates and drops any that now fall before week 1; this names
  * how many were dropped. Throws, as the rule does, when the dates are not whole weeks apart.
  */
-export function startDateChange(oldStart: IsoDate, newStart: IsoDate, moves: readonly SessionMove[]): StartDateChange {
+export function startDateChange(oldStart: IsoDate, newStart: IsoDate, moves: readonly SessionMove[], phaseEnteredWeek = 1): StartDateChange {
   const rebased = rebaseMoves(moves, oldStart, newStart)
-  return { ...rebased, notice: droppedMovesWords(rebased.dropped, rebased.moves.length) }
+  return {
+    ...rebased,
+    notice: droppedMovesWords(rebased.dropped, rebased.moves.length),
+    phaseEnteredWeek: rebaseWeekNumber(phaseEnteredWeek, oldStart, newStart),
+  }
 }
 
 /** "1 session move was for a week before the new week 1, so it was dropped. The other 2 stay on the dates they were made for." */

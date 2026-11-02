@@ -104,9 +104,11 @@ describe('startDateChange', () => {
   ]
   it('keeps each move on the dates it was made for, and says nothing when none is dropped (M4 review)', () => {
     // A start moved a week earlier renumbers every move one week later.
-    expect(startDateChange(START, '2026-10-26', moves)).toEqual({ moves: moves.map((m) => ({ ...m, week: m.week + 1 })), dropped: 0, notice: null })
-    expect(startDateChange(START, START, moves)).toEqual({ moves, dropped: 0, notice: null })
-    expect(startDateChange(START, '2026-11-09', [])).toEqual({ moves: [], dropped: 0, notice: null })
+    expect(startDateChange(START, '2026-10-26', moves)).toEqual({ moves: moves.map((m) => ({ ...m, week: m.week + 1 })), dropped: 0, notice: null, phaseEnteredWeek: 2 })
+    expect(startDateChange(START, START, moves)).toEqual({ moves, dropped: 0, notice: null, phaseEnteredWeek: 1 })
+    expect(startDateChange(START, '2026-11-09', [])).toEqual({ moves: [], dropped: 0, notice: null, phaseEnteredWeek: 1 })
+    // The week the current phase was entered stays on its calendar week too.
+    expect(startDateChange(START, '2026-11-09', [], 4).phaseEnteredWeek).toBe(3)
   })
   it('drops a move that falls before the new week 1 and says how many', () => {
     const later = startDateChange(START, '2026-11-09', moves)
@@ -116,7 +118,7 @@ describe('startDateChange', () => {
     ])
     expect(later.dropped).toBe(1)
     expect(later.notice).toBe('1 session move was for a week before the new week 1, so it was dropped. The other 2 stay on the dates they were made for.')
-    expect(startDateChange(START, '2026-11-23', moves)).toEqual({ moves: [], dropped: 3, notice: '3 session moves were for weeks before the new week 1, so they were dropped.' })
+    expect(startDateChange(START, '2026-11-23', moves)).toEqual({ moves: [], dropped: 3, notice: '3 session moves were for weeks before the new week 1, so they were dropped.', phaseEnteredWeek: 1 })
   })
   it('refuses start dates that are not whole weeks apart, as the rule does', () => {
     expect(() => startDateChange(START, '2026-11-10', moves)).toThrow(RangeError)
