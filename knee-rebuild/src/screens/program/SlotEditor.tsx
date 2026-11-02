@@ -31,8 +31,21 @@ const STILL = 'the slot shows what the phone still has.'
  * substitutions (reorder, remove, add from the catalog). Every change saves at once as the slot's
  * override (`overrideFor` decides the row, or that the row goes); a draft sits in front of the
  * stored lists so two quick taps build on each other. "Back to program.md's" clears the slot's row.
+ * `onStanding` gets the last refusal or failed save in words (null once one is answered), for the
+ * slot to keep showing after Done editing closes the editor: the tap that closes it is often the
+ * one that left the field and drew the refusal.
  */
-export function SlotEditor({ slot, override, today }: { slot: Slot; override: ProgramOverride | undefined; today: IsoDate }) {
+export function SlotEditor({
+  slot,
+  override,
+  today,
+  onStanding,
+}: {
+  slot: Slot
+  override: ProgramOverride | undefined
+  today: IsoDate
+  onStanding: (sentence: string | null) => void
+}) {
   const view = editorView(slot, override)
   const stored = view.edit
   const storedKey = JSON.stringify(stored)
@@ -69,7 +82,9 @@ export function SlotEditor({ slot, override, today }: { slot: Slot; override: Pr
       flash(part)
       return true
     } catch (e: unknown) {
-      setProblem({ part, text: failedWords('That edit', e, STILL) })
+      const text = failedWords('That edit', e, STILL)
+      setProblem({ part, text })
+      onStanding(text)
       if (pending.current === 1) {
         latest.current = storedRef.current
         setDraft(storedRef.current)
@@ -110,8 +125,11 @@ export function SlotEditor({ slot, override, today }: { slot: Slot; override: Pr
       setDraft(written)
       setAsking(false)
       flash('reset')
+      onStanding(null)
     } catch (e: unknown) {
-      setProblem({ part: 'reset', text: failedWords('Back to program.md’s', e, STILL) })
+      const text = failedWords('Back to program.md’s', e, STILL)
+      setProblem({ part: 'reset', text })
+      onStanding(text)
     } finally {
       pending.current -= 1
     }
@@ -148,10 +166,11 @@ export function SlotEditor({ slot, override, today }: { slot: Slot; override: Pr
               onReword={(text) => void write('cues', { ...latest.current, cues: replaceItem(latest.current.cues, i, cleanCue(text)) })}
               onMove={(by) => void write('cues', { ...latest.current, cues: moveItem(latest.current.cues, i, by) })}
               onRemove={() => void remove('cue', i)}
+              onRefusal={onStanding}
             />
           ))}
         </ol>
-        <AddCue onAdd={(text) => write('cues', withCueAdded(latest.current, text))} />
+        <AddCue onAdd={(text) => write('cues', withCueAdded(latest.current, text))} onRefusal={onStanding} />
         {problemFor('cues')}
         {view.writtenCues ? <Written heading="program.md’s cues" items={view.writtenCues} empty="program.md writes no cues for this slot." /> : null}
       </Group>
@@ -230,10 +249,31 @@ export function SlotEditor({ slot, override, today }: { slot: Slot; override: Pr
 }
 
 /** One cue: reworded in place (saved when the field is left or Return is pressed), moved, or removed. */
-function CueRow({ index, count, cue, onReword, onMove, onRemove }: { index: number; count: number; cue: string; onReword: (text: string) => void; onMove: (by: -1 | 1) => void; onRemove: () => void }) {
+function CueRow({
+  index,
+  count,
+  cue,
+  onReword,
+  onMove,
+  onRemove,
+  onRefusal,
+}: {
+  index: number
+  count: number
+  cue: string
+  onReword: (text: string) => void
+  onMove: (by: -1 | 1) => void
+  onRemove: () => void
+  onRefusal: (sentence: string | null) => void
+}) {
   const id = useId()
   const [text, setText] = useState(cue)
-  const [refusal, setRefusal] = useState<string | null>(null)
+  const [refusal, setShownRefusal] = useState<string | null>(null)
+  const setRefusal = (sentence: string | null) => {
+    if (sentence === null && refusal === null) return
+    setShownRefusal(sentence)
+    onRefusal(sentence)
+  }
   const commit = () => {
     if (cleanCue(text) === cue) {
       setText(cue)
@@ -291,10 +331,15 @@ function CueRow({ index, count, cue, onReword, onMove, onRemove }: { index: numb
 }
 
 /** A new cue at the end of the list; refused in words when it is empty or over 200 characters. */
-function AddCue({ onAdd }: { onAdd: (text: string) => Promise<boolean> }) {
+function AddCue({ onAdd, onRefusal }: { onAdd: (text: string) => Promise<boolean>; onRefusal: (sentence: string | null) => void }) {
   const id = useId()
   const [text, setText] = useState('')
-  const [refusal, setRefusal] = useState<string | null>(null)
+  const [refusal, setShownRefusal] = useState<string | null>(null)
+  const setRefusal = (sentence: string | null) => {
+    if (sentence === null && refusal === null) return
+    setShownRefusal(sentence)
+    onRefusal(sentence === null ? null : `${sentence} The new cue was not added.`)
+  }
   const [busy, setBusy] = useState(false)
   const add = async () => {
     const problem = cueProblem(text)

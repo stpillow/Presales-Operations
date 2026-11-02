@@ -3,7 +3,7 @@ import { Button } from '../../components/Button.tsx'
 import { overridesBySlot } from '../../rules/overrides.ts'
 import type { IsoDate, ProgramOverride } from '../../schema/index.ts'
 import type { PhaseScreen, SlotRow } from '../Program.helpers.ts'
-import { HEADING, LABEL, Note } from './parts.tsx'
+import { HEADING, LABEL, Note, Problem } from './parts.tsx'
 import { SlotEditor } from './SlotEditor.tsx'
 
 /** The current phase's sessions, A then B then C, each slot read-only with an Edit that opens its editor in place. */
@@ -31,6 +31,13 @@ export function PhaseSessions({ screen, overrides, today }: { screen: PhaseScree
 }
 
 function SlotCard({ row, override, today, open, onToggle }: { row: SlotRow; override: ProgramOverride | undefined; today: IsoDate; open: boolean; onToggle: () => void }) {
+  // The editor's last refusal or failed save, kept under the slot once Done editing closes it (the
+  // tap that closes it is often the one that left a refused field), until the editor opens again.
+  const [standing, setStanding] = useState<string | null>(null)
+  const toggle = () => {
+    if (!open) setStanding(null)
+    onToggle()
+  }
   return (
     <li className="flex flex-col gap-3 border-t border-on-dark-faint pt-4">
       <div className="flex flex-col gap-1">
@@ -79,11 +86,12 @@ function SlotCard({ row, override, today, open, onToggle }: { row: SlotRow; over
         </>
       )}
 
-      {open ? <SlotEditor slot={row.slot} override={override} today={today} /> : null}
+      {open ? <SlotEditor slot={row.slot} override={override} today={today} onStanding={setStanding} /> : null}
       {/* One button under the slot or its editor, the same element either way, so focus stays on it. */}
-      <Button wide aria-expanded={open} aria-label={`${open ? 'Done editing' : 'Edit cues and substitutions for'} ${row.exerciseName}, slot ${row.label}`} onClick={onToggle}>
+      <Button wide aria-expanded={open} aria-label={`${open ? 'Done editing' : 'Edit cues and substitutions for'} ${row.exerciseName}, slot ${row.label}`} onClick={toggle}>
         {open ? 'Done editing' : 'Edit cues and substitutions'}
       </Button>
+      {!open && standing ? <Problem>{standing}</Problem> : null}
     </li>
   )
 }
