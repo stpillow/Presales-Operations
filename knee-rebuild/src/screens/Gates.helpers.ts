@@ -142,7 +142,7 @@ export function loadPrefill(records: readonly WorkoutRecord[], exerciseId: strin
 
 /**
  * One value in a form: a trial or a load, or null when it isn't entered. A hop trial of 0 is a
- * trial (he couldn't hop), not a blank (PROGRAM-QUESTIONS 86); the Stepper can only show numbers,
+ * trial (he couldn't hop), not a blank (PROGRAM-QUESTIONS 108); the Stepper can only show numbers,
  * so not entered lives here.
  */
 export type Trial = number | null

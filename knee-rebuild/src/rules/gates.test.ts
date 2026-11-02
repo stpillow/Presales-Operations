@@ -82,7 +82,7 @@ describe('evaluateGate (rule 8)', () => {
     expect(result.items[0]).toMatchObject({ pass: true, detail: expect.stringContaining('90.3%') })
   })
 
-  it('a hop test with one trial a side reads its bests; 0 on the injured side reads 0% and fails (PROGRAM-QUESTIONS 86)', () => {
+  it('a hop test with one trial a side reads its bests; 0 on the injured side reads 0% and fails (PROGRAM-QUESTIONS 108)', () => {
     const one = test({ gate: 3, item: 'single-hop', trialsInjured: [56], trialsOther: [62], valueInjured: 56, valueOther: 62 })
     expect(evaluateGate(gate3, ctx({ gateTests: [one] })).items[0]).toMatchObject({ pass: true, detail: expect.stringContaining('90.3% (56 vs 62)') })
     const zero = test({ gate: 3, item: 'single-hop', trialsInjured: [0], trialsOther: [62, 60], valueInjured: 0, valueOther: 62 })

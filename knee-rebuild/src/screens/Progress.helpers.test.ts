@@ -381,7 +381,7 @@ describe('cleanDaysView', () => {
     expect(cleanDaysView({ ...base, readings, today: '2026-11-09', records, checks: [check('2026-11-04')] })).toEqual({ count: 7, unit: 'days', context: 'since the first reading, with no hold or back-off yet', note: null })
   })
 
-  it('a session waiting on its morning check neither extends nor breaks the count, and the context line says so (PROGRAM-QUESTIONS 87)', () => {
+  it('a session waiting on its morning check neither extends nor breaks the count, and the context line says so (PROGRAM-QUESTIONS 109)', () => {
     const view = (today: string, checks: MorningCheck[]) => {
       const records = attachChecks([workout('w1', '2026-11-03'), workout('w2', '2026-11-09', 'finished', 'p1-a')], [set('w1', 'both', 1, 20, 8, 'leg-press'), set('w2', 'both', 1, 20, 8, 'leg-press')], checks)
       return cleanDaysView({ ...base, readings: subjectReadings(records, [], checks, 'right'), today, records, checks })

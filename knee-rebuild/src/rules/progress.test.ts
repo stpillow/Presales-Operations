@@ -66,7 +66,7 @@ describe('consecutiveCleanDays', () => {
     expect(consecutiveCleanDays([r('2026-11-09', 'back-off')], '2026-11-09', [check('2026-11-09', { kind: 'workout', id: '2026-11-09' })])).toBe(0)
   })
 
-  describe('a session waiting on its morning check neither extends nor breaks the run (PROGRAM-QUESTIONS 87)', () => {
+  describe('a session waiting on its morning check neither extends nor breaks the run (PROGRAM-QUESTIONS 109)', () => {
     // Nov 3's session read clean with Nov 4's check; nothing bad since.
     const before = [r('2026-11-03', 'clean')]
     const checks = [check('2026-11-04')]

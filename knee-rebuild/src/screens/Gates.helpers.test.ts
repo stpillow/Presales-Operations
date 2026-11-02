@@ -214,7 +214,7 @@ describe('done criterion: the hop-test worked example', () => {
   })
 })
 
-describe('symmetry forms: hop tests (PROGRAM-QUESTIONS 86, Shawn Nov 2)', () => {
+describe('symmetry forms: hop tests (PROGRAM-QUESTIONS 108, Shawn Nov 2)', () => {
   const hop = gate3.items[0]
   if (!hop) throw new Error('no hop item')
   const phase3 = settings({ currentPhase: 3, phaseEnteredWeek: 8 })

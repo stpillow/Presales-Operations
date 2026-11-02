@@ -99,7 +99,7 @@ export function awaitingMorningCheck(reading: Pick<SubjectReading, 'kind' | 'id'
  * a session doesn't break the run; a reading that isn't clean does. A session still waiting on its
  * morning check (awaitingMorningCheck) neither extends nor breaks it: its day and any after it
  * aren't counted yet, so the run counts back from the day before the earliest one waiting, and
- * once the check is in its reading counts as usual (PROGRAM-QUESTIONS 87).
+ * once the check is in its reading counts as usual (PROGRAM-QUESTIONS 109).
  */
 export function consecutiveCleanDays(readings: readonly SubjectReading[], today: IsoDate, checks: readonly MorningCheck[]): number {
   const past = readings.filter((r) => r.date <= today).sort((a, b) => a.date.localeCompare(b.date))

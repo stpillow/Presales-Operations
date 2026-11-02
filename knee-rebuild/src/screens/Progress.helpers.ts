@@ -546,7 +546,7 @@ export function waitingWords(waiting: readonly Pick<SubjectReading, 'kind' | 'da
 /**
  * The stat: the number from `consecutiveCleanDays`, and a context line that says what it counts
  * from. A session still waiting on its morning check (today's or yesterday's, awaitingMorningCheck)
- * neither extends nor breaks the count, and the line says it isn't counted yet (PROGRAM-QUESTIONS 87).
+ * neither extends nor breaks the count, and the line says it isn't counted yet (PROGRAM-QUESTIONS 109).
  */
 export function cleanDaysView(input: {
   readings: readonly SubjectReading[]
