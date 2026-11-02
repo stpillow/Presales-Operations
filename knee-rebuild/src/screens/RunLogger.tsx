@@ -175,7 +175,7 @@ function Logger({ today, settings, history }: { today: IsoDate; settings: Settin
 
       <Section label="Distance and time">
         {resolved.swap ? (
-          <p className="text-body text-on-dark-dim">A swap is logged as 0 miles: it counts as the session and adds no miles.</p>
+          <p className="text-body text-on-dark-dim">A swap is logged as 0 miles: it counts as the session and adds no miles. Its minutes are what it measures, so set them to save.</p>
         ) : (
           <Stepper label="Distance" unit="miles" decimal step={MILES_STEP} min={0} max={MILES_MAX} value={resolved.miles} onChange={(miles) => set({ miles })} />
         )}

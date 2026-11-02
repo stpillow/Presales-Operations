@@ -286,6 +286,8 @@ export function toRun(form: ResolvedForm, id: string): RunDraft {
   if (type === null && maxPain === null) return { ok: false, blocker: 'Pick the type and rate max pain first' }
   if (maxPain === null) return { ok: false, blocker: 'Rate max pain first' }
   if (type === null) return { ok: false, blocker: 'Pick the type first' }
+  // A swap logs no miles, so its minutes are all it measures: an untouched 0 would store a session as nothing.
+  if (form.swap && form.minutes === 0) return { ok: false, blocker: 'Set the minutes first' }
   if (stravaProblem(form.stravaUrl)) return { ok: false, blocker: 'Fix or clear the Strava link first' }
   const link = form.stravaUrl.trim()
   const notes = form.notes.trim()

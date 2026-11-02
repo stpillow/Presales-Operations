@@ -304,6 +304,15 @@ describe('toRun', () => {
     const draft = toRun({ ...ready, type: 'elliptical-swap', swap: true, miles: 0, strides: false }, 'r')
     expect(draft.ok && draft.run).toMatchObject({ type: 'elliptical-swap', miles: 0, strides: false, tempo: false })
   })
+  it('a swap’s only measure is its minutes, so Save waits on them instead of storing 0', () => {
+    const swap: ResolvedForm = { ...ready, type: 'rower-swap', swap: true, miles: 0, minutes: 0, strides: false }
+    expect(toRun(swap, 'r')).toEqual({ ok: false, blocker: 'Set the minutes first' })
+    expect(toRun({ ...swap, maxPain: null }, 'r')).toEqual({ ok: false, blocker: 'Rate max pain first' })
+    expect(toRun({ ...swap, minutes: 35 }, 'r').ok).toBe(true)
+  })
+  it('a run keeps its miles as the measure, so untouched minutes still save', () => {
+    expect(toRun({ ...ready, minutes: 0 }, 'r').ok).toBe(true)
+  })
 })
 
 describe('newRunId', () => {
