@@ -1,7 +1,8 @@
-import type { IsoDate, MileageWeek, Run, SetLog, Settings, Side } from '../schema/index.ts'
+import type { IsoDate, MileageWeek, MorningCheck, Run, SetLog, Settings, Side } from '../schema/index.ts'
 import { addDays, daysBetween, weekOf } from './calendar.ts'
 import type { SubjectReading, WorkoutRecord } from './history.ts'
 import { weekMiles } from './mileage.ts'
+import { morningCheckApplies } from './reading.ts'
 import { symmetryPercent } from './unilateral.ts'
 
 const happened = (r: WorkoutRecord) => r.workout.status === 'finished' || r.workout.status === 'abandoned'
@@ -79,17 +80,35 @@ export function milesSeries(plan: readonly MileageWeek[], runs: readonly Run[], 
 }
 
 /**
- * Consecutive clean days: the days from the day after the most recent hold or back-off reading
- * through today. With no reading at all there is nothing to count. A day without a session doesn't
- * break the run; a reading that isn't clean does.
+ * A reading still waiting on its morning check: the session or run is dated today or yesterday,
+ * so its check can still be logged, and no check applies to it yet (morningCheckApplies, an
+ * explicit link included). Older than that, a missing check is final: the reading is hold, as
+ * everywhere else (rule 3).
  */
-export function consecutiveCleanDays(readings: readonly SubjectReading[], today: IsoDate): number {
-  const past = readings.filter((r) => r.date <= today)
-  if (past.length === 0) return 0
-  const lastBad = [...past].filter((r) => r.result !== 'clean').sort((a, b) => a.date.localeCompare(b.date)).at(-1)
-  const from = lastBad ? addDays(lastBad.date, 1) : [...past].sort((a, b) => a.date.localeCompare(b.date))[0]?.date
-  if (!from || from > today) return 0
-  return daysBetween(from, today) + 1
+export function awaitingMorningCheck(reading: Pick<SubjectReading, 'kind' | 'id' | 'date'>, checks: readonly MorningCheck[], today: IsoDate): boolean {
+  if (reading.date > today || reading.date < addDays(today, -1)) return false
+  return !checks.some((c) => morningCheckApplies(c, reading))
+}
+
+/**
+ * Consecutive clean days: the days from the day after the most recent hold or back-off reading
+ * through the last fully read day. With no reading at all there is nothing to count. A day without
+ * a session doesn't break the run; a reading that isn't clean does. A session still waiting on its
+ * morning check (awaitingMorningCheck) neither extends nor breaks it: its day and any after it
+ * aren't counted yet, so the run counts back from the day before the earliest one waiting, and
+ * once the check is in its reading counts as usual (PROGRAM-QUESTIONS 87).
+ */
+export function consecutiveCleanDays(readings: readonly SubjectReading[], today: IsoDate, checks: readonly MorningCheck[]): number {
+  const past = readings.filter((r) => r.date <= today).sort((a, b) => a.date.localeCompare(b.date))
+  const waiting = past.filter((r) => awaitingMorningCheck(r, checks, today))
+  const read = past.filter((r) => !awaitingMorningCheck(r, checks, today))
+  if (read.length === 0) return 0
+  const firstWaiting = waiting[0]?.date
+  const through = firstWaiting ? addDays(firstWaiting, -1) : today
+  const lastBad = read.filter((r) => r.result !== 'clean').at(-1)
+  const from = lastBad ? addDays(lastBad.date, 1) : read[0]?.date
+  if (!from || from > through) return 0
+  return daysBetween(from, through) + 1
 }
 
 /**

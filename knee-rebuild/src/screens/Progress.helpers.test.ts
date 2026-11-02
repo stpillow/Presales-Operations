@@ -48,6 +48,7 @@ import {
   symmetryTable,
   textWidth,
   visibleRows,
+  waitingWords,
   type HistoryLike,
 } from './Progress.helpers.ts'
 
@@ -380,16 +381,36 @@ describe('cleanDaysView', () => {
     expect(cleanDaysView({ ...base, readings, today: '2026-11-09', records, checks: [check('2026-11-04')] })).toEqual({ count: 7, unit: 'days', context: 'since the first reading, with no hold or back-off yet', note: null })
   })
 
-  it('names the last hold or back-off, and says when a session is still waiting for its morning check', () => {
-    const checks = [check('2026-11-04')]
-    const records = attachChecks([workout('w1', '2026-11-03'), workout('w2', '2026-11-09', 'finished', 'p1-a')], [set('w1', 'both', 1, 20, 8, 'leg-press'), set('w2', 'both', 1, 20, 8, 'leg-press')], checks)
-    const readings = subjectReadings(records, [], checks, 'right')
-    const view = cleanDaysView({ ...base, readings, today: '2026-11-09', records, checks })
-    expect(view.count).toBe(0)
-    expect(view.context).toBe('since the last hold or back-off')
-    expect(view.note).toBe('Hold on Monday Nov 9 (Session A). Its morning check isn’t in yet, and a session with no morning check reads hold.')
-    // Two days on, the window for that check has passed: the hold stands, without the waiting line.
-    expect(cleanDaysView({ ...base, readings, today: '2026-11-11', records, checks })).toMatchObject({ count: 2, unit: 'days', note: 'Hold on Monday Nov 9 (Session A).' })
+  it('a session waiting on its morning check neither extends nor breaks the count, and the context line says so (PROGRAM-QUESTIONS 87)', () => {
+    const view = (today: string, checks: MorningCheck[]) => {
+      const records = attachChecks([workout('w1', '2026-11-03'), workout('w2', '2026-11-09', 'finished', 'p1-a')], [set('w1', 'both', 1, 20, 8, 'leg-press'), set('w2', 'both', 1, 20, 8, 'leg-press')], checks)
+      return cleanDaysView({ ...base, readings: subjectReadings(records, [], checks, 'right'), today, records, checks })
+    }
+    const nov4 = [check('2026-11-04')]
+    // Monday Nov 9's session has no check yet: Nov 3 to Nov 8 count, and its hold-until-checked doesn't break them.
+    expect(view('2026-11-09', nov4)).toEqual({ count: 6, unit: 'days', context: 'since the first reading, with no hold or back-off yet, not counting today’s session until its morning check is in', note: null })
+    expect(view('2026-11-10', nov4)).toEqual({ count: 6, unit: 'days', context: 'since the first reading, with no hold or back-off yet, not counting yesterday’s session until its morning check is in', note: null })
+    // Once the check is in, the session's reading counts as usual.
+    expect(view('2026-11-10', [...nov4, check('2026-11-10')])).toEqual({ count: 8, unit: 'days', context: 'since the first reading, with no hold or back-off yet', note: null })
+    expect(view('2026-11-10', [...nov4, check('2026-11-10', { visibleSwelling: true })])).toEqual({ count: 1, unit: 'day', context: 'since the last hold or back-off', note: 'Back off on Monday Nov 9 (Session A).' })
+    // Two days on with no check, the window has passed: the session reads hold, as everywhere, and the run starts again.
+    expect(view('2026-11-11', nov4)).toEqual({ count: 2, unit: 'days', context: 'since the last hold or back-off', note: 'Hold on Monday Nov 9 (Session A).' })
+  })
+
+  it('with only a waiting session, there is nothing to count yet, and the line says what it waits on', () => {
+    const runs = [run('r1', '2026-11-05', 3)]
+    const readings = subjectReadings([], runs, [], 'right')
+    expect(cleanDaysView({ ...base, readings, today: '2026-11-05', records: [], runs })).toMatchObject({ count: 0, unit: null, context: 'no readings yet, not counting today’s run until its morning check is in' })
+  })
+
+  it('names what is waiting, by day and kind', () => {
+    const r = (date: string, kind: 'workout' | 'run' = 'workout') => ({ kind, id: `${kind}-${date}`, date, result: 'hold' as const })
+    const today = '2026-11-10'
+    expect(waitingWords([], today)).toBeNull()
+    expect(waitingWords([r('2026-11-09')], today)).toBe('not counting yesterday’s session until its morning check is in')
+    expect(waitingWords([r('2026-11-09'), r('2026-11-09', 'run')], today)).toBe('not counting yesterday’s session and run until their morning check is in')
+    expect(waitingWords([r('2026-11-10'), r('2026-11-10')], today)).toBe('not counting today’s sessions until their morning check is in')
+    expect(waitingWords([r('2026-11-10', 'run'), r('2026-11-09')], today)).toBe('not counting yesterday’s session and today’s run until their morning checks are in')
   })
 
   it('a run that read back off is named by its type, and one day reads "day"', () => {

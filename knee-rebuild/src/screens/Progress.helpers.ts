@@ -1,8 +1,7 @@
 import type { History } from '../db/repo.ts'
 import { addDays, daysBetween, weekOf } from '../rules/calendar.ts'
 import { attachChecks, subjectReadings, type SubjectReading, type WorkoutRecord } from '../rules/history.ts'
-import { consecutiveCleanDays, loadSeries, milesSeries, symmetrySeries, type LoadPoint, type MilesWeek, type SymmetryPoint } from '../rules/progress.ts'
-import { morningCheckApplies } from '../rules/reading.ts'
+import { awaitingMorningCheck, consecutiveCleanDays, loadSeries, milesSeries, symmetrySeries, type LoadPoint, type MilesWeek, type SymmetryPoint } from '../rules/progress.ts'
 import { LOWER_BODY_PATTERNS } from '../rules/wholeKnee.ts'
 import type { Exercise, Gate, IsoDate, MileageWeek, MorningCheck, Program, Run, SessionTemplate, SetLog, SetSide, Settings, Side } from '../schema/index.ts'
 import { runLabel, shortDateWords, workoutLabel } from './Today.helpers.ts'
@@ -515,17 +514,39 @@ export interface CleanDaysView {
   count: number
   /** The stat's unit word ("days", "day"), or null when there is nothing to count yet. */
   unit: 'day' | 'days' | null
-  /** The rest of the context line after the unit. */
+  /** The rest of the context line after the unit, with what isn't counted yet while a morning check is due. */
   context: string
-  /** Which reading stopped the run and why it may still change, in one or two sentences. */
+  /** Which reading stopped the run, in one sentence. */
   note: string | null
 }
 
 const READING_WORD: Record<SubjectReading['result'], string> = { clean: 'Clean', hold: 'Hold', 'back-off': 'Back off' }
 
+const plural = (n: number, one: string, many: string) => (n === 1 ? one : many)
+
+/**
+ * What the count leaves out while its morning check is due, by day and kind: "not counting
+ * yesterday’s session until its morning check is in". Null when nothing is waiting. One check
+ * covers a day's sessions, so two days waiting is two checks.
+ */
+export function waitingWords(waiting: readonly Pick<SubjectReading, 'kind' | 'date'>[], today: IsoDate): string | null {
+  if (waiting.length === 0) return null
+  const days = [addDays(today, -1), today].flatMap((day) => {
+    const own = waiting.filter((r) => r.date === day)
+    if (own.length === 0) return []
+    const sessions = own.filter((r) => r.kind === 'workout').length
+    const runs = own.length - sessions
+    const things = [sessions > 0 ? plural(sessions, 'session', 'sessions') : null, runs > 0 ? plural(runs, 'run', 'runs') : null].filter((t): t is string => t !== null)
+    return [`${day === today ? 'today’s' : 'yesterday’s'} ${things.join(' and ')}`]
+  })
+  const until = days.length > 1 ? 'their morning checks are in' : waiting.length === 1 ? 'its morning check is in' : 'their morning check is in'
+  return `not counting ${days.join(' and ')} until ${until}`
+}
+
 /**
  * The stat: the number from `consecutiveCleanDays`, and a context line that says what it counts
- * from. A hold whose morning check can still be logged says so: a session reads hold until then.
+ * from. A session still waiting on its morning check (today's or yesterday's, awaitingMorningCheck)
+ * neither extends nor breaks the count, and the line says it isn't counted yet (PROGRAM-QUESTIONS 87).
  */
 export function cleanDaysView(input: {
   readings: readonly SubjectReading[]
@@ -535,22 +556,22 @@ export function cleanDaysView(input: {
   checks: readonly MorningCheck[]
   templates: readonly SessionTemplate[]
 }): CleanDaysView {
-  const { readings, today } = input
-  const count = consecutiveCleanDays(readings, today)
+  const { readings, today, checks } = input
+  const count = consecutiveCleanDays(readings, today, checks)
   const unit = count === 1 ? 'day' : 'days'
   const past = [...readings].filter((r) => r.date <= today).sort((a, b) => a.date.localeCompare(b.date))
-  if (past.length === 0) {
-    return { count, unit: null, context: 'no readings yet', note: 'The count starts with the first finished session or logged run, once its morning check is in.' }
+  const read = past.filter((r) => !awaitingMorningCheck(r, checks, today))
+  const waiting = waitingWords(past.filter((r) => awaitingMorningCheck(r, checks, today)), today)
+  const withWaiting = (context: string) => (waiting ? `${context}, ${waiting}` : context)
+  if (read.length === 0) {
+    return { count, unit: null, context: withWaiting('no readings yet'), note: 'The count starts with the first finished session or logged run, once its morning check is in.' }
   }
-  const lastBad = past.filter((r) => r.result !== 'clean').at(-1)
-  if (!lastBad) return { count, unit, context: 'since the first reading, with no hold or back-off yet', note: null }
+  const lastBad = read.filter((r) => r.result !== 'clean').at(-1)
+  if (!lastBad) return { count, unit, context: withWaiting('since the first reading, with no hold or back-off yet'), note: null }
 
+  // The label has its own colon ("Run: easy"), so it goes in brackets.
   const label = subjectLabel(lastBad, input.records, input.runs, input.templates)
-  const awaiting = lastBad.result === 'hold' && today <= addDays(lastBad.date, 1) && !hasMorningCheck(lastBad, input.records, input.checks)
-  // The label has its own colon ("Run: easy"), so it goes in brackets. The waiting line states the rule
-  // and promises nothing: a session that read hold on its own pain still reads hold once its check is in.
-  const note = `${READING_WORD[lastBad.result]} on ${shortDateWords(lastBad.date)} (${label}).${awaiting ? ' Its morning check isn’t in yet, and a session with no morning check reads hold.' : ''}`
-  return { count, unit, context: 'since the last hold or back-off', note }
+  return { count, unit, context: withWaiting('since the last hold or back-off'), note: `${READING_WORD[lastBad.result]} on ${shortDateWords(lastBad.date)} (${label}).` }
 }
 
 function subjectLabel(reading: SubjectReading, records: readonly WorkoutRecord[], runs: readonly Run[], templates: readonly SessionTemplate[]): string {
@@ -560,11 +581,6 @@ function subjectLabel(reading: SubjectReading, records: readonly WorkoutRecord[]
   }
   const record = records.find((r) => r.workout.id === reading.id)
   return record ? workoutLabel(record.workout, templates) : 'a session'
-}
-
-function hasMorningCheck(reading: SubjectReading, records: readonly WorkoutRecord[], checks: readonly MorningCheck[]): boolean {
-  if (reading.kind === 'workout') return records.find((r) => r.workout.id === reading.id)?.morningCheck !== undefined
-  return checks.some((c) => morningCheckApplies(c, { kind: 'run', id: reading.id, date: reading.date }))
 }
 
 // ---------------------------------------------------------------------------------------------

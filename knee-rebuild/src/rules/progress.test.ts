@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import type { MileageWeek, Run, SetLog, Settings, Workout } from '../schema/index.ts'
+import type { MileageWeek, MorningCheck, Run, SetLog, Settings, Workout } from '../schema/index.ts'
 import { attachChecks, type SubjectReading } from './history.ts'
-import { advancePhase, consecutiveCleanDays, loadSeries, milesSeries, symmetrySeries } from './progress.ts'
+import { advancePhase, awaitingMorningCheck, consecutiveCleanDays, loadSeries, milesSeries, symmetrySeries } from './progress.ts'
 
 const workout = (id: string, date: string, status: Workout['status'] = 'finished'): Workout => ({ id, date, templateId: 'p2-b', phase: 2, week: 5, isDeload: false, status })
 const set = (workoutId: string, side: SetLog['side'], n: number, load: number, reps: number, exerciseId = 'bulgarian-split-squat'): SetLog => ({ id: `${workoutId}-${side}-${n}`, workoutId, slotId: 'p2b-1', exerciseId, setNumber: n, side, load, loadUnit: 'lb', reps, painDuring: 1, stopped: false })
@@ -51,15 +51,56 @@ describe('milesSeries', () => {
 })
 
 describe('consecutiveCleanDays', () => {
-  const r = (date: string, result: SubjectReading['result']): SubjectReading => ({ kind: 'workout', id: date, date, result })
+  const r = (date: string, result: SubjectReading['result'], kind: SubjectReading['kind'] = 'workout'): SubjectReading => ({ kind, id: date, date, result })
+  const check = (date: string, appliesTo: MorningCheck['appliesTo'] = null): MorningCheck => ({
+    id: `m-${date}`, date, appliesTo, stiffnessUnder30Min: true, worseThanYesterday: false, visibleSwelling: false, warmth: false, painChangePoints: 0, redFlags: [],
+  })
   it('counts from the day after the last hold or back-off through today', () => {
-    expect(consecutiveCleanDays([r('2026-11-03', 'clean'), r('2026-11-05', 'hold'), r('2026-11-07', 'clean')], '2026-11-10')).toBe(5)
+    expect(consecutiveCleanDays([r('2026-11-03', 'clean'), r('2026-11-05', 'hold'), r('2026-11-07', 'clean')], '2026-11-10', [])).toBe(5)
   })
   it('counts from the first reading when none was bad, and is 0 with no readings or a bad reading today', () => {
-    expect(consecutiveCleanDays([r('2026-11-03', 'clean')], '2026-11-03')).toBe(1)
-    expect(consecutiveCleanDays([r('2026-11-03', 'clean')], '2026-11-09')).toBe(7)
-    expect(consecutiveCleanDays([], '2026-11-09')).toBe(0)
-    expect(consecutiveCleanDays([r('2026-11-09', 'back-off')], '2026-11-09')).toBe(0)
+    expect(consecutiveCleanDays([r('2026-11-03', 'clean')], '2026-11-04', [check('2026-11-04')])).toBe(2)
+    expect(consecutiveCleanDays([r('2026-11-03', 'clean')], '2026-11-09', [])).toBe(7)
+    expect(consecutiveCleanDays([], '2026-11-09', [])).toBe(0)
+    // A check linked to today's session is in, so today's back-off counts.
+    expect(consecutiveCleanDays([r('2026-11-09', 'back-off')], '2026-11-09', [check('2026-11-09', { kind: 'workout', id: '2026-11-09' })])).toBe(0)
+  })
+
+  describe('a session waiting on its morning check neither extends nor breaks the run (PROGRAM-QUESTIONS 87)', () => {
+    // Nov 3's session read clean with Nov 4's check; nothing bad since.
+    const before = [r('2026-11-03', 'clean')]
+    const checks = [check('2026-11-04')]
+
+    it('yesterday’s session with no check yet: the count runs back from the day before it', () => {
+      expect(awaitingMorningCheck(r('2026-11-09', 'hold'), checks, '2026-11-10')).toBe(true)
+      // Nov 3 to Nov 8: the hold Nov 9 reads until its check doesn't break the run, and Nov 9 and 10 don't count yet.
+      expect(consecutiveCleanDays([...before, r('2026-11-09', 'hold')], '2026-11-10', checks)).toBe(6)
+    })
+
+    it('today’s session waits too, and the count runs through yesterday; so do two days waiting', () => {
+      expect(awaitingMorningCheck(r('2026-11-10', 'hold', 'run'), checks, '2026-11-10')).toBe(true)
+      expect(consecutiveCleanDays([...before, r('2026-11-10', 'hold', 'run')], '2026-11-10', checks)).toBe(7)
+      expect(consecutiveCleanDays([...before, r('2026-11-09', 'hold'), r('2026-11-10', 'hold', 'run')], '2026-11-10', checks)).toBe(6)
+    })
+
+    it('once the check is in, the reading counts as usual', () => {
+      const withCheck = [...checks, check('2026-11-10')]
+      expect(awaitingMorningCheck(r('2026-11-09', 'clean'), withCheck, '2026-11-10')).toBe(false)
+      expect(consecutiveCleanDays([...before, r('2026-11-09', 'clean')], '2026-11-10', withCheck)).toBe(8)
+      expect(consecutiveCleanDays([...before, r('2026-11-09', 'hold')], '2026-11-10', withCheck)).toBe(1)
+      // A check linked to today's run is that run's check.
+      expect(consecutiveCleanDays([...before, r('2026-11-10', 'back-off', 'run')], '2026-11-10', [...checks, check('2026-11-10', { kind: 'run', id: '2026-11-10' })])).toBe(0)
+    })
+
+    it('a session older than yesterday with no check still reads hold, as today, and breaks the run', () => {
+      expect(awaitingMorningCheck(r('2026-11-08', 'hold'), checks, '2026-11-10')).toBe(false)
+      expect(consecutiveCleanDays([...before, r('2026-11-08', 'hold')], '2026-11-10', checks)).toBe(2)
+    })
+
+    it('a session waiting right after a hold leaves nothing to count yet, and so do waiting sessions alone', () => {
+      expect(consecutiveCleanDays([r('2026-11-08', 'hold'), r('2026-11-09', 'hold')], '2026-11-10', [check('2026-11-09')])).toBe(0)
+      expect(consecutiveCleanDays([r('2026-11-10', 'hold')], '2026-11-10', [])).toBe(0)
+    })
   })
 })
 
