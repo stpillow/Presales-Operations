@@ -2987,7 +2987,12 @@
       "pattern": "calf",
       "equipment": "Step, rail for balance; a dumbbell from Phase 3",
       "requires": [
-        "step-platforms"
+        {
+          "anyOf": [
+            "step-platforms",
+            "stair"
+          ]
+        }
       ],
       "loadType": "dumbbell-single",
       "loadUnit": "lb",

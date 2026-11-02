@@ -237,16 +237,20 @@ describe('data/program.json equipment (M4b)', () => {
     expect(stagesNeeding('single-leg-balance', 'bosu')).toEqual([])
   })
 
-  it('anyOf appears only where program.md says "or"', () => {
+  it('anyOf appears only where program.md says "or", and where Shawn said so; the pinned four', () => {
     const withAnyOf = program.exercises.filter((e) => allRequirements(e).some((r) => typeof r !== 'string'))
     expect(Object.fromEntries(withAnyOf.map((e) => [e.id, e.requires.filter((r) => typeof r !== 'string')]))).toEqual({
       // "Standing calf raise on the leg press or Smith"; the seed has two leg presses.
       'standing-calf-raise': [{ anyOf: ['seated-leg-press', 'leg-press-45', 'smith-machine'] }],
+      // "Single-leg calf raise on a step": the lowest stair counts as its step (Shawn, Nov 2; PROGRAM-QUESTIONS 68).
+      'single-leg-calf-raise-step': [{ anyOf: ['step-platforms', 'stair'] }],
       // "Balance on a folded mat or bosu"
       'balance-mat-bosu': [{ anyOf: ['mats', 'bosu'] }],
       // The lat pulldown thigh pad; "The back extension bench's foot plates work too."
       'nordic-negatives': [{ anyOf: ['lat-pulldown', 'back-extension-bench'] }],
     })
+    // The lateral step-down still needs the step platforms; the stair is its substitution's.
+    expect(program.exercises.find((e) => e.id === 'lateral-step-down')?.requires).toEqual(['step-platforms'])
   })
 
   it('floor and space are assumed; a mat is needed only to balance on or under Nordic knees', () => {

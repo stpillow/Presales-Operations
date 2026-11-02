@@ -10,6 +10,30 @@ const kit = program.equipment.filter((e) => e.carried).map((e) => e.id)
 const home = homeLocation(80, program.planetFitness, '2026-11-01', program.equipmentListVersion)
 const available = availableEquipment(home, program.equipment, program.planetFitness, kit)
 
+describe('a gym with the lowest stair and no step platforms (PROGRAM-QUESTIONS 68)', () => {
+  const stairOnly = availableEquipment(
+    { ...home, present: home.present.filter((id) => id !== 'step-platforms') },
+    program.equipment,
+    program.planetFitness,
+    kit,
+  )
+  const slot = (templateId: string, slotId: string) => {
+    const found = program.templates.find((t) => t.id === templateId)?.slots.find((s) => s.id === slotId)
+    if (!found) throw new Error(`no slot ${slotId}`)
+    return found
+  }
+  it('runs the single-leg calf raise on the stair (Shawn, Nov 2)', () => {
+    for (const [t, s] of [['p2-a', 'p2a-6'], ['p3-a', 'p3a-6']] as const) expect(routeSlot(slot(t, s), byId, stairOnly), s).toMatchObject({ kind: 'own', exerciseId: 'single-leg-calf-raise-step' })
+  })
+  it('moves the lateral step-down to the step-up on the stair', () => {
+    expect(routeSlot(slot('p2-b', 'p2b-6'), byId, stairOnly)).toEqual({
+      kind: 'moved',
+      exerciseId: 'step-up-stair',
+      passedOver: [{ exerciseId: 'lateral-step-down', missing: ['step-platforms'] }],
+    })
+  })
+})
+
 describe('the home gym on the live seed', () => {
   it('carries both items in the bag', () => {
     expect([...kit].sort()).toEqual(['ankle-strap', 'mini-band'])
