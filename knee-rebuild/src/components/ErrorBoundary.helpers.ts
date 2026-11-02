@@ -42,3 +42,19 @@ export function crashWords(screen: Route['name'] | null): CrashWords {
     next: 'Go to Today, or reload the app.',
   }
 }
+
+/**
+ * What the app says when storage can't be opened at launch (the phone refused it, or a build reads
+ * a stored row it doesn't know: a rollback past a version, PROGRAM-QUESTIONS 132), with the way on:
+ * Reload, or, once the service worker has a new version waiting, Reload now to bring it in, so a
+ * build that can't read storage is replaced from the screen itself, not by force-quitting the app.
+ */
+export function storageFailedWords(reason: string, updateReady: boolean): CrashWords {
+  return {
+    title: 'Storage could not be opened',
+    sentence: `The app keeps everything on this phone, and the phone refused: ${reason}. Private browsing blocks it on iOS; open the app from the home screen icon instead.`,
+    next: updateReady
+      ? 'A new version is ready, and it may read storage where this one can’t. Reload now brings it in; everything already saved stays on this phone.'
+      : 'Reload tries again. Everything already saved stays on this phone.',
+  }
+}
