@@ -7,6 +7,7 @@ import {
   SetLog,
   Settings,
   Workout,
+  type IsoDate,
   type Program,
   type SetSide,
 } from '../schema/index.ts'
@@ -39,6 +40,29 @@ export async function getSettings(): Promise<Settings | undefined> {
 export async function saveSettings(settings: Settings): Promise<void> {
   const row: SettingsRow = { ...Settings.parse(settings), id: SETTINGS_ID }
   await db.settings.put(row)
+}
+
+/**
+ * Saves the settings and rewrites the stored session moves in one transaction, for a start-date
+ * change: moves are stored by program week, so they are rebased against the start date stored with
+ * them. `rebase` gets that stored start date and the stored moves, both read inside the transaction,
+ * and returns the moves to keep (src/rules decides which); if it throws, or a move fails its parse,
+ * nothing is written. Returns what `rebase` returned.
+ */
+export async function saveSettingsAndMoves<T extends { moves: readonly SessionMove[] }>(
+  settings: Settings,
+  rebase: (storedStartDate: IsoDate, moves: SessionMove[]) => T,
+): Promise<T> {
+  const row: SettingsRow = { ...Settings.parse(settings), id: SETTINGS_ID }
+  return db.transaction('rw', db.settings, db.sessionMoves, async () => {
+    const stored = await db.settings.get(SETTINGS_ID)
+    const result = rebase(stored?.startDate ?? row.startDate, await db.sessionMoves.toArray())
+    const moves = result.moves.map((m) => SessionMove.parse(m))
+    await db.settings.put(row)
+    await db.sessionMoves.clear()
+    await db.sessionMoves.bulkPut(moves)
+    return result
+  })
 }
 
 /** Seed on first run: create the settings row if it is missing, and return it. */

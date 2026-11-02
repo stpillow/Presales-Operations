@@ -1,6 +1,7 @@
 import { DAYS, DELOAD_WEEKS, addDays, dayOf, daysBetween, isDeloadWeek, isMonday, weekOf } from '../rules/calendar.ts'
+import { rebaseMoves } from '../rules/moves.ts'
 import { clearRedFlag, stopMessage, type RedFlagState } from '../rules/redFlags.ts'
-import { IsoDate, type Day, type Phase, type RedFlag, type Settings, type Side } from '../schema/index.ts'
+import { IsoDate, type Day, type Phase, type RedFlag, type SessionMove, type Settings, type Side } from '../schema/index.ts'
 
 /**
  * Pure helpers for the Settings screen: words for dates, the start-date check, the red-flag state
@@ -79,6 +80,35 @@ export function weekLine(today: IsoDate, startDate: IsoDate): string {
   if (week >= 1) return `Today, ${dateWords(today)}, is in week ${week}${isDeloadWeek(week) ? ', a deload week' : ''}.`
   const days = daysBetween(today, startDate)
   return `Week 1 starts ${dateWords(startDate)}, ${days === 1 ? 'tomorrow' : `in ${plural(days, 'day')}`}.`
+}
+
+export interface StartDateChange {
+  /** The stored moves to keep, renumbered so each stays on the dates it was made for. */
+  moves: SessionMove[]
+  dropped: number
+  /** How many moves were dropped, in words; null when none was. */
+  notice: string | null
+}
+
+/**
+ * What a new start date does to the stored session moves: the rule (src/rules/moves) renumbers
+ * each one so it stays on its calendar dates and drops any that now fall before week 1; this names
+ * how many were dropped. Throws, as the rule does, when the dates are not whole weeks apart.
+ */
+export function startDateChange(oldStart: IsoDate, newStart: IsoDate, moves: readonly SessionMove[]): StartDateChange {
+  const rebased = rebaseMoves(moves, oldStart, newStart)
+  return { ...rebased, notice: droppedMovesWords(rebased.dropped, rebased.moves.length) }
+}
+
+/** "1 session move was for a week before the new week 1, so it was dropped. The other 2 stay on the dates they were made for." */
+export function droppedMovesWords(dropped: number, kept: number): string | null {
+  if (dropped === 0) return null
+  const lead =
+    dropped === 1
+      ? '1 session move was for a week before the new week 1, so it was dropped.'
+      : `${dropped} session moves were for weeks before the new week 1, so they were dropped.`
+  if (kept === 0) return lead
+  return kept === 1 ? `${lead} The other one stays on the dates it was made for.` : `${lead} The other ${kept} stay on the dates they were made for.`
 }
 
 /** "Deload weeks are 4, 8 and 12 from it.", read from the rule's own list so the screen never restates it by hand. */

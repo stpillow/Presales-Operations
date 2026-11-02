@@ -6,7 +6,7 @@ import { Screen } from '../components/Screen.tsx'
 import { Stepper } from '../components/Stepper.tsx'
 import { Tap } from '../components/Tap.tsx'
 import { useSettings } from '../db/hooks.ts'
-import { defaultSettings, ensureSettings, resetAll, saveSettings } from '../db/repo.ts'
+import { defaultSettings, ensureSettings, resetAll, saveSettings, saveSettingsAndMoves } from '../db/repo.ts'
 import type { IsoDate, Settings as SettingsRecord } from '../schema/index.ts'
 import {
   DUMBBELL_MAX,
@@ -27,6 +27,7 @@ import {
   restTimerWords,
   sideWords,
   deloadWeeksLine,
+  startDateChange,
   weekLine,
   type StartDateCheck,
 } from './Settings.helpers.ts'
@@ -81,6 +82,8 @@ function SettingsForm({ stored }: { stored: SettingsRecord }) {
   const [problem, setProblem] = useState<Problem>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [resetStep, setResetStep] = useState<ResetStep>('idle')
+  // What the last start-date change did to the stored session moves, when it dropped any.
+  const [movesNotice, setMovesNotice] = useState<string | null>(null)
   // Where the red-flag section sits is settled once per visit: clearing it, the Saved word that follows, and a
   // rejected clear (which keeps the typed note) all happen in place instead of jumping down the screen.
   const [flagFirst] = useState(() => stored.redFlag.active)
@@ -111,13 +114,13 @@ function SettingsForm({ stored }: { stored: SettingsRecord }) {
   }
 
   /** Shows the change at once, writes it, and says Saved; a rejected write falls back to what the phone holds. */
-  async function save(patch: Partial<SettingsRecord>, field: Field): Promise<void> {
+  async function save(patch: Partial<SettingsRecord>, field: Field, write: (next: SettingsRecord) => Promise<void> = saveSettings): Promise<void> {
     const next = { ...draftRef.current, ...patch }
     adopt(next)
     setProblem(null)
     pending.current += 1
     try {
-      await saveSettings(next)
+      await write(next)
       flashSaved(field)
     } catch (e) {
       adopt(storedRef.current)
@@ -125,6 +128,18 @@ function SettingsForm({ stored }: { stored: SettingsRecord }) {
     } finally {
       pending.current -= 1
     }
+  }
+
+  /**
+   * A new start date carries the stored session moves with it, in the same transaction: each is
+   * rebased onto the dates it was made for, and any now before week 1 is dropped and said so.
+   */
+  async function saveStartDate(date: IsoDate): Promise<void> {
+    setMovesNotice(null)
+    await save({ startDate: date }, 'startDate', async (next) => {
+      const change = await saveSettingsAndMoves(next, (storedStart, moves) => startDateChange(storedStart, next.startDate, moves))
+      setMovesNotice(change.notice)
+    })
   }
 
   /** The rule's refusal in words, or null once the cleared state is on its way to storage. */
@@ -208,7 +223,8 @@ function SettingsForm({ stored }: { stored: SettingsRecord }) {
         today={today}
         saved={savedField === 'startDate'}
         problem={problemFor('startDate')}
-        onSave={(date) => void save({ startDate: date }, 'startDate')}
+        movesNotice={movesNotice}
+        onSave={(date) => void saveStartDate(date)}
       />
 
       <Section label="Dumbbell max" saved={savedField === 'dumbbellMax'} problem={problemFor('dumbbellMax')}>
@@ -367,12 +383,15 @@ function StartDateSection({
   today,
   saved,
   problem,
+  movesNotice,
   onSave,
 }: {
   startDate: IsoDate
   today: IsoDate
   saved: boolean
   problem: string | null
+  /** How many session moves the last change dropped, in words; null when it dropped none. */
+  movesNotice: string | null
   onSave: (date: IsoDate) => void
 }) {
   const id = useId()
@@ -393,6 +412,12 @@ function StartDateSection({
       <Note>
         {weekLine(today, startDate)} {deloadWeeksLine()}
       </Note>
+      <Note>Sessions already moved keep their dates when this changes.</Note>
+      {movesNotice ? (
+        <p role="status" className="text-body text-on-dark">
+          {movesNotice}
+        </p>
+      ) : null}
       {check && !check.ok ? (
         <>
           <p role="alert" className="text-body text-on-dark">
