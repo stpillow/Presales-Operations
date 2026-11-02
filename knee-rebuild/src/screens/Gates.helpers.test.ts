@@ -494,6 +494,32 @@ describe('advancing the phase', () => {
     expect(advanceState(items([false, false, true]), { active: false, items: [] })).toEqual({ enabled: false, why: '2 items don’t pass yet' })
   })
 
+  it('waits while a session is open: it was planned in this phase, and advancing would replan it mid-session (PROGRAM-QUESTIONS 117)', () => {
+    expect(advanceState(items([true]), { active: false, items: [] }, [{ label: 'Session C', dateWords: 'Saturday, November 21' }])).toEqual({
+      enabled: false,
+      why: 'Session C from Saturday, November 21 is still open: finish it or end it early, then advance',
+    })
+    expect(advanceState(items([true]), { active: false, items: [] }, [{ label: 'Session A', dateWords: 'Tuesday, November 17' }, { label: 'Session C', dateWords: 'Saturday, November 21' }])).toEqual({
+      enabled: false,
+      why: '2 sessions are still open: finish them or end them early, then advance',
+    })
+    // Items that don't pass say so first.
+    expect(advanceState(items([false, true]), { active: false, items: [] }, [{ label: 'Session C', dateWords: 'Saturday, November 21' }])).toEqual({ enabled: false, why: '1 item doesn’t pass yet' })
+
+    const passing: GateTest[] = [
+      { id: 'gate-test-2026-11-21T15:00:00.000Z-sl-leg-press-10rm', date: '2026-11-21', gate: 1, item: 'sl-leg-press-10rm', valueInjured: 80, valueOther: 100, pass: true, manual: false },
+      manualTest({ gate: gate1, item: { id: 'g1-stance' }, pass: true, today: '2026-11-21', id: 'gate-test-2026-11-21T15:01:00.000Z-g1-stance' }),
+    ]
+    const logged = loggedPhase1()
+    // Saturday's Session C is open; the gate reads only closed sessions, so it passes underneath.
+    const open = workout('2026-11-21', { id: '2026-11-21-p1-c', templateId: 'p1-c', status: 'in-progress' })
+    const history = { ...logged, workouts: [...logged.workouts.filter((w) => w.date !== '2026-11-21'), open], gateTests: passing }
+    const view = gatesView({ today: '2026-11-21', settings: settings(), history, program: PROGRAM })
+    if (view.kind !== 'gate') throw new Error('expected gate 1')
+    expect(view.result.passes).toBe(true)
+    expect(view.advance).toEqual({ enabled: false, why: 'Session C from Saturday, November 21 is still open: finish it or end it early, then advance' })
+  })
+
   it('waits while the red-flag state suspends progression (rule 9)', () => {
     expect(advanceState(items([true]), { active: true, since: TODAY, items: ['locking'] })).toEqual({ enabled: false, why: 'The red-flag state is on: clear it in Settings, with a note, before advancing' })
     const flag = program.redFlags[0]

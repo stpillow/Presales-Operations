@@ -248,6 +248,16 @@ export function phaseEntryWeek(input: {
 }
 
 /**
+ * The sessions a phase advance waits for: any lift still in progress, oldest first. It was planned in
+ * the phase it started in, and advancing under it would replan it in the new one mid-session, the
+ * week bands counted from the new phase's entry, so a banded slot it has already logged could drop
+ * out. It is finished or ended early first (PROGRAM-QUESTIONS 117).
+ */
+export function advanceWaitsFor<W extends Pick<Workout, 'status' | 'date'>>(workouts: readonly W[]): W[] {
+  return workouts.filter((w) => w.status === 'in-progress').sort((a, b) => a.date.localeCompare(b.date))
+}
+
+/**
  * Rule 8's last step: a passing gate advances the phase only when Shawn confirms, and the new phase
  * is entered in the week given, phaseEntryWeek's answer for the day it is confirmed. Refuses
  * anything else.

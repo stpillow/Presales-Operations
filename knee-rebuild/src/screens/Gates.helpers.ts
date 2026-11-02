@@ -3,12 +3,12 @@ import { evaluateGate, type GateContext, type GateItemResult, type GateResult } 
 import { attachChecks, subjectReadings, type WorkoutRecord } from '../rules/history.ts'
 import { weekOf } from '../rules/calendar.ts'
 import { locationOrHome } from '../rules/locations.ts'
-import { loadTestPrefill, phaseEntryWeek, type LoadTestPrefill, type LoadTestSession } from '../rules/progress.ts'
+import { advanceWaitsFor, loadTestPrefill, phaseEntryWeek, type LoadTestPrefill, type LoadTestSession } from '../rules/progress.ts'
 import { progressionSuspended, stopMessage, type RedFlagState } from '../rules/redFlags.ts'
 import { phaseRunsExercise } from '../rules/session.ts'
 import { bestOfTrials, meetsSymmetry, symmetryPercent } from '../rules/unilateral.ts'
 import type { Exercise, Gate, GateItem, GateTest, IsoDate, Location, Phase, Program, Settings, Side } from '../schema/index.ts'
-import { shortDateWords } from './Today.helpers.ts'
+import { dateWords, shortDateWords, workoutLabel } from './Today.helpers.ts'
 
 /**
  * Pure helpers for the Gates screen: the context the gate rule reads, assembled from what is
@@ -368,16 +368,26 @@ export function prefillWords(input: {
 
 export type AdvanceState = { enabled: true } | { enabled: false; why: string }
 
+/** A session still open, as the Advance button names it: "Session C" and "Saturday, November 21". */
+export interface OpenSession {
+  label: string
+  dateWords: string
+}
+
 /**
- * Whether the Advance phase button is live: only when every item passes (evaluateGate), and not
- * while the red-flag state suspends progression (rule 9). Disabled, it says why in words.
+ * Whether the Advance phase button is live: only when every item passes (evaluateGate), not while
+ * the red-flag state suspends progression (rule 9), and not while a session is open
+ * (advanceWaitsFor, PROGRAM-QUESTIONS 117). Disabled, it says why in words.
  */
-export function advanceState(result: { items: readonly { pass: boolean }[]; passes: boolean }, redFlag: RedFlagState): AdvanceState {
+export function advanceState(result: { items: readonly { pass: boolean }[]; passes: boolean }, redFlag: RedFlagState, open: readonly OpenSession[] = []): AdvanceState {
   if (progressionSuspended(redFlag)) return { enabled: false, why: 'The red-flag state is on: clear it in Settings, with a note, before advancing' }
   if (!result.passes) {
     const failing = result.items.filter((i) => !i.pass).length
     return { enabled: false, why: failing === 1 ? '1 item doesn’t pass yet' : `${failing} items don’t pass yet` }
   }
+  const [first] = open
+  if (first && open.length === 1) return { enabled: false, why: `${first.label} from ${first.dateWords} is still open: finish it or end it early, then advance` }
+  if (open.length > 1) return { enabled: false, why: `${open.length} sessions are still open: finish them or end them early, then advance` }
   return { enabled: true }
 }
 
@@ -557,7 +567,11 @@ export function gatesView(input: { today: IsoDate; settings: Settings; history: 
     result,
     countLine: passCountWords(result),
     items: result.items.map((r) => itemView(r, gate, history, records, settings.injuredSide, program, gyms)),
-    advance: advanceState(result, settings.redFlag),
+    advance: advanceState(
+      result,
+      settings.redFlag,
+      advanceWaitsFor(history.workouts).map((w) => ({ label: workoutLabel(w, program.templates), dateWords: dateWords(w.date) })),
+    ),
     entryWeek,
     question: advanceQuestion(gate, program.phases, entryWeek, weekOf(today, settings.startDate)),
     stop: stopMessage(settings.redFlag, program.redFlags),

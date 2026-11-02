@@ -12,6 +12,7 @@ import type { EquipmentId, IsoDate, Location, Settings } from '../schema/index.t
 import {
   NEW_LOCATION_HASH,
   atGymWords,
+  earlierPhaseWords,
   gymRows,
   liftChanges,
   markOffLines,
@@ -333,6 +334,9 @@ function LiftBlock({
         </>
       ) : workout?.status === 'finished' ? (
         <FinishedBlock body={body} />
+      ) : workout?.status === 'abandoned' && body.earlierPhase !== null ? (
+        // Ended early before the phase advanced: the day's lift is this one, so there is no second lift to start (PROGRAM-QUESTIONS 117).
+        <p className="text-body text-on-dark-dim">{earlierPhaseWords(label, body.earlierPhase, PROGRAM.phases, settings.currentPhase)}</p>
       ) : (
         <>
           {workout?.status === 'in-progress' ? (

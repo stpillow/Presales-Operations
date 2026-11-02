@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { MileageWeek, MorningCheck, Run, SessionMove, SetLog, Settings, WeeklyTemplate, Workout } from '../schema/index.ts'
 import { attachChecks, type SubjectReading } from './history.ts'
-import { advancePhase, awaitingMorningCheck, consecutiveCleanDays, loadSeries, loadTestPrefill, milesSeries, phaseEntryWeek, symmetryLeftOut, symmetrySeries } from './progress.ts'
+import { advancePhase, advanceWaitsFor, awaitingMorningCheck, consecutiveCleanDays, loadSeries, loadTestPrefill, milesSeries, phaseEntryWeek, symmetryLeftOut, symmetrySeries } from './progress.ts'
 
 const workout = (id: string, date: string, status: Workout['status'] = 'finished'): Workout => ({ id, date, templateId: 'p2-b', phase: 2, week: 5, isDeload: false, status })
 const set = (workoutId: string, side: SetLog['side'], n: number, load: number, reps: number, exerciseId = 'bulgarian-split-squat'): SetLog => ({ id: `${workoutId}-${side}-${n}`, workoutId, slotId: 'p2b-1', exerciseId, setNumber: n, side, load, loadUnit: 'lb', reps, painDuring: 1, stopped: false })
@@ -18,6 +18,16 @@ describe('loadSeries', () => {
       { date: '2026-12-01', side: 'left', load: 25, count: 8 },
       { date: '2026-12-08', side: 'right', load: 25, count: 8 },
     ])
+  })
+})
+
+describe('advanceWaitsFor: a phase advance waits for an open session (PROGRAM-QUESTIONS 117)', () => {
+  it('lists the sessions still in progress, oldest first; finished, abandoned and planned ones don’t hold it', () => {
+    const open = workout('w3', '2026-12-12', 'in-progress')
+    const older = workout('w1', '2026-12-08', 'in-progress')
+    const ws = [workout('w0', '2026-12-05'), open, workout('w2', '2026-12-10', 'abandoned'), workout('w4', '2026-12-15', 'planned'), older]
+    expect(advanceWaitsFor(ws).map((w) => w.id)).toEqual(['w1', 'w3'])
+    expect(advanceWaitsFor([workout('w0', '2026-12-05')])).toEqual([])
   })
 })
 
