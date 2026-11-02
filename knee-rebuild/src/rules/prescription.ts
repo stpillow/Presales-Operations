@@ -560,14 +560,14 @@ function toRack(here: Here, exercise: Exercise, out: Prescription[]): Prescripti
     return out.map((p) => {
       if (p.exerciseId !== exercise.id) return p
       const moved = firstOn(here, sub, p.side)
-      const swap = `${sub.name}${moved.load === null ? ' and pick its load' : ''}`
       const why =
         rack <= 0
-          ? `There are no dumbbells here: swap to ${swap}.`
+          ? `There are no dumbbells here: swap to ${sub.name}.`
           : over(p)
-            ? `That is past the rack’s ${rack} lb dumbbells: swap to ${swap}.`
-            : `The other side is past the rack’s ${rack} lb dumbbells, so the slot swaps to ${swap}.`
-      return { ...moved, basis: p.basis, note: `${p.note} ${why}` }
+            ? `That is past the rack’s ${rack} lb dumbbells: swap to ${sub.name}.`
+            : `The other side is past the rack’s ${rack} lb dumbbells, so the slot swaps to ${sub.name}.`
+      // The moved prescription keeps its own note, as offTheLadder's does: how the exercise moved to starts.
+      return { ...moved, basis: p.basis, note: `${p.note} ${why} ${moved.note}` }
     })
   }
   const nothing = writtenAfter(here, exercise) ? 'nothing written to swap to is here' : 'nothing is written to swap to'

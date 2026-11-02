@@ -278,7 +278,7 @@ describe('where you train (M4b): moves go forward on the slot’s list, to what 
     it('a swapped single-leg RDL over the rack goes to the Smith RDL, not itself', () => {
       const p = rdl({ exercise: slRdl, lastSets: rdlSets('single-leg-rdl', 80), gym: gym(80, 'smith-machine') })
       expect(p).toMatchObject({ exerciseId: 'smith-rdl', load: null, loadUnit: 'lb', repsTarget: 10, basis: 'progress-load' })
-      expect(p.note).toBe('Clean twice at the top of the range: load up one step (5 lb), back to 10 reps. That is past the rack’s 80 lb dumbbells: swap to Smith machine RDL and pick its load.')
+      expect(p.note).toBe('Clean twice at the top of the range: load up one step (5 lb), back to 10 reps. That is past the rack’s 80 lb dumbbells: swap to Smith machine RDL. First time: pick a load that lands at RPE 7 and start at 10 reps.')
       expect(rdl({ exercise: slRdl, readings: ['hold'], lastSets: rdlSets('single-leg-rdl', 30), gym: gym(25, 'smith-machine') }).exerciseId).toBe('smith-rdl')
     })
 
@@ -287,14 +287,21 @@ describe('where you train (M4b): moves go forward on the slot’s list, to what 
       expect(p).toMatchObject({ exerciseId: 'single-leg-rdl', load: null, basis: 'repeat' })
       expect(p.perSet).toBeUndefined()
       expect(p.rackCapped).toBeUndefined()
-      expect(p.note).toBe('Hold: repeat the last session’s loads and reps exactly. That is past the rack’s 25 lb dumbbells: swap to Single-leg RDL and pick its load.')
+      expect(p.note).toBe('Hold: repeat the last session’s loads and reps exactly. That is past the rack’s 25 lb dumbbells: swap to Single-leg RDL. First time: pick a load that lands at RPE 7 and start at 10 reps.')
       // The same hold at Settings' 80 lb rack, with no gym given, repeats 60 lb as before.
       expect(rdl({ readings: ['hold'], lastSets: rdlSets('db-rdl', 60) })).toMatchObject({ exerciseId: 'db-rdl', load: 60, basis: 'repeat' })
     })
 
     it('the cap reads every basis: a deload week at a lighter rack moves too, at the lightest version', () => {
-      expect(rdl({ week: 4, lastSets: rdlSets('db-rdl', 60), gym: gym(25, 'smith-machine') })).toMatchObject({ exerciseId: 'single-leg-rdl', load: 5, sets: 2, basis: 'deload' })
-      expect(rdl({ readings: ['clean'], lastSets: rdlSets('db-rdl', 30), gym: gym(25) })).toMatchObject({ exerciseId: 'single-leg-rdl', basis: 'same' })
+      const deload = rdl({ week: 4, lastSets: rdlSets('db-rdl', 60), gym: gym(25, 'smith-machine') })
+      expect(deload).toMatchObject({ exerciseId: 'single-leg-rdl', load: 5, sets: 2, basis: 'deload' })
+      // The moved prescription keeps its own note: why the slot moved, then how the exercise moved to starts.
+      expect(deload.note).toBe(
+        'Deload week: 2 sets instead of 3, same loads and reps, no progression. That is past the rack’s 25 lb dumbbells: swap to Single-leg RDL. First time in a deload week: the lightest version, 2 sets, perfect reps.',
+      )
+      const same = rdl({ readings: ['clean'], lastSets: rdlSets('db-rdl', 30), gym: gym(25) })
+      expect(same).toMatchObject({ exerciseId: 'single-leg-rdl', basis: 'same' })
+      expect(same.note).toBe('Clean once: same load, same target; clean again to progress. That is past the rack’s 25 lb dumbbells: swap to Single-leg RDL. First time: pick a load that lands at RPE 7 and start at 10 reps.')
     })
 
     it('with no fallback here, the rack max is prescribed, rack-capped, and the note says so', () => {
@@ -319,9 +326,9 @@ describe('where you train (M4b): moves go forward on the slot’s list, to what 
       const sets = [...threeSets({ side: 'right', load: 25, loadUnit: 'lb', reps: 8 }), ...threeSets({ side: 'left', load: 30, loadUnit: 'lb', reps: 8 })]
       const [injured, healthy] = prescribe(input({ slot: s, exercise: bss, substitutions: [split], readings: ['hold'], lastSets: sets, gym: gym(25, 'flat-bench') }))
       expect(injured).toMatchObject({ side: 'right', exerciseId: 'split-squat', load: null })
-      expect(injured?.note).toContain('The other side is past the rack’s 25 lb dumbbells, so the slot swaps to Split squat and pick its load.')
+      expect(injured?.note).toBe('Hold: repeat the last session’s loads and reps exactly. The other side is past the rack’s 25 lb dumbbells, so the slot swaps to Split squat. First time: pick a load and start at 8 reps.')
       expect(healthy).toMatchObject({ side: 'left', exerciseId: 'split-squat', load: null, budgetFromInjured: true })
-      expect(healthy?.note).toContain('That is past the rack’s 25 lb dumbbells: swap to Split squat and pick its load.')
+      expect(healthy?.note).toBe('Hold: repeat the last session’s loads and reps exactly. That is past the rack’s 25 lb dumbbells: swap to Split squat. First time: pick a load and start at 8 reps.')
     })
 
     it('no gym given reads as everything here at Settings’ rack', () => {
