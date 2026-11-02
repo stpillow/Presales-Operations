@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { SessionTemplate, type Slot } from '../schema/index.ts'
-import { phaseRunsExercise, phaseWeekOf, slotsForPhaseWeek } from './session.ts'
+import { phaseLogsBothSides, phaseRunsExercise, phaseWeekOf, slotsForPhaseWeek } from './session.ts'
 
 function slot(id: string, order: number, phaseWeeks?: [number, number | null]): Slot {
   return {
@@ -67,5 +67,28 @@ describe('phaseRunsExercise (PROGRAM-QUESTIONS 114)', () => {
     expect(phaseRunsExercise([p1, p2], 1, 'single-leg-leg-press')).toBe(false)
     expect(phaseRunsExercise([p1, p2], 2, 'goblet-squat-bench')).toBe(false)
     expect(phaseRunsExercise([p1, p2], 4, 'leg-press')).toBe(false)
+  })
+})
+
+describe('phaseLogsBothSides (PROGRAM-QUESTIONS 134)', () => {
+  // Phase 1 A's leg press, logged once for both legs, with the single-leg leg press added to its list (a Program edit).
+  const bothLegs = SessionTemplate.parse({ id: 'fx-p1a', phase: 1, letter: 'A', slots: [{ ...slot('p1a-1', 1), substitutionIds: ['leg-press-45', 'single-leg-leg-press'] }] })
+  // Phase 1 C's step-up, logged side by side, with the single-leg leg press added to its list.
+  const sideBySide = SessionTemplate.parse({ id: 'fx-p1c', phase: 1, letter: 'C', slots: [{ ...slot('p1c-1', 1), exerciseId: 'step-up', unilateral: true, substitutionIds: ['step-up-stair', 'single-leg-leg-press'] }] })
+  // Phase 1 A's balance, logged on the injured side only.
+  const injuredOnly = SessionTemplate.parse({ id: 'fx-p1a7', phase: 1, letter: 'A', slots: [{ ...slot('p1a-7', 7), exerciseId: 'single-leg-balance', unilateral: true, injuredOnly: true, substitutionIds: ['single-leg-leg-press'] }] })
+
+  it('is false when the phase lists the exercise only on a slot logged once for both legs: the runner logs the slot’s sides, not the exercise’s', () => {
+    expect(phaseRunsExercise([bothLegs], 1, 'single-leg-leg-press')).toBe(true)
+    expect(phaseLogsBothSides([bothLegs], 1, 'single-leg-leg-press')).toBe(false)
+  })
+  it('is false on a slot logged on the injured side only', () => {
+    expect(phaseLogsBothSides([injuredOnly], 1, 'single-leg-leg-press')).toBe(false)
+  })
+  it('is true when a slot logged side by side lists it, as its own exercise or a substitution, in that phase', () => {
+    expect(phaseLogsBothSides([bothLegs, sideBySide], 1, 'single-leg-leg-press')).toBe(true)
+    expect(phaseLogsBothSides([sideBySide], 1, 'step-up')).toBe(true)
+    expect(phaseLogsBothSides([sideBySide], 2, 'single-leg-leg-press')).toBe(false)
+    expect(phaseLogsBothSides([sideBySide], 1, 'leg-press')).toBe(false)
   })
 })
