@@ -29,6 +29,7 @@ npm run test         # vitest run (rules engine)
 npm run check        # typecheck + lint + test
 npm run build        # tsc -b && vite build → dist/ (includes sw.js and manifest)
 npm run preview      # serve dist/ locally; test the service worker here, not in dev
+npm run e2e          # Playwright on a fresh build in vite preview: Session A week 1, the morning check, week 2's loads (needs Chromium; not in check)
 npm run program -- --week 5 --session B   # prints a session from the seed data, deload-aware
 ```
 
