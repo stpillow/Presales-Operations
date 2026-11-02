@@ -200,6 +200,11 @@ describe('day rows', () => {
     expect(summaryWorkout([left, done])?.id).toBe('w1-2')
     expect(summaryWorkout([])).toBeNull()
     expect(dayAction({ date: '2026-11-03', session: 'lift:A', status: 'done', workouts: [left, done] }, '2026-11-05')).toEqual({ kind: 'summary', workoutId: 'w1-2', label: 'Open the summary' })
+    // A lift logged on a run day reads Missed for the run, yet its summary stays a tap away.
+    expect(dayAction({ date: '2026-11-04', session: 'run:easy', status: 'missed', workouts: [done] }, '2026-11-05')).toEqual({ kind: 'summary', workoutId: 'w1-2', label: 'Open the summary' })
+    // A session still in progress has no summary yet.
+    const open = workout('w1-3', '2026-11-03', 'in-progress', 'p1-a', '2026-11-03T14:00:00Z')
+    expect(dayAction({ date: '2026-11-03', session: 'lift:A', status: 'missed', workouts: [open] }, '2026-11-05')).toBeNull()
   })
   it("today's run day opens the run logger; other days open nothing", () => {
     expect(dayAction({ date: '2026-11-04', session: 'run:easy', status: 'today', workouts: [] }, '2026-11-04')).toEqual({ kind: 'run', label: 'Log the run' })

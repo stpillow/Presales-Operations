@@ -148,9 +148,9 @@ export function summaryWorkout(workouts: readonly Workout[]): Workout | null {
 
 export type DayAction = { kind: 'summary'; workoutId: string; label: string } | { kind: 'run'; label: string }
 
-/** What tapping a day does: a done lift day opens its summary; today's run day opens the run logger. */
+/** What tapping a day does: a day with a finished or abandoned lift opens its summary; today's run day opens the run logger. */
 export function dayAction(day: Pick<WeekDay, 'date' | 'session' | 'status' | 'workouts'>, today: IsoDate): DayAction | null {
-  const workout = day.status === 'done' ? summaryWorkout(day.workouts) : null
+  const workout = summaryWorkout(day.workouts.filter((w) => w.status === 'finished' || w.status === 'abandoned'))
   if (workout) return { kind: 'summary', workoutId: workout.id, label: 'Open the summary' }
   if (day.date === today && runTypeFor(day.session) !== null) return { kind: 'run', label: 'Log the run' }
   return null
