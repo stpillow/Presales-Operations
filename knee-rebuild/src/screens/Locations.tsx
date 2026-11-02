@@ -78,12 +78,12 @@ export function Locations() {
   return (
     <Screen title={TITLE} lead={LEAD}>
       {notice ? (
-        <p role="status" className="text-body text-on-dark">
+        <p role="status" className="text-body text-on-dark wrap-anywhere">
           {notice}
         </p>
       ) : null}
       {problem ? (
-        <p role="alert" className="text-body text-on-dark">
+        <p role="alert" className="text-body text-on-dark wrap-anywhere">
           {problem}
         </p>
       ) : null}
@@ -96,8 +96,9 @@ export function Locations() {
         {rows.map((row) => (
           <li key={row.id} aria-label={row.name} className="flex flex-col gap-3 border-t border-on-dark-faint pt-4">
             <div className="flex items-baseline justify-between gap-4">
-              <h2 className="text-lead font-medium text-on-dark">{row.name}</h2>
-              {row.active ? <span className="font-mono text-small uppercase tracking-[0.22em] text-green-bright">✓ Active</span> : null}
+              {/* A name runs to 60 characters, one word at worst: it wraps in its own box, and the mark keeps its line. */}
+              <h2 className="min-w-0 text-lead font-medium text-on-dark wrap-anywhere">{row.name}</h2>
+              {row.active ? <span className="shrink-0 whitespace-nowrap font-mono text-small uppercase tracking-[0.22em] text-green-bright">✓ Active</span> : null}
             </div>
             <p className="text-body text-on-dark-dim">{row.summary}</p>
             <div className="flex flex-wrap gap-2">
@@ -115,8 +116,8 @@ export function Locations() {
             </div>
             {armed === row.id ? (
               <div className="flex flex-col gap-2">
-                <p className="text-body text-on-dark">{archiveAsk(row.name)}</p>
-                <Button wide disabled={busy} onClick={() => void archive(row)}>
+                <p className="text-body text-on-dark wrap-anywhere">{archiveAsk(row.name)}</p>
+                <Button wide className="wrap-anywhere" disabled={busy} onClick={() => void archive(row)}>
                   Yes, archive {row.name}
                 </Button>
                 <Button variant="quiet" wide disabled={busy} onClick={() => setArmed(null)}>

@@ -162,11 +162,11 @@ function NewLocation({ locations }: { locations: Location[] }) {
         </Section>
 
         {problem ? (
-          <p role="alert" className="text-body text-on-dark">
+          <p role="alert" className="text-body text-on-dark wrap-anywhere">
             {problem}
           </p>
         ) : null}
-        <Button type="submit" variant="primary" wide disabled={busy}>
+        <Button type="submit" variant="primary" wide className="wrap-anywhere" disabled={busy}>
           {busy ? 'Saving…' : check.ok ? `Add ${check.name}` : 'Add this gym'}
         </Button>
         <Button variant="quiet" wide onClick={() => navigate({ name: 'locations' })}>
@@ -234,14 +234,14 @@ function EditLocation({ location, locations, settings, activeId }: { location: L
   return (
     <Screen title={location.name} lead={lead}>
       {notice ? (
-        <p role="status" className="text-body text-on-dark">
+        <p role="status" className="text-body text-on-dark wrap-anywhere">
           {notice}
         </p>
       ) : null}
       {location.archived ? <p className="text-body text-on-dark">Archived: it has left the lists, and its sessions still point at it.</p> : null}
       {!isActive && !location.archived ? (
         <div className="flex flex-col gap-2">
-          <Button wide onClick={() => void run('use', () => setActiveLocation(location.id))}>
+          <Button wide className="wrap-anywhere" onClick={() => void run('use', () => setActiveLocation(location.id))}>
             Use {location.name} here
           </Button>
           {problemFor('use') ? (
@@ -286,7 +286,7 @@ function EditLocation({ location, locations, settings, activeId }: { location: L
       />
 
       <Section label="What this changes" saved={false} problem={null}>
-        <p className="text-body text-on-dark">{changes.heading}</p>
+        <p className="text-body text-on-dark wrap-anywhere">{changes.heading}</p>
         {changes.sessions.map((session) => (
           <div key={session.label} className="flex flex-col gap-1">
             <h3 className="font-mono text-small uppercase tracking-[0.22em] text-on-dark-muted">{session.label}</h3>
@@ -301,7 +301,7 @@ function EditLocation({ location, locations, settings, activeId }: { location: L
 
       <Section label="Kept for the next program update" saved={false} problem={null}>
         {kept.length > 0 ? (
-          <ul className="flex flex-col gap-1 text-body text-on-dark-dim">
+          <ul className="flex flex-col gap-1 text-body text-on-dark-dim wrap-anywhere">
             {kept.map((line) => (
               <li key={line}>{line}</li>
             ))}
@@ -384,7 +384,7 @@ function NameSection({
         />
         <Note>{nameCountWords(draft)}</Note>
         {refusal ? (
-          <p role="alert" className="text-body text-on-dark">
+          <p role="alert" className="text-body text-on-dark wrap-anywhere">
             {refusal}
           </p>
         ) : null}
@@ -555,13 +555,13 @@ function TypedSection({
         </Button>
       </form>
       {done ? (
-        <p role="status" className="text-body text-on-dark">
+        <p role="status" className="text-body text-on-dark wrap-anywhere">
           {done}
         </p>
       ) : null}
       {result ? (
         <div className="flex flex-col gap-2">
-          <p role="status" className="text-body text-on-dark">
+          <p role="status" className="text-body text-on-dark wrap-anywhere">
             {result.words}
           </p>
           {outcome?.kind === 'mark' ? (
@@ -622,7 +622,7 @@ function Section({ label, saved, problem, children }: { label: string; saved: bo
       </div>
       {children}
       {problem ? (
-        <p role="alert" className="text-body text-on-dark">
+        <p role="alert" className="text-body text-on-dark wrap-anywhere">
           {problem}
         </p>
       ) : null}
@@ -636,7 +636,8 @@ function Note({ children }: { children: ReactNode }) {
 
 /** One of several choices: the chosen one says so with a mark (and, wide, a word), never by color alone. */
 function Choice({ label, selected, onSelect, compact = false }: { label: string; selected: boolean; onSelect: () => void; compact?: boolean }) {
-  const mark = <span className="font-mono text-small uppercase tracking-[0.22em]">{selected ? (compact ? '✓' : '✓ Chosen') : '○'}</span>
+  // The mark keeps to one line beside a label that wraps ("✓" over "Chosen" read as two marks).
+  const mark = <span className="shrink-0 whitespace-nowrap font-mono text-small uppercase tracking-[0.22em]">{selected ? (compact ? '✓' : '✓ Chosen') : '○'}</span>
   return (
     <button
       type="button"
@@ -654,7 +655,7 @@ function Choice({ label, selected, onSelect, compact = false }: { label: string;
         </>
       ) : (
         <>
-          <span>{label}</span>
+          <span className="min-w-0">{label}</span>
           {mark}
         </>
       )}

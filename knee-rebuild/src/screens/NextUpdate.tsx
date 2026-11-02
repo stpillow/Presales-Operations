@@ -49,8 +49,8 @@ export function NextUpdate() {
               const line = updateLine(note)
               return (
                 <li key={`${note.locationName}-${note.text}-${i}`} className="flex flex-col gap-1 border-t border-on-dark-faint pt-3">
-                  <span className="text-body text-on-dark">{line.what}</span>
-                  <span className="text-small text-on-dark-muted">{line.detail}</span>
+                  <span className="text-body text-on-dark wrap-anywhere">{line.what}</span>
+                  <span className="text-small text-on-dark-muted wrap-anywhere">{line.detail}</span>
                 </li>
               )
             })}
