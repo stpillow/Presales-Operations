@@ -122,6 +122,17 @@ describe('a capped back-off backs off from the capped load (Shawn, Nov 2)', () =
     expect(got.readings).toEqual(['hold', 'hold'])
     expect(ids(got.lastSets)).toEqual(ids(hurt()))
   })
+  it('a capped hold right after a back-off ran at the back-off’s load, so it is the baseline too (PROGRAM-QUESTIONS 90)', () => {
+    // w2 at home read back-off at 60 lb; at the hotel the 45 lb back-off was capped at 25 lb and read hold.
+    const held = attachChecks([home2, hotel], [...three('w2', 'db-rdl', { painDuring: 6 }), ...hurt({ painDuring: 4 })], checks)
+    const got = exerciseHistory(held, 'db-rdl')
+    expect(got.readings).toEqual(['hold', 'back-off'])
+    expect(ids(got.lastSets)).toEqual(ids(hurt()))
+    // No morning check after the hotel session reads hold too, and keeps the hotel session the same way.
+    const unchecked = attachChecks([home2, hotel], [...three('w2', 'db-rdl', { painDuring: 6 }), ...hurt({ painDuring: 2 })], [checks[1] ?? check('2026-11-06')])
+    expect(exerciseHistory(unchecked, 'db-rdl').readings).toEqual(['hold', 'back-off'])
+    expect(ids(exerciseHistory(unchecked, 'db-rdl').lastSets)).toEqual(ids(hurt()))
+  })
   it('a capped hold alone repeats the last uncapped session', () => {
     const held = attachChecks([home2, hotel], [...three('w2', 'db-rdl'), ...hurt({ painDuring: 4 })], checks)
     expect(ids(exerciseHistory(held, 'db-rdl').lastSets)).toEqual(ids(three('w2', 'db-rdl')))
@@ -172,6 +183,10 @@ describe('feeding prescribe', () => {
   it('back home after a capped back-off at the hotel: 0.75 × the capped 25 lb, not 0.75 × 60 lb', () => {
     const hurt = attachChecks([home1, home2, hotel], [...homeSets, ...three('w3', 'db-rdl', { load: 25, rackCapped: true, painDuring: 6 })], checks)
     expect(next(exerciseHistory(hurt, 'db-rdl'))).toMatchObject({ load: 15, basis: 'back-off', note: 'Back off: load × 0.75, rounded down to 15 lb.' })
+  })
+  it('back home after a back-off at home and a capped hold at the hotel: the hotel’s 25 lb repeats, never the 60 lb that backed off', () => {
+    const held = attachChecks([home1, home2, hotel], [...three('w1', 'db-rdl'), ...three('w2', 'db-rdl', { painDuring: 6 }), ...three('w3', 'db-rdl', { load: 25, rackCapped: true, painDuring: 4 })], checks)
+    expect(next(exerciseHistory(held, 'db-rdl'))).toMatchObject({ load: 25, basis: 'repeat', note: 'Hold: repeat the last session’s loads and reps exactly.' })
   })
   it('without the cap the hotel session would have been the baseline, and clean enough to progress from', () => {
     const raw = { readings: exerciseReadings(records, 'db-rdl').map((r) => r.reading.result), lastSets: lastSetsBySide(records, 'db-rdl') }

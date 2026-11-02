@@ -12,6 +12,8 @@ import type { Reading } from './reading.ts'
  * counts neither way, left out of the exercise's readings, so it is neither a clean nor a hold; a
  * capped session never becomes the baseline a load progresses from, except that a back-off read on
  * one backs off from the load the rack allowed (0.75 × the capped load), so there it is the baseline.
+ * So is a capped hold right after a back-off: it ran at or under the back-off's load, and repeating
+ * the session before it would put back the load the knee backed off at (PROGRAM-QUESTIONS 90).
  */
 
 /** Whether the gym's rack stopped this set short of its prescription. A set without the field was not capped. */
@@ -74,21 +76,33 @@ export interface ExerciseHistory {
   readings: ReadingResult[]
   /**
    * Each side's last sets from a session that wasn't rack-capped for this exercise; or, when the
-   * exercise reads back-off and its latest counted session was capped, from that capped session.
+   * exercise reads back-off, or holds right after a back-off, and its latest counted session was
+   * capped, from that capped session.
    */
   lastSets: SetLog[]
 }
 
 /**
+ * Whether the latest counted session is one a back-off stands on or came from: it reads back-off
+ * (its own, or a hold that makes two holds in a row), or it is a hold right after a back-off, which
+ * ran at the back-off's lighter load.
+ */
+function servesBackOff(readings: readonly ReadingResult[]): boolean {
+  return effectiveReading(readings) === 'back-off' || (readings[0] === 'hold' && readings[1] === 'back-off')
+}
+
+/**
  * What a prescription reads from history for one exercise, at any gym: the two `prescribe` inputs.
  * A back-off read on a rack-capped session (its own, or a capped hold that makes two holds in a row)
- * backs off from the load the rack allowed, never from the heavier uncapped one before it.
+ * backs off from the load the rack allowed, never from the heavier uncapped one before it, and a
+ * capped hold right after a back-off repeats the load the rack allowed, never the one that backed
+ * off (PROGRAM-QUESTIONS 90). A capped hold after anything else repeats the last uncapped session.
  */
 export function exerciseHistory(records: readonly WorkoutRecord[], exerciseId: string, injuredSide?: Side): ExerciseHistory {
   const counted = cappedExerciseReadings(records, exerciseId, injuredSide)
   const readings = counted.map((r) => r.reading.result)
   const latest = counted[0]
-  const keep = latest?.rackCapped && effectiveReading(readings) === 'back-off' ? latest.workoutId : undefined
+  const keep = latest?.rackCapped && servesBackOff(readings) ? latest.workoutId : undefined
   const baseline = records.map((r) => (r.workout.id === keep ? r : { ...r, sets: withoutRackCapped(r.sets) }))
   return { readings, lastSets: lastSetsBySide(baseline, exerciseId) }
 }
