@@ -3,12 +3,13 @@ import { exerciseHistory } from '../rules/gymLoads.ts'
 import { attachChecks, recordsBefore, type WorkoutRecord } from '../rules/history.ts'
 import { prescribe, type Prescription } from '../rules/prescription.ts'
 import { phaseWeekOf, slotsForPhaseWeek } from '../rules/session.ts'
+import { slotExercise, type SlotExercise } from '../rules/slotExercise.ts'
 import type { Exercise, IsoDate, SessionLetter, SessionTemplate, Settings, Slot } from '../schema/index.ts'
 import type { History } from '../db/repo.ts'
 
 export interface SlotPlan {
   slot: Slot
-  /** The exercise the slot runs today: its own, or the substitution chosen for this session. */
+  /** The exercise the slot runs today: its own, the substitution chosen for this session, or the easier version its history put it on. */
   exercise: Exercise
   substitutions: Exercise[]
   /** One per side, injured side first. */
@@ -37,10 +38,14 @@ export function planSession(input: {
   return slotsForPhaseWeek(template, phaseWeek).map((slot) => {
     const choice = input.chosenExercise?.[slot.id]
     const allowed = choice !== undefined && (choice === slot.exerciseId || slot.substitutionIds.includes(choice))
-    const exercise = exerciseById(allowed ? choice : slot.exerciseId)
     const substitutions = slot.substitutionIds.map(exerciseById)
-    // Rack-capped sessions read hold at best and never set the baseline (gymLoads.ts); without the field, as before.
-    const { readings, lastSets } = exerciseHistory(records, exercise.id, settings.injuredSide)
+    // A swap chosen for this session wins. Otherwise the slot's history says which exercise it runs: its
+    // own, or the easier version a back-off moved it to until that reads clean twice (slotExercise.ts).
+    // Either way rack-capped sessions read hold at best and never set the baseline (gymLoads.ts).
+    const placed: SlotExercise = allowed
+      ? { exercise: exerciseById(choice), ...exerciseHistory(records, choice, settings.injuredSide) }
+      : slotExercise({ slot, own: exerciseById(slot.exerciseId), substitutions, records, injuredSide: settings.injuredSide })
+    const { exercise, readings, lastSets, placement } = placed
     const prescriptions = prescribe({
       slot,
       exercise,
@@ -51,6 +56,7 @@ export function planSession(input: {
       injuredSide: settings.injuredSide,
       dumbbellMax: settings.dumbbellMax,
       redFlagActive: settings.redFlag.active,
+      ...(placement ? { placement } : {}),
     })
     return { slot, exercise, substitutions, prescriptions }
   })

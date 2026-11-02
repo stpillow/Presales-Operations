@@ -1,0 +1,206 @@
+import { describe, expect, it } from 'vitest'
+import type { Exercise, MorningCheck, SetLog, Slot, Workout } from '../schema/index.ts'
+import { addDays } from './calendar.ts'
+import { attachChecks } from './history.ts'
+import { prescribe } from './prescription.ts'
+import { slotExercise, type SlotExerciseInput } from './slotExercise.ts'
+
+// Question 55: after a back-off moves a slot to its easier version, two cleans on it bring the slot back.
+
+const ex = (over: Partial<Exercise>): Exercise => ({
+  id: 'x', name: 'X', pattern: 'hamstring', equipment: 'x', loadType: 'stack', loadUnit: 'lb', increment: 5, loadDirection: 'up', unilateral: false, requires: [], ...over,
+})
+const nordic = ex({ id: 'nordic', name: 'Nordic negatives', loadType: 'bodyweight', loadUnit: 'none', increment: 0 })
+const legCurl = ex({ id: 'leg-curl', name: 'Leg curls' })
+const lyingCurl = ex({ id: 'lying-curl', name: 'Lying leg curl' })
+const nordicSlot: Slot = {
+  id: 'p3a-2', order: 2, label: '2', exerciseId: 'nordic', sets: 3, repsMin: 3, repsMax: 5, repUnit: 'reps', unilateral: false, injuredOnly: false,
+  prescriptionText: '3 × 3–5', cues: [], progressionRule: 'fixed', substitutionIds: ['leg-curl', 'lying-curl'], optional: false,
+}
+
+type Read = 'clean' | 'hold' | 'back-off'
+const PAIN: Record<Read, number> = { clean: 2, hold: 4, 'back-off': 6 }
+interface Logged {
+  date: string
+  exerciseId: string
+  read: Read
+  load?: number
+  reps?: number
+  over?: Partial<SetLog>
+  status?: Workout['status']
+}
+
+/** One workout per entry, three sets of the exercise, a clean check the next morning: the pain decides the reading. */
+function history(entries: readonly Logged[]) {
+  const workouts: Workout[] = []
+  const sets: SetLog[] = []
+  const checks: MorningCheck[] = []
+  entries.forEach((e, i) => {
+    const id = `w${i + 1}`
+    workouts.push({ id, date: e.date, templateId: 'p3-a', phase: 3, week: 9, isDeload: false, status: e.status ?? 'finished' })
+    for (const n of [1, 2, 3]) {
+      sets.push({
+        id: `${id}-${n}`, workoutId: id, slotId: nordicSlot.id, exerciseId: e.exerciseId, setNumber: n, side: 'both', load: e.load ?? 0,
+        loadUnit: e.load === undefined ? 'none' : 'lb', reps: e.reps ?? 4, painDuring: PAIN[e.read], stopped: false, ...e.over,
+      })
+    }
+    checks.push({ id: `m${i + 1}`, date: addDays(e.date, 1), appliesTo: { kind: 'workout', id }, stiffnessUnder30Min: true, worseThanYesterday: false, visibleSwelling: false, warmth: false, painChangePoints: 0, redFlags: [] })
+  })
+  return attachChecks(workouts, sets, checks)
+}
+
+const input = (entries: readonly Logged[], over: Partial<SlotExerciseInput> = {}): SlotExerciseInput => ({
+  slot: nordicSlot, own: nordic, substitutions: [legCurl, lyingCurl], records: history(entries), injuredSide: 'right', ...over,
+})
+const plan = (i: SlotExerciseInput) => {
+  const placed = slotExercise(i)
+  const [p] = prescribe({
+    slot: i.slot, exercise: placed.exercise, substitutions: [...i.substitutions], readings: placed.readings, lastSets: placed.lastSets,
+    week: 10, injuredSide: 'right', dumbbellMax: 80, redFlagActive: false, ...(placed.placement ? { placement: placed.placement } : {}),
+  })
+  if (!p) throw new Error('no prescription')
+  return { placed, p }
+}
+
+const backedOff: Logged = { date: '2027-01-05', exerciseId: 'nordic', read: 'back-off', reps: 3 }
+const curl = (date: string, read: Read, load = 40): Logged => ({ date, exerciseId: 'leg-curl', read, load, reps: 10 })
+
+describe('slotExercise: the easier version and the way back (PROGRAM-QUESTIONS 55)', () => {
+  it('with no history the slot runs its own exercise, nothing to say', () => {
+    const placed = slotExercise(input([]))
+    expect(placed).toEqual({ exercise: nordic, readings: [], lastSets: [] })
+  })
+
+  it('a back-off on Nordics moves the slot to its first substitution, the leg curls', () => {
+    const { placed, p } = plan(input([backedOff]))
+    // The rule leaves the slot on its own exercise; the back-off itself makes the move, as before.
+    expect(placed.exercise).toBe(nordic)
+    expect(placed.placement).toBeUndefined()
+    expect(placed.readings).toEqual(['back-off'])
+    expect(p).toMatchObject({ exerciseId: 'leg-curl', basis: 'back-off', note: 'Back off: the easier version, Leg curls.' })
+  })
+
+  it('one clean on the leg curls stays on them, progressing on their own history', () => {
+    const { placed, p } = plan(input([backedOff, curl('2027-01-08', 'clean')]))
+    expect(placed.exercise).toBe(legCurl)
+    expect(placed.readings).toEqual(['clean'])
+    expect(placed.placement).toEqual({
+      note: 'On Leg curls since Nordic negatives backed off: clean once; clean again and the slot goes back to Nordic negatives.',
+      returned: false,
+    })
+    expect(p).toMatchObject({ exerciseId: 'leg-curl', load: 40, basis: 'same' })
+    expect(p.note).toBe(`${placed.placement?.note} Clean once: same load, same target; clean again to progress.`)
+  })
+
+  it('the easier version counts only its readings since the move: an older clean on it does not make two', () => {
+    const { placed, p } = plan(input([curl('2026-12-01', 'clean'), backedOff, curl('2027-01-08', 'clean')]))
+    expect(placed.exercise).toBe(legCurl)
+    expect(placed.readings).toEqual(['clean'])
+    expect(p.basis).toBe('same')
+  })
+
+  it('two cleans in a row on the leg curls return the slot to Nordics at their last session', () => {
+    const { placed, p } = plan(input([backedOff, curl('2027-01-08', 'clean'), curl('2027-01-12', 'clean', 45)]))
+    expect(placed.exercise).toBe(nordic)
+    expect(placed.placement).toEqual({ note: 'Back on Nordic negatives: Leg curls read clean twice.', returned: true })
+    // The back-off still stands in the Nordics' own readings; it is served, so their last session repeats.
+    expect(placed.readings).toEqual(['back-off'])
+    expect(p).toMatchObject({ exerciseId: 'nordic', load: 0, repsTarget: 3, basis: 'repeat' })
+    expect(p.perSet).toEqual([{ load: 0, reps: 3 }, { load: 0, reps: 3 }, { load: 0, reps: 3 }])
+    expect(p.note).toBe('Back on Nordic negatives: Leg curls read clean twice. Same loads and reps as its last session.')
+  })
+
+  it('back on Nordics, their next reading is theirs again: a clean reads clean once, with nothing to say', () => {
+    const { placed, p } = plan(input([backedOff, curl('2027-01-08', 'clean'), curl('2027-01-12', 'clean'), { date: '2027-01-15', exerciseId: 'nordic', read: 'clean' }]))
+    expect(placed.exercise).toBe(nordic)
+    expect(placed.placement).toBeUndefined()
+    expect(placed.readings).toEqual(['clean', 'back-off'])
+    expect(p.basis).toBe('same')
+  })
+
+  it('a hold on the leg curls resets the count', () => {
+    const afterHold = slotExercise(input([backedOff, curl('2027-01-08', 'clean'), curl('2027-01-12', 'hold')]))
+    expect(afterHold.exercise).toBe(legCurl)
+    expect(afterHold.placement?.note).toBe('On Leg curls since Nordic negatives backed off; two clean readings in a row take the slot back to Nordic negatives.')
+    const oneSince = slotExercise(input([backedOff, curl('2027-01-08', 'clean'), curl('2027-01-12', 'hold'), curl('2027-01-15', 'clean')]))
+    expect(oneSince.exercise).toBe(legCurl)
+    expect(oneSince.placement?.note).toMatch(/clean once/)
+    const twoSince = slotExercise(input([backedOff, curl('2027-01-08', 'clean'), curl('2027-01-12', 'hold'), curl('2027-01-15', 'clean'), curl('2027-01-19', 'clean')]))
+    expect(twoSince.exercise).toBe(nordic)
+    expect(twoSince.placement?.returned).toBe(true)
+  })
+
+  it('a back-off on the leg curls stays on them and cuts their load (they are loaded, so there is no further move)', () => {
+    const { placed, p } = plan(input([backedOff, curl('2027-01-08', 'clean'), curl('2027-01-12', 'back-off')]))
+    expect(placed.exercise).toBe(legCurl)
+    expect(p).toMatchObject({ exerciseId: 'leg-curl', load: 30, basis: 'back-off' })
+  })
+
+  it('a swap to another substitution in between is not counted, and does not move the slot', () => {
+    const lying: Logged = { date: '2027-01-10', exerciseId: 'lying-curl', read: 'clean', load: 30, reps: 10 }
+    const placed = slotExercise(input([backedOff, curl('2027-01-08', 'clean'), lying]))
+    expect(placed.exercise).toBe(legCurl)
+    expect(placed.placement?.note).toMatch(/clean once/)
+  })
+
+  it('a session that never happened is not history', () => {
+    const placed = slotExercise(input([backedOff, { ...curl('2027-01-08', 'clean'), status: 'in-progress' }]))
+    expect(placed.exercise).toBe(nordic)
+    expect(placed.placement).toBeUndefined()
+  })
+
+  it('a load cut keeps the exercise: a swap after it does not put the slot on the swap', () => {
+    const press = ex({ id: 'leg-press', name: 'Leg press', pattern: 'squat' })
+    const box = ex({ id: 'box-squat', name: 'Smith box squat', pattern: 'squat', increment: 10 })
+    const slot: Slot = { ...nordicSlot, id: 'p1a-1', exerciseId: 'leg-press', substitutionIds: ['box-squat'], repsMin: 10, repsMax: 12, progressionRule: 'double-progression' }
+    const entries: Logged[] = [{ date: '2027-01-05', exerciseId: 'leg-press', read: 'back-off', load: 100 }, { date: '2027-01-08', exerciseId: 'box-squat', read: 'clean', load: 60 }]
+    const { placed, p } = plan(input(entries, { slot, own: press, substitutions: [box] }))
+    expect(placed.exercise).toBe(press)
+    expect(placed.placement).toBeUndefined()
+    expect(p).toMatchObject({ exerciseId: 'leg-press', load: 75, basis: 'back-off' })
+  })
+
+  it('a swap while the slot reads clean is a one-off: the slot stays on its own exercise', () => {
+    const placed = slotExercise(input([{ date: '2027-01-05', exerciseId: 'nordic', read: 'clean' }, curl('2027-01-08', 'clean'), curl('2027-01-12', 'clean')]))
+    expect(placed.exercise).toBe(nordic)
+    expect(placed.placement).toBeUndefined()
+  })
+
+  it('two holds in a row on Nordics are a back-off, and move the slot the same way', () => {
+    const holds: Logged[] = [{ date: '2027-01-01', exerciseId: 'nordic', read: 'hold' }, { date: '2027-01-05', exerciseId: 'nordic', read: 'hold' }, curl('2027-01-08', 'clean')]
+    expect(slotExercise(input(holds)).exercise).toBe(legCurl)
+  })
+})
+
+describe('slotExercise: one step at a time down a longer list', () => {
+  // Step-up, then the lowest stair, then the split squat (program.md's single-leg row). Both steps start at 6 in.
+  const stepUp = ex({ id: 'step-up', name: 'Step-up', pattern: 'single-leg', loadType: 'step-height', loadUnit: 'in', increment: 2, heightIncrementIn: 2, holdsLoad: 'dumbbell-each', unilateral: true })
+  const stair = ex({ ...stepUp, id: 'step-up-stair', name: 'Step-up on the lowest stair' })
+  const split = ex({ id: 'split-squat', name: 'Split squat', pattern: 'single-leg', loadType: 'dumbbell-each', unilateral: true })
+  const slot: Slot = { ...nordicSlot, id: 'p1c-1', exerciseId: 'step-up', substitutionIds: ['step-up-stair', 'split-squat'], repsMin: 10, repsMax: 10, progressionRule: 'height-then-load', heightIn: 6, heightMaxIn: 8, loadBeforeHeightLb: 20 }
+  const at6 = (date: string, exerciseId: string, read: Read): Logged => ({ date, exerciseId, read, reps: 10, over: { heightIn: 6, loadUnit: 'lb' } })
+  const steps = (entries: readonly Logged[]) => slotExercise(input(entries, { slot, own: stepUp, substitutions: [stair, split] }))
+
+  it('a step-up backed off at its starting height with nothing in the hands goes to the stair', () => {
+    const { p } = plan(input([at6('2027-01-02', 'step-up', 'back-off')], { slot, own: stepUp, substitutions: [stair, split] }))
+    expect(p).toMatchObject({ exerciseId: 'step-up-stair', basis: 'back-off' })
+  })
+
+  it('the stair backing off goes on to the split squat, whose two cleans bring the slot back to the stair, not past it', () => {
+    const entries = [at6('2027-01-02', 'step-up', 'back-off'), at6('2027-01-06', 'step-up-stair', 'back-off'), at6('2027-01-09', 'split-squat', 'clean'), at6('2027-01-13', 'split-squat', 'clean')]
+    const placed = steps(entries)
+    expect(placed.exercise).toBe(stair)
+    expect(placed.placement).toEqual({ note: 'Back on Step-up on the lowest stair: Split squat read clean twice.', returned: true })
+    expect(placed.readings).toEqual(['back-off'])
+  })
+
+  it('back on the stair, its cleans since the step-up backed off count toward the step-up', () => {
+    const base = [at6('2027-01-02', 'step-up', 'back-off'), at6('2027-01-06', 'step-up-stair', 'back-off'), at6('2027-01-09', 'split-squat', 'clean'), at6('2027-01-13', 'split-squat', 'clean')]
+    const once = steps([...base, at6('2027-01-16', 'step-up-stair', 'clean')])
+    expect(once.exercise).toBe(stair)
+    expect(once.placement?.note).toBe('On Step-up on the lowest stair since Step-up backed off: clean once; clean again and the slot goes back to Step-up.')
+    const twice = steps([...base, at6('2027-01-16', 'step-up-stair', 'clean'), at6('2027-01-20', 'step-up-stair', 'clean')])
+    expect(twice.exercise).toBe(stepUp)
+    expect(twice.placement).toEqual({ note: 'Back on Step-up: Step-up on the lowest stair read clean twice.', returned: true })
+  })
+})

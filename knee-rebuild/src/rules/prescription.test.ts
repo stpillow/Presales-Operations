@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Exercise, SetLog, Slot } from '../schema/index.ts'
-import { backOffLoad, effectiveReading, nextSubstitution, prescribe, progressionNeedsRpe, type PrescriptionInput } from './prescription.ts'
+import { backOffLoad, backOffMoves, backOffStep, effectiveReading, nextSubstitution, prescribe, progressionNeedsRpe, type PrescriptionInput } from './prescription.ts'
 
 const ex = (over: Partial<Exercise> = {}): Exercise => ({
   id: 'leg-press', name: 'Leg press', pattern: 'squat', equipment: 'seated leg press', loadType: 'stack', loadUnit: 'plate', increment: 1, loadDirection: 'up', unilateral: false, requires: [], ...over,
@@ -410,5 +410,62 @@ describe('where you train (M4b): moves go forward on the slot’s list, to what 
       // With the mats back, the slot runs its own ladder again.
       expect(balance({ lastSets: holds('balance-mat-bosu', 1), gym: gym(80, 'bosu', 'mats') })).toMatchObject({ exerciseId: 'balance-mat-bosu', stage: 2 })
     })
+  })
+})
+
+describe('what a back-off does, and whether it moves the slot (PROGRAM-QUESTIONS 49 and 55)', () => {
+  const nordic = ex({ id: 'nordic-negatives', name: 'Nordic negatives', pattern: 'hamstring', loadType: 'bodyweight', loadUnit: 'none', increment: 0 })
+  const curl = ex({ id: 'single-leg-seated-leg-curl', name: 'Single-leg seated leg curl', pattern: 'hamstring', loadUnit: 'lb', increment: 5 })
+  const nordicSlot = slot({ id: 'p3a-2', exerciseId: 'nordic-negatives', repsMin: 3, repsMax: 5, progressionRule: 'fixed', substitutionIds: ['single-leg-seated-leg-curl'] })
+  const stepUp = ex({ id: 'step-up', pattern: 'single-leg', loadType: 'step-height', loadUnit: 'in', increment: 2, heightIncrementIn: 2, holdsLoad: 'dumbbell-each', unilateral: true })
+  const stepSlot = slot({ id: 'p1c-1', exerciseId: 'step-up', repsMin: 10, repsMax: 10, progressionRule: 'height-then-load', unilateral: true, heightIn: 6, heightMaxIn: 8, loadBeforeHeightLb: 20 })
+  const steps = (load: number, heightIn: number) => [...threeSets({ side: 'right', load, loadUnit: 'lb', reps: 10, heightIn }), ...threeSets({ side: 'left', load, loadUnit: 'lb', reps: 10, heightIn: heightIn + 2 })]
+
+  it('names each back-off', () => {
+    expect(backOffStep(slot(), ex(), 8, undefined)).toBe('lighter-load')
+    expect(backOffStep(slot(), ex({ loadDirection: 'down' }), 8, undefined)).toBe('more-assist')
+    expect(backOffStep(slot({ progressionRule: 'stage' }), ex({ loadType: 'time' }), 0, undefined)).toBe('stage-down')
+    expect(backOffStep(slot({ progressionRule: 'time' }), ex({ loadType: 'time' }), 0, undefined)).toBe('less-time')
+    expect(backOffStep(stepSlot, stepUp, 0, 8)).toBe('step-down')
+    expect(backOffStep(stepSlot, stepUp, 10, 6)).toBe('lighter-in-hands')
+    expect(backOffStep(stepSlot, stepUp, 0, 6)).toBe('easier-version')
+    expect(backOffStep(nordicSlot, nordic, 0, undefined)).toBe('easier-version')
+    expect(backOffStep(slot(), ex({ loadType: 'dumbbell-each' }), 0, undefined)).toBe('easier-version')
+  })
+
+  it('moves only when the back-off goes to the easier version, read from the injured side', () => {
+    expect(backOffMoves({ slot: nordicSlot, exercise: nordic, lastSets: threeSets({ load: 0, loadUnit: 'none', reps: 4 }), injuredSide: 'right' })).toBe(true)
+    expect(backOffMoves({ slot: slot(), exercise: ex(), lastSets: threeSets(), injuredSide: 'right' })).toBe(false)
+    // The injured side sits at the starting height; the other side could still step down.
+    expect(backOffMoves({ slot: stepSlot, exercise: stepUp, lastSets: steps(0, 6), injuredSide: 'right' })).toBe(true)
+    expect(backOffMoves({ slot: stepSlot, exercise: stepUp, lastSets: steps(0, 6), injuredSide: 'left' })).toBe(false)
+    expect(backOffMoves({ slot: stepSlot, exercise: stepUp, lastSets: steps(10, 6), injuredSide: 'right' })).toBe(false)
+  })
+
+  it('with no last session there is nothing to back off from', () => {
+    expect(backOffMoves({ slot: nordicSlot, exercise: nordic, lastSets: [], injuredSide: 'right' })).toBe(false)
+  })
+
+  it('a placement note leads every side’s note', () => {
+    const [injured, healthy] = prescribe(input({ slot: stepSlot, exercise: stepUp, readings: ['clean'], lastSets: steps(10, 6), placement: { note: 'Why it runs.', returned: false } }))
+    expect(injured?.note).toBe('Why it runs. Clean once: same load, same target; clean again to progress.')
+    expect(healthy?.note).toBe('Why it runs. Clean once: same load, same target; clean again to progress.')
+  })
+
+  it('back from the easier version, the standing back-off is served: the last session repeats', () => {
+    const lastSets = [setLog(1, { exerciseId: 'nordic-negatives', load: 0, loadUnit: 'none', reps: 4 }), setLog(2, { exerciseId: 'nordic-negatives', load: 0, loadUnit: 'none', reps: 3 })]
+    const back = one({ slot: nordicSlot, exercise: nordic, substitutions: [curl], readings: ['back-off'], lastSets, placement: { note: 'Back on Nordic negatives: Single-leg seated leg curl read clean twice.', returned: true } })
+    expect(back).toMatchObject({ exerciseId: 'nordic-negatives', load: 0, repsTarget: 4, basis: 'repeat' })
+    expect(back.perSet).toEqual([{ load: 0, reps: 4 }, { load: 0, reps: 3 }])
+    expect(back.note).toBe('Back on Nordic negatives: Single-leg seated leg curl read clean twice. Same loads and reps as its last session.')
+    // Without the return, the same readings back off to the easier version again.
+    expect(one({ slot: nordicSlot, exercise: nordic, substitutions: [curl], readings: ['back-off'], lastSets })).toMatchObject({ exerciseId: 'single-leg-seated-leg-curl', basis: 'back-off' })
+  })
+
+  it('a return in a deload week is still a deload, led by why the slot is back', () => {
+    const lastSets = threeSets({ exerciseId: 'nordic-negatives', load: 0, loadUnit: 'none', reps: 4 })
+    const p = one({ slot: nordicSlot, exercise: nordic, substitutions: [curl], readings: ['back-off'], lastSets, week: 4, placement: { note: 'Back on Nordic negatives.', returned: true } })
+    expect(p).toMatchObject({ exerciseId: 'nordic-negatives', sets: 2, basis: 'deload' })
+    expect(p.note).toMatch(/^Back on Nordic negatives\. Deload week/)
   })
 })

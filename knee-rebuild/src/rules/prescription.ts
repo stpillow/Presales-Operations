@@ -77,6 +77,19 @@ export interface PrescriptionInput {
    * `dumbbellMax`: the prescription as it was before M4b.
    */
   gym?: GymHere
+  /** Where the slot's history put it (slotExercise.ts, PROGRAM-QUESTIONS 55). Absent: the slot runs its exercise as usual. */
+  placement?: Placement
+}
+
+/**
+ * Why the slot runs the exercise it does, from its history (slotExercise.ts, PROGRAM-QUESTIONS 55).
+ * `note` leads every side's note. `returned` marks a slot back on an exercise whose easier version
+ * read clean twice in a row: the back-off still standing in that exercise's readings is served, so
+ * it repeats its last session instead of backing off again.
+ */
+export interface Placement {
+  note: string
+  returned: boolean
 }
 
 export type Effective = 'none' | 'clean-twice' | 'clean-once' | 'hold' | 'back-off'
@@ -136,6 +149,42 @@ function startLoad(exercise: Exercise): number | null {
 export function nextSubstitution(exercise: Pick<Exercise, 'id'>, substitutions: readonly Exercise[]): Exercise | undefined {
   const at = substitutions.findIndex((s) => s.id === exercise.id)
   return substitutions[at + 1]
+}
+
+/** What a back-off does to an exercise (rule 4, PROGRAM-QUESTIONS 45 and 49). */
+export type BackOffStep = 'more-assist' | 'stage-down' | 'less-time' | 'step-down' | 'lighter-in-hands' | 'easier-version' | 'lighter-load'
+
+/**
+ * Which back-off applies, from the slot as it applies to the exercise (`effectiveSlot`) and one
+ * side's last load and step height: one plate more assist, a stage back, 5 s less, a step down,
+ * less in the hands, the easier version (bodyweight work, a step at its starting height with
+ * nothing in the hands, a load of zero), or load × 0.75.
+ */
+export function backOffStep(slot: Slot, exercise: Exercise, lastLoad: number, lastHeight: number | undefined): BackOffStep {
+  if (exercise.loadDirection === 'down') return 'more-assist'
+  if (slot.progressionRule === 'stage') return 'stage-down'
+  if (slot.progressionRule === 'time') return 'less-time'
+  if (exercise.loadType === 'step-height') {
+    const heightInc = exercise.heightIncrementIn ?? exercise.increment
+    if (lastHeight !== undefined && lastHeight - heightInc >= (slot.heightIn ?? 0)) return 'step-down'
+    if (lastLoad > 0) return 'lighter-in-hands'
+  }
+  if (exercise.loadType === 'bodyweight' || exercise.loadType === 'step-height' || lastLoad <= 0) return 'easier-version'
+  return 'lighter-load'
+}
+
+/**
+ * Whether a back-off on this exercise moves the slot to its easier version (PROGRAM-QUESTIONS 49),
+ * read as `prescribe` reads it, from the first set of the last session on the injured side (or
+ * both). A load cut, a stage or time step, a step down and more assist keep the exercise. With no
+ * last session there is nothing to back off from.
+ */
+export function backOffMoves(input: Pick<PrescriptionInput, 'slot' | 'exercise' | 'lastSets' | 'injuredSide'>): boolean {
+  const slot = effectiveSlot(input.slot, input.exercise)
+  const bySet = [...input.lastSets].sort((a, b) => a.setNumber - b.setNumber)
+  const first = bySet.find((s) => s.side === 'both' || s.side === input.injuredSide) ?? bySet[0]
+  if (first === undefined) return false
+  return backOffStep(slot, input.exercise, first.load, first.heightIn ?? slot.heightIn) === 'easier-version'
 }
 
 /** Whether the slot's load can only step up with an RPE logged on every set (the load rules do; fixed, time and stage don't). */
@@ -233,7 +282,8 @@ export function prescribe(raw: PrescriptionInput): Prescription[] {
     }
     if (p.side === input.injuredSide) injuredTarget = p.repsTarget
   }
-  return out
+  const lead = raw.placement?.note
+  return lead === undefined ? out : out.map((p) => ({ ...p, note: `${lead} ${p.note}` }))
 }
 
 /** One side's prescription, its stage held at the last one this gym can run. */
@@ -308,6 +358,8 @@ function prescribeSideAnywhere(input: PrescriptionInput, here: Here, side: SetSi
     case 'hold':
       return repeat('repeat', 'Hold: repeat the last session’s loads and reps exactly.')
     case 'back-off':
+      // Back from the easier version after two cleans on it (PROGRAM-QUESTIONS 55): the back-off that moved the slot is served.
+      if (input.placement?.returned) return repeat('repeat', 'Same loads and reps as its last session.')
       return backOff(input, here, carried, lastLoad, lastHeight, lastStage, lastTarget, sets)
     case 'clean-once':
       return { ...carried, load: lastLoad, repsTarget: lastTarget, basis: 'same', note: 'Clean once: same load, same target; clean again to progress.' }
@@ -399,38 +451,38 @@ function backOff(
   const inc = exercise.increment
   const result = (p: Partial<Prescription> & { note: string }): Prescription => ({ ...carried, load: lastLoad, repsTarget: lastTarget, basis: 'back-off', ...p })
 
-  if (exercise.loadDirection === 'down') {
-    return result({ load: lastLoad + inc, note: 'Back off: one plate more assist.' })
-  }
-  if (slot.progressionRule === 'stage') {
-    const stages = exercise.stages ?? []
-    const stage = Math.max(0, lastStage - 1)
-    return result({ stage, note: `Back off: back a stage, to ${stages[stage] ?? 'the start'}.` })
-  }
-  if (slot.progressionRule === 'time') {
-    return result({ repsTarget: Math.max(slot.repsMin, lastTarget - 5), note: 'Back off: 5 s less per set.' })
-  }
-  if (exercise.loadType === 'step-height') {
-    const floor = slot.heightIn ?? 0
-    const heightInc = exercise.heightIncrementIn ?? inc
-    if (lastHeight !== undefined && lastHeight - heightInc >= floor) {
-      return result({ heightIn: lastHeight - heightInc, note: `Back off: step down ${heightInc} in. to ${lastHeight - heightInc} in., same load.` })
+  switch (backOffStep(slot, exercise, lastLoad, lastHeight)) {
+    case 'more-assist':
+      return result({ load: lastLoad + inc, note: 'Back off: one plate more assist.' })
+    case 'stage-down': {
+      const stages = exercise.stages ?? []
+      const stage = Math.max(0, lastStage - 1)
+      return result({ stage, note: `Back off: back a stage, to ${stages[stage] ?? 'the start'}.` })
     }
-    if (lastLoad > 0) {
+    case 'less-time':
+      return result({ repsTarget: Math.max(slot.repsMin, lastTarget - 5), note: 'Back off: 5 s less per set.' })
+    case 'step-down': {
+      const heightInc = exercise.heightIncrementIn ?? inc
+      const height = (lastHeight ?? 0) - heightInc
+      return result({ heightIn: height, note: `Back off: step down ${heightInc} in. to ${height} in., same load.` })
+    }
+    case 'lighter-in-hands': {
       const load = backOffLoad(lastLoad, HELD_LOAD_INCREMENT_LB)
       return result({ load, note: `Back off: ${load} lb in the hands at the starting height.` })
     }
+    case 'easier-version': {
+      // The easier version is the next one on the slot's list that is here: never the exercise itself, never one before it.
+      const sub = fallbacks(here, exercise)[0]
+      if (sub) return { ...firstOn(here, sub, carried.side), basis: 'back-off', note: `Back off: the easier version, ${sub.name}.` }
+      const fewer = Math.max(1, Math.floor(sets * 0.75))
+      const lighter = writtenAfter(here, exercise) ? 'nothing lighter on the list is here' : 'nothing lighter is written'
+      return result({ sets: fewer, note: `Back off: ${fewer} sets instead of ${sets}; ${lighter}.` })
+    }
+    case 'lighter-load': {
+      const load = backOffLoad(lastLoad, inc)
+      return result({ load, note: `Back off: load × 0.75, rounded down to ${load} ${exercise.loadUnit}.` })
+    }
   }
-  if (exercise.loadType === 'bodyweight' || exercise.loadType === 'step-height' || lastLoad <= 0) {
-    // The easier version is the next one on the slot's list that is here: never the exercise itself, never one before it.
-    const sub = fallbacks(here, exercise)[0]
-    if (sub) return { ...firstOn(here, sub, carried.side), basis: 'back-off', note: `Back off: the easier version, ${sub.name}.` }
-    const fewer = Math.max(1, Math.floor(sets * 0.75))
-    const lighter = writtenAfter(here, exercise) ? 'nothing lighter on the list is here' : 'nothing lighter is written'
-    return result({ sets: fewer, note: `Back off: ${fewer} sets instead of ${sets}; ${lighter}.` })
-  }
-  const load = backOffLoad(lastLoad, inc)
-  return result({ load, note: `Back off: load × 0.75, rounded down to ${load} ${exercise.loadUnit}.` })
 }
 
 /**
