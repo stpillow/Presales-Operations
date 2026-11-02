@@ -20,7 +20,7 @@ export type Available = ReadonlySet<EquipmentId>
  *   at a gym started empty, unless `present` names it.
  * - Dumbbells follow `dumbbellMaxLb`, whatever `present` says.
  * An item marked off from the runner or Today is not here, even if `present` or the new-item rule
- * says it is; the kit is never marked off (PROGRAM-QUESTIONS 72).
+ * says it is; the kit is never marked off (PROGRAM-QUESTIONS 75).
  */
 export function availableEquipment(
   location: Pick<Location, 'present' | 'dumbbellMaxLb' | 'startedFrom' | 'listVersion' | 'markedOff'>,
@@ -97,7 +97,7 @@ export function routeSlot(slot: Pick<Slot, 'exerciseId' | 'substitutionIds'>, by
  * after it in that order whose requirements hold here. Never the current exercise and never an
  * earlier one, so a gym never walks a slot backward from the engine's pick. An exercise that isn't
  * on the slot's list has nothing ahead of it, so every entry that holds is offered (as
- * `nextSubstitution` reads it; PROGRAM-QUESTIONS 74).
+ * `nextSubstitution` reads it; PROGRAM-QUESTIONS 77).
  */
 export function fallbacksAfter(slot: Pick<Slot, 'exerciseId' | 'substitutionIds'>, currentId: string, byId: ExerciseLookup, available: Available): Exercise[] {
   const order = slotOrder(slot)
@@ -112,7 +112,7 @@ export function fallbacksAfter(slot: Pick<Slot, 'exerciseId' | 'substitutionIds'
  * How far a stage ladder can climb here: the index of the last stage before the first one whose
  * `stageRequires` don't hold ("Bosu isn't marked here; staying at folded mat, eyes closed").
  * Null when every stage can run or the exercise has no stages; -1 when not even the first stage
- * can (a bosu and no mat: PROGRAM-QUESTIONS 73).
+ * can (a bosu and no mat: PROGRAM-QUESTIONS 76).
  */
 export function stageCeiling(exercise: Pick<Exercise, 'stages' | 'stageRequires'>, available: Available): number | null {
   if (!exercise.stages || !exercise.stageRequires) return null
@@ -174,7 +174,7 @@ function wordsOf(normalized: string): string[] {
  * its own: it only ranks, unless no word is that telling, when the items every word points at are
  * suggested if there are three or fewer ("leg press": both presses). Rarer words rank first, a
  * whole word beats a shared stem, and a name the typed words cover breaks a tie. Nothing is ever
- * ticked here; the editor asks first (PROGRAM-QUESTIONS 71).
+ * ticked here; the editor asks first (PROGRAM-QUESTIONS 74).
  */
 export function matchTyped(text: string, vocabulary: readonly Pick<Equipment, 'id' | 'name' | 'aliases'>[], present: readonly EquipmentId[]): TypedMatch {
   const typed = normalizeTyped(text)
@@ -259,7 +259,7 @@ export interface ProgramUpdateNote {
 /**
  * Kept for the next program.md update: each gym's typed extras (with the date), then the items on
  * the program's list a gym has that no exercise requires or stages on, in the list's order.
- * Archived gyms are included: what was typed there was promised to be kept (PROGRAM-QUESTIONS 75).
+ * Archived gyms are included: what was typed there was promised to be kept (PROGRAM-QUESTIONS 78).
  */
 export function forNextProgramUpdate(
   locations: readonly Pick<Location, 'name' | 'present' | 'extras' | 'markedOff'>[],

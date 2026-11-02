@@ -8,7 +8,7 @@ import type { Reading } from './reading.ts'
  * and a workout's `locationId` changes nothing here. What remains is the rack cap (answer 5): a set
  * logged `rackCapped` ran at the gym's heaviest dumbbell because the prescription was heavier and
  * nothing was there to swap to. A capped session never becomes the baseline a load progresses
- * from, and it never reads clean (PROGRAM-QUESTIONS 70).
+ * from, and it never reads clean (PROGRAM-QUESTIONS 73).
  */
 
 /** Whether the gym's rack stopped this set short of its prescription. A set without the field was not capped. */

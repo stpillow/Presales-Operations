@@ -403,7 +403,7 @@ describe('where you train (M4b): moves go forward on the slot’s list, to what 
       expect(p).toMatchObject({ stage: 1, basis: 'at-top', note: 'Mats aren’t marked here; staying at eyes closed.' })
     })
 
-    it('a bosu and no mat moves the slot to the next exercise here, from its first stage (PROGRAM-QUESTIONS 73)', () => {
+    it('a bosu and no mat moves the slot to the next exercise here, from its first stage (PROGRAM-QUESTIONS 76)', () => {
       const p = balance({ lastSets: holds('balance-mat-bosu', 1), gym: gym(80, 'bosu') })
       expect(p).toMatchObject({ exerciseId: 'single-leg-balance', stage: 0, repUnit: 'seconds', repsTarget: 30, basis: 'first' })
       expect(p.note).toBe('Mats aren’t marked here, and the first stage is folded mat: Single-leg balance instead. First time: start at 30 seconds.')

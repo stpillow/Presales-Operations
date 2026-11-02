@@ -586,7 +586,7 @@ function toRack(here: Here, exercise: Exercise, out: Prescription[]): Prescripti
 }
 
 /**
- * A ladder whose first stage this gym can't run (a bosu and no mat, PROGRAM-QUESTIONS 73): the slot
+ * A ladder whose first stage this gym can't run (a bosu and no mat, PROGRAM-QUESTIONS 76): the slot
  * moves to the next exercise on its list that is here, never starting on the harder surface ahead
  * of the stages below it. With nothing to move to it runs as prescribed, and the note says so.
  */

@@ -181,7 +181,7 @@ describe('data/program.json equipment (M4b)', () => {
   })
 
   it('items no "Program slot" row lists sit under the row of what they are used for; the pinned seven', () => {
-    // PROGRAM-QUESTIONS 60. program.md names these outside the slot table, so their sources are not in it.
+    // PROGRAM-QUESTIONS 63. program.md names these outside the slot table, so their sources are not in it.
     const unlisted: Record<string, string> = {
       'leg-extension-machine': 'Squat pattern',
       'weight-plate': 'Hinge pattern',
@@ -212,7 +212,7 @@ describe('data/program.json equipment (M4b)', () => {
 
   it('dumbbells are required wherever they are the movement; the pinned load-only exercises run at bodyweight', () => {
     // Design section 8: step-ups, split squats, the back extension and the Phase 2 calf raise run at
-    // bodyweight; dumbbells only add load there (PROGRAM-QUESTIONS 61).
+    // bodyweight; dumbbells only add load there (PROGRAM-QUESTIONS 64).
     const loadOnly = ['back-extension-45', 'bulgarian-split-squat', 'single-leg-calf-raise-step', 'split-squat', 'step-up', 'step-up-stair']
     const holdsDumbbells = (e: Exercise) =>
       e.loadType === 'dumbbell-each' || e.loadType === 'dumbbell-single' || e.holdsLoad === 'dumbbell-each' || e.holdsLoad === 'dumbbell-single'
@@ -271,7 +271,7 @@ describe('data/program.json equipment (M4b)', () => {
   })
 
   it('one flat bench covers every bench; the pinned thirteen', () => {
-    // PROGRAM-QUESTIONS 63 lists these for Shawn; a new bench exercise has to be added there too.
+    // PROGRAM-QUESTIONS 66 lists these for Shawn; a new bench exercise has to be added there too.
     expect(program.exercises.filter((e) => needs(e, 'flat-bench')).map((e) => e.id).sort()).toEqual([
       'bulgarian-split-squat',
       'chest-supported-db-row',

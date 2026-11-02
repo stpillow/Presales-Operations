@@ -3,7 +3,7 @@ import { PLANET_FITNESS_LOCATION_ID, type EquipmentId, type IsoDate, type Locati
 /**
  * What Shawn's club has on top of Planet Fitness's list (his Oct 31 and Nov 1 answers): both leg
  * presses, the seated and the 45°, and the rower. The list already has the seated press and the
- * rower; the 45° press is the one it lacks (PROGRAM-QUESTIONS 68).
+ * rower; the 45° press is the one it lacks (PROGRAM-QUESTIONS 71).
  */
 export const HOME_ADDITIONS: readonly EquipmentId[] = ['seated-leg-press', 'leg-press-45', 'rower']
 

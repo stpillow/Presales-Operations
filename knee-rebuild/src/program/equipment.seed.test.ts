@@ -52,7 +52,7 @@ describe('the home gym on the live seed', () => {
     expect(available.has('lying-leg-curl')).toBe(false)
   })
 
-  it('names the eight list items no exercise uses for the next program update (PROGRAM-QUESTIONS 75)', () => {
+  it('names the eight list items no exercise uses for the next program update (PROGRAM-QUESTIONS 78)', () => {
     expect(forNextProgramUpdate([home], program.equipment, program.exercises).map((n) => n.text)).toEqual([
       'Weight plate',
       'Floor tape',
