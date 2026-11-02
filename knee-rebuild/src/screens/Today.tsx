@@ -34,6 +34,12 @@ const LABEL = 'font-mono text-small uppercase tracking-[0.22em] text-on-dark-mut
 const SECTION = 'flex flex-col gap-4'
 const HEADING = 'font-sans text-h3 font-medium text-on-dark'
 const BY_ID = new Map(PROGRAM.exercises.map((e) => [e.id, e]))
+/**
+ * Words, a dot, then the control that acts on them ("At Planet Fitness · Change", "… since Nov 10 ·
+ * It's back"), kept on one row: long words wrap inside their own box (a gym name runs to 60
+ * characters, a single word included), so the control never drops to a line of its own at 375 px.
+ */
+const CONTROL_ROW = 'flex items-center gap-x-2'
 
 type Lift = Extract<TodayBody, { kind: 'lift' }>
 
@@ -157,12 +163,12 @@ function GymBlock({ active, locations }: { active: Location; locations: Location
 
   return (
     <section aria-label="Where you train" className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-x-2">
-        <span className="text-body text-on-dark">{atGymWords(active)}</span>
-        <span aria-hidden="true" className="text-body text-on-dark-muted">
+      <div className={CONTROL_ROW}>
+        <span className="min-w-0 text-body text-on-dark wrap-anywhere">{atGymWords(active)}</span>
+        <span aria-hidden="true" className="shrink-0 text-body text-on-dark-muted">
           ·
         </span>
-        <Button variant="quiet" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        <Button variant="quiet" className="shrink-0" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
           {open ? 'Close' : 'Change'}
         </Button>
       </div>
@@ -179,8 +185,8 @@ function GymBlock({ active, locations }: { active: Location; locations: Location
                   row.active ? 'border-paper bg-navy-lift text-on-dark' : 'border-on-dark-faint bg-transparent text-on-dark-dim'
                 }`}
               >
-                <span>{row.name}</span>
-                <span className="font-mono text-small uppercase tracking-[0.22em]">{row.mark}</span>
+                <span className="min-w-0 wrap-anywhere">{row.name}</span>
+                <span className="shrink-0 whitespace-nowrap font-mono text-small uppercase tracking-[0.22em]">{row.mark}</span>
               </button>
             </li>
           ))}
@@ -195,12 +201,12 @@ function GymBlock({ active, locations }: { active: Location; locations: Location
         </ul>
       ) : null}
       {marks.map((m) => (
-        <div key={m.itemId} className="flex flex-wrap items-center gap-x-2">
-          <span className="text-body text-on-dark-dim">{m.words}</span>
-          <span aria-hidden="true" className="text-body text-on-dark-muted">
+        <div key={m.itemId} className={CONTROL_ROW}>
+          <span className="min-w-0 text-body text-on-dark-dim wrap-anywhere">{m.words}</span>
+          <span aria-hidden="true" className="shrink-0 text-body text-on-dark-muted">
             ·
           </span>
-          <Button variant="quiet" disabled={busy} onClick={() => void back(m.itemId)}>
+          <Button variant="quiet" className="shrink-0" disabled={busy} onClick={() => void back(m.itemId)}>
             It’s back
           </Button>
         </div>
@@ -335,7 +341,7 @@ function LiftBlock({
             <p className="text-body text-on-dark-dim">{label} was left early today; what was logged is kept. Resume to carry on in the same session.</p>
           ) : null}
           <MovesBlock template={template} phaseWeek={body.phaseWeek} label={label} gym={gym} kit={settings.kit} />
-          <Button variant="primary" wide disabled={busy} onClick={() => void start()}>
+          <Button variant="primary" wide className="wrap-anywhere" disabled={busy} onClick={() => void start()}>
             {busy ? 'Saving…' : startWords(label, workout, gym, active)}
           </Button>
           {error ? (
@@ -354,7 +360,7 @@ function MovesBlock({ template, phaseWeek, label, gym, kit }: { template: NonNul
   const moves = liftMoves({ template, phaseWeek, byId: BY_ID, available: availableAt({ location: gym, kit }), items: PROGRAM.equipment })
   return (
     <div className="flex flex-col gap-2">
-      <p className={moves.length === 0 ? 'text-small text-on-dark-muted' : 'text-body text-on-dark'}>{movesHeading(gym.name, label, moves.length)}</p>
+      <p className={`wrap-anywhere ${moves.length === 0 ? 'text-small text-on-dark-muted' : 'text-body text-on-dark'}`}>{movesHeading(gym.name, label, moves.length)}</p>
       {moves.length > 0 ? (
         <ul className="flex list-disc flex-col gap-1 pl-6">
           {moves.map((move, i) => (
@@ -399,7 +405,7 @@ function RunBlock({ body, gym, kit }: { body: Extract<TodayBody, { kind: 'run' }
         </p>
       ) : s ? (
         <div className="flex flex-col gap-1">
-          <p className="text-body text-on-dark">{s.headline}</p>
+          <p className="text-body text-on-dark wrap-anywhere">{s.headline}</p>
           {s.reasons.map((r) => (
             <p key={r} className="text-small text-on-dark-dim">
               {r}
@@ -434,8 +440,10 @@ function OpenWorkoutsBlock({ open, active, locations }: { open: OpenWorkout[]; a
     <section aria-label="Unfinished sessions" className="flex flex-col gap-3">
       {open.map((w) => (
         <div key={w.workoutId} className="flex items-center justify-between gap-4">
-          <p className="text-body text-on-dark-dim">{openWorkoutWords(w, active, locations)}</p>
-          <Button onClick={() => navigate({ name: 'session', workoutId: w.workoutId })}>Open</Button>
+          <p className="min-w-0 text-body text-on-dark-dim wrap-anywhere">{openWorkoutWords(w, active, locations)}</p>
+          <Button className="shrink-0" onClick={() => navigate({ name: 'session', workoutId: w.workoutId })}>
+            Open
+          </Button>
         </div>
       ))}
     </section>

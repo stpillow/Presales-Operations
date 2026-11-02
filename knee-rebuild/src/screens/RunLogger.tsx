@@ -260,7 +260,7 @@ function Note({ children }: { children: ReactNode }) {
 
 /** One of several choices: the chosen one says so with a mark and a word, never by color alone. */
 function Choice({ label, selected, onSelect, detail, compact = false }: { label: string; selected: boolean; onSelect: () => void; detail?: string | undefined; compact?: boolean }) {
-  const mark = <span className="font-mono text-small uppercase tracking-[0.22em]">{selected ? (compact ? '✓' : '✓ Chosen') : '○'}</span>
+  const mark = <span className="shrink-0 whitespace-nowrap font-mono text-small uppercase tracking-[0.22em]">{selected ? (compact ? '✓' : '✓ Chosen') : '○'}</span>
   return (
     <button
       type="button"
@@ -278,7 +278,8 @@ function Choice({ label, selected, onSelect, detail, compact = false }: { label:
         </>
       ) : (
         <>
-          <span>
+          {/* A swap's detail names the gym ("Not at …"), up to 60 characters in one word: it wraps inside the row. */}
+          <span className="min-w-0 wrap-anywhere">
             {label}
             {detail ? <span className="text-small text-on-dark-muted"> · {detail}</span> : null}
           </span>
@@ -325,7 +326,7 @@ function SuggestionBlock({ view, today, onTake }: { view: FormView; today: IsoDa
   const neitherHere = swapCall?.kind === 'neither'
   return (
     <Section label="Suggested">
-      <p className="text-lead text-on-dark">{suggestionHead(suggestion, view)}</p>
+      <p className="text-lead text-on-dark wrap-anywhere">{suggestionHead(suggestion, view)}</p>
       {neitherHere ? <p className="text-body text-on-dark">{noSwapSuggestedWords(view.morning)} Every type still logs.</p> : null}
       {suggestion.swapSuggested ? <p className="text-body text-on-dark-dim">If you run it anyway: {runPlanWords(suggestion)}.</p> : null}
       {suggestion.miles === null ? <p className="text-body text-on-dark-dim">No miles are suggested: {view.summary.target.reason}.</p> : null}
