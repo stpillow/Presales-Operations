@@ -178,6 +178,20 @@ export function enterStart(entry: { trials: number | null; step: number }): numb
   return entry.trials !== null ? 0 : entry.step
 }
 
+/**
+ * A hop trial's full name, with its side: "Right · injured, trial 1". The screen shows "Trial 1"
+ * under the side's legend, and every control of the trial (Enter, Clear, the field, up and down)
+ * carries the side, so a screen reader never meets two "Trial 1"s on one item.
+ */
+export function trialName(sideName: string, index: number): string {
+  return `${sideName}, trial ${index + 1}`
+}
+
+/** The Clear button's name: "Clear left, trial 1: back to not entered". */
+export function clearWords(name: string): string {
+  return `Clear ${name.toLowerCase()}: back to not entered`
+}
+
 /** The Enter button's name: "Enter right · injured, starting at 5 lb", "Enter trial 1, starting at 0 in". */
 export function enterWords(label: string, start: number, unit: string): string {
   return `Enter ${label.toLowerCase()}, starting at ${start} ${unit}`

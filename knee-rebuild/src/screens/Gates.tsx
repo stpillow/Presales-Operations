@@ -15,6 +15,7 @@ import {
   advancedWords,
   bestWords,
   buildTest,
+  clearWords,
   enterStart,
   enterWords,
   formBest,
@@ -27,6 +28,7 @@ import {
   symmetryLine,
   testErrorSentence,
   tickErrorSentence,
+  trialName,
   withoutKey,
   type GatesView,
   type ItemView,
@@ -371,13 +373,13 @@ function SideFields({
 }) {
   if (entry.trials === null) {
     // Not entered is words, as on a hop trial, never a 0 the form then refuses (a load test needs a load on each side).
-    return <TrialField label={label} unit={entry.unit} step={entry.step} start={enterStart(entry)} max={MAX_LOAD} value={values[0] ?? null} onChange={(v) => onEdit(side, 0, v)} />
+    return <TrialField label={label} name={label} unit={entry.unit} step={entry.step} start={enterStart(entry)} max={MAX_LOAD} value={values[0] ?? null} onChange={(v) => onEdit(side, 0, v)} />
   }
   return (
     <fieldset className="flex flex-col gap-2">
       <legend className={`${LABEL} pb-2`}>{label}</legend>
       {values.map((value, i) => (
-        <TrialField key={i} label={`Trial ${i + 1}`} unit={entry.unit} step={entry.step} start={enterStart(entry)} max={MAX_INCHES} value={value} onChange={(v) => onEdit(side, i, v)} />
+        <TrialField key={i} label={`Trial ${i + 1}`} context={label} name={trialName(label, i)} unit={entry.unit} step={entry.step} start={enterStart(entry)} max={MAX_INCHES} value={value} onChange={(v) => onEdit(side, i, v)} />
       ))}
       <p className="text-body text-on-dark-dim">{bestWords(best, entry.unit)}</p>
     </fieldset>
@@ -389,7 +391,29 @@ function SideFields({
  * couldn't do), so a value starts as the words "Not entered" with an Enter button that puts it at
  * `start` (0 for a trial, the exercise's first step for a load); Clear takes it back.
  */
-function TrialField({ label, unit, step, start, max, value, onChange }: { label: string; unit: string; step: number; start: number; max: number; value: Trial; onChange: (value: Trial) => void }) {
+function TrialField({
+  label,
+  context,
+  name,
+  unit,
+  step,
+  start,
+  max,
+  value,
+  onChange,
+}: {
+  label: string
+  /** The side a hop trial belongs to, read before the field's label; a load field's label is its side already. */
+  context?: string
+  /** The full name every control carries: "Right · injured, trial 1" (trialName), or a load field's side. */
+  name: string
+  unit: string
+  step: number
+  start: number
+  max: number
+  value: Trial
+  onChange: (value: Trial) => void
+}) {
   // Enter and Clear each remove the button just tapped, so focus moves on to what replaced it (the
   // new field, or Enter again) instead of falling to the page and losing a VoiceOver user's place.
   const box = useRef<HTMLDivElement>(null)
@@ -410,12 +434,16 @@ function TrialField({ label, unit, step, start, max, value, onChange }: { label:
   }
   return (
     <div ref={box}>
-      {value === null ? <EmptyTrial label={label} unit={unit} start={start} onEnter={enter} /> : <FilledTrial label={label} unit={unit} step={step} max={max} value={value} onChange={onChange} onClear={clear} />}
+      {value === null ? (
+        <EmptyTrial label={label} name={name} unit={unit} start={start} onEnter={enter} />
+      ) : (
+        <FilledTrial label={label} context={context} name={name} unit={unit} step={step} max={max} value={value} onChange={onChange} onClear={clear} />
+      )}
     </div>
   )
 }
 
-function EmptyTrial({ label, unit, start, onEnter }: { label: string; unit: string; start: number; onEnter: () => void }) {
+function EmptyTrial({ label, name, unit, start, onEnter }: { label: string; name: string; unit: string; start: number; onEnter: () => void }) {
   {
     return (
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -425,7 +453,7 @@ function EmptyTrial({ label, unit, start, onEnter }: { label: string; unit: stri
         </span>
         <div className="flex items-center gap-3">
           <span className="text-small text-on-dark-muted">Not entered</span>
-          <Button aria-label={enterWords(label, start, unit)} onClick={onEnter}>
+          <Button aria-label={enterWords(name, start, unit)} onClick={onEnter}>
             Enter
           </Button>
         </div>
@@ -434,11 +462,31 @@ function EmptyTrial({ label, unit, start, onEnter }: { label: string; unit: stri
   }
 }
 
-function FilledTrial({ label, unit, step, max, value, onChange, onClear }: { label: string; unit: string; step: number; max: number; value: number; onChange: (value: Trial) => void; onClear: () => void }) {
+function FilledTrial({
+  label,
+  context,
+  name,
+  unit,
+  step,
+  max,
+  value,
+  onChange,
+  onClear,
+}: {
+  label: string
+  context: string | undefined
+  name: string
+  unit: string
+  step: number
+  max: number
+  value: number
+  onChange: (value: Trial) => void
+  onClear: () => void
+}) {
   return (
     <div className="flex flex-col gap-1">
-      <Stepper label={label} unit={unit} decimal step={step} min={0} max={max} value={value} onChange={onChange} />
-      <Button variant="quiet" className="self-end" aria-label={`Clear ${label.toLowerCase()}: back to not entered`} onClick={onClear}>
+      <Stepper label={label} {...(context ? { context } : {})} unit={unit} decimal step={step} min={0} max={max} value={value} onChange={onChange} />
+      <Button variant="quiet" className="self-end" aria-label={clearWords(name)} onClick={onClear}>
         Clear
       </Button>
     </div>

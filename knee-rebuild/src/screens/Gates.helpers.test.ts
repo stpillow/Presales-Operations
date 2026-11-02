@@ -12,6 +12,7 @@ import {
   advancedWords,
   bestWords,
   buildTest,
+  clearWords,
   currentGate,
   detailWords,
   earlierTests,
@@ -36,6 +37,7 @@ import {
   stateWords,
   symmetryLine,
   testErrorSentence,
+  trialName,
   withoutKey,
   type HistoryLike,
   type ItemView,
@@ -257,6 +259,16 @@ describe('symmetry forms: hop tests (PROGRAM-QUESTIONS 108, Shawn Nov 2)', () =>
       ok: true,
       test: { id: 't', date: TODAY, gate: 3, item: 'single-hop', valueInjured: 56, valueOther: 62, trialsInjured: [56], trialsOther: [62], pass: true, manual: false },
     })
+  })
+
+  it('every trial control names its side, so the two sides’ trial 1 never share a name', () => {
+    const sides = sideNames('right')
+    expect(trialName(sides.injured, 0)).toBe('Right · injured, trial 1')
+    expect(trialName(sides.other, 2)).toBe('Left, trial 3')
+    expect(enterWords(trialName(sides.injured, 0), 0, 'in')).toBe('Enter right · injured, trial 1, starting at 0 in')
+    expect(clearWords(trialName(sides.other, 0))).toBe('Clear left, trial 1: back to not entered')
+    const names = [sides.injured, sides.other].flatMap((side) => [0, 1, 2].flatMap((i) => [enterWords(trialName(side, i), 0, 'in'), clearWords(trialName(side, i))]))
+    expect(new Set(names).size).toBe(12)
   })
 
   it('0 is a trial (he couldn’t hop), distinct from not entered: 0 on the injured side reads 0% and fails', () => {
