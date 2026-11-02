@@ -544,10 +544,10 @@ describe('what moves at a gym (live seed)', () => {
     const moves = liftMoves({ template: template('p1-a'), phaseWeek: 1, byId, available: at(marked), items: program.equipment })
     expect(moves).toEqual(['Leg press, both legs → 45° leg press (no seated leg press)'])
   })
-  it('says how many slots move, or that none does', () => {
-    expect(movesHeading('Marriott Downtown', 'Session A', 3)).toBe('3 slots of Session A move at Marriott Downtown:')
-    expect(movesHeading('Marriott Downtown', 'Session A', 1)).toBe('1 slot of Session A moves at Marriott Downtown:')
-    expect(movesHeading('Planet Fitness', 'Session A', 0)).toBe('Nothing in Session A moves at Planet Fitness.')
+  it('says how many slots change, or that none does: a slot with nothing here changes but doesn’t move', () => {
+    expect(movesHeading('Marriott Downtown', 'Session A', 3)).toBe('3 slots of Session A change at Marriott Downtown:')
+    expect(movesHeading('Marriott Downtown', 'Session A', 1)).toBe('1 slot of Session A changes at Marriott Downtown:')
+    expect(movesHeading('Planet Fitness', 'Session A', 0)).toBe('Nothing in Session A changes at Planet Fitness.')
   })
 })
 

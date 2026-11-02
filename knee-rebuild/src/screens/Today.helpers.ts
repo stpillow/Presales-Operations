@@ -444,10 +444,14 @@ export function liftMoves(input: { template: SessionTemplate; phaseWeek: number;
   return (coverage?.moves ?? []).map((move) => moveWords(move, input.byId, input.items))
 }
 
-/** The line over the moves: "3 slots of Session A move at Marriott Downtown:", or "Nothing in Session A moves at Planet Fitness." */
+/**
+ * The line over the list: "3 slots of Session A change at Marriott Downtown:", or "Nothing in
+ * Session A changes at Planet Fitness." Change, not move: the list counts a slot with nothing here
+ * too, which stays where it is for Skip or Do it anyway.
+ */
 export function movesHeading(gymName: string, label: string, count: number): string {
-  if (count === 0) return `Nothing in ${label} moves at ${gymName}.`
-  return `${count} ${count === 1 ? 'slot' : 'slots'} of ${label} ${count === 1 ? 'moves' : 'move'} at ${gymName}:`
+  if (count === 0) return `Nothing in ${label} changes at ${gymName}.`
+  return `${count} ${count === 1 ? 'slot' : 'slots'} of ${label} ${count === 1 ? 'changes' : 'change'} at ${gymName}:`
 }
 
 export interface MarkOffLine {
