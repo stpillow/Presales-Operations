@@ -25,14 +25,17 @@ import {
   saveWords,
   stravaProblem,
   suggestionHead,
+  swapHereWords,
   takeSwapWords,
   toRun,
+  typeDetail,
   weekLine,
   type HistoryLike,
   type LoggerView,
   type ProgramLike,
   type ResolvedForm,
 } from './RunLogger.helpers.ts'
+import { swapCallAt } from './Today.helpers.ts'
 
 const START = '2026-11-02'
 /** The gym a swap is logged at: the active one. */
@@ -98,7 +101,12 @@ function formView(input: Parameters<typeof loggerView>[0]): Extract<LoggerView, 
   return view
 }
 
-const base = { picked: { date: null, type: null }, settings: settings(), history: history(), program: PROGRAM }
+/** A gym with both swap machines, one with the rower only, and one with neither. */
+const BOTH = { name: 'Planet Fitness', available: new Set(['elliptical', 'rower']) }
+const ROWER_ONLY = { name: 'Marriott Downtown', available: new Set(['rower', 'treadmill']) }
+const NEITHER = { name: 'Marriott Downtown', available: new Set(['treadmill']) }
+
+const base = { picked: { date: null, type: null }, settings: settings(), history: history(), program: PROGRAM, gym: BOTH }
 
 describe('dateChoices', () => {
   it('is empty before the program starts', () => {
@@ -233,6 +241,51 @@ describe('loggerView', () => {
   })
 })
 
+describe('swaps at the gym (M4b, design section 7)', () => {
+  const holdMorning = history({ morningChecks: [check('2026-11-04', { worseThanYesterday: true })] })
+  const backOffMorning = history({ morningChecks: [check('2026-11-04', { visibleSwelling: true })] })
+  it('marks each swap here or not at the active gym, both kept in the list', () => {
+    expect(formView({ ...base, today: '2026-11-04' })).toMatchObject({
+      gym: 'Planet Fitness',
+      swaps: [
+        { type: 'elliptical-swap', here: true },
+        { type: 'rower-swap', here: true },
+      ],
+    })
+    expect(formView({ ...base, today: '2026-11-04', gym: ROWER_ONLY }).swaps).toEqual([
+      { type: 'elliptical-swap', here: false },
+      { type: 'rower-swap', here: true },
+    ])
+  })
+  it('says Here or Not at the gym on each swap choice, and scheduled on the day’s run', () => {
+    const view = formView({ ...base, today: '2026-11-04', gym: ROWER_ONLY })
+    expect(typeDetail('elliptical-swap', view)).toBe('Not at Marriott Downtown')
+    expect(typeDetail('rower-swap', view)).toBe('Here')
+    expect(typeDetail('easy', view)).toBe('scheduled')
+    expect(typeDetail('long', view)).toBeUndefined()
+    expect(swapHereWords(true, 'Marriott Downtown')).toBe('Here')
+    expect(swapHereWords(false, 'Marriott Downtown')).toBe('Not at Marriott Downtown')
+  })
+  it('on a hold or back-off morning names the first swap here: the elliptical, then the rower', () => {
+    expect(formView({ ...base, today: '2026-11-04', history: holdMorning })).toMatchObject({ swapCall: { kind: 'take', type: 'elliptical-swap' }, morning: 'hold' })
+    expect(formView({ ...base, today: '2026-11-04', history: backOffMorning, gym: ROWER_ONLY })).toMatchObject({ swapCall: { kind: 'take', type: 'rower-swap' }, morning: 'back-off' })
+    // A clean morning calls for no swap, whatever the gym has.
+    expect(formView({ ...base, today: '2026-11-04', history: history({ morningChecks: [check('2026-11-04')] }), gym: NEITHER }).swapCall).toBeNull()
+    const view = formView({ ...base, today: '2026-11-04', history: holdMorning, gym: ROWER_ONLY })
+    expect(view.suggestion && suggestionHead(view.suggestion, view)).toBe('Rower swap')
+  })
+  it('with neither machine here suggests no swap and says neither is here; he picks (Shawn’s Nov 1 answer 7)', () => {
+    const view = formView({ ...base, today: '2026-11-04', history: holdMorning, gym: NEITHER })
+    expect(view).toMatchObject({ swapCall: { kind: 'neither' }, morning: 'hold', type: 'easy' })
+    expect(view.suggestion && suggestionHead(view.suggestion, view)).toBe('No elliptical or rower at Marriott Downtown')
+  })
+  it('a swap not at the gym still logs, and stores the gym it was logged at', () => {
+    const view = formView({ ...base, today: '2026-11-04', gym: NEITHER, picked: { date: null, type: 'elliptical-swap' } })
+    const draft = toRun(resolveForm({ ...emptyForm(), minutes: 35, maxPain: 1 }, view), 'r', 'loc-1')
+    expect(draft).toMatchObject({ ok: true, run: { type: 'elliptical-swap', miles: 0, minutes: 35, locationId: 'loc-1' } })
+  })
+})
+
 describe('openForm', () => {
   it('pins the date the logger opens on, so the live clock never moves it', () => {
     expect(openForm('2026-11-06')).toEqual({ ...emptyForm(), date: '2026-11-06' })
@@ -257,13 +310,20 @@ describe('words for the view', () => {
     expect(leadWords(view)).toBe('Monday, November 2 · Run: MBR')
   })
   it('heads the suggestion with the type and miles', () => {
-    expect(view.suggestion && suggestionHead(view.suggestion)).toBe('Run: MBR · 3 miles')
-    expect(suggestionHead({ type: 'long', miles: null, headline: 'easy, by feel', strides: false, tempo: false, fasterAllowed: false, swapSuggested: false, reasons: [] })).toBe('Run: long')
+    expect(view.suggestion && suggestionHead(view.suggestion, view)).toBe('Run: MBR · 3 miles')
+    expect(suggestionHead({ type: 'long', miles: null, headline: 'easy, by feel', strides: false, tempo: false, fasterAllowed: false, swapSuggested: false, reasons: [] }, view)).toBe('Run: long')
   })
-  it('heads with the swap when the engine calls for one, and keeps the run’s plan in words', () => {
+  it('heads with the first swap here when the engine calls for one, and keeps the run’s plan in words', () => {
     const swap = { type: 'easy' as const, miles: 3, headline: 'a 30 to 40 minute elliptical or rower swap', strides: false, tempo: false, fasterAllowed: false, swapSuggested: true, reasons: [] }
-    expect(suggestionHead(swap)).toBe('An elliptical or rower swap')
+    expect(suggestionHead(swap, { swapCall: swapCallAt(swap, BOTH.available), gym: 'Planet Fitness' })).toBe('Elliptical swap')
+    expect(suggestionHead(swap, { swapCall: swapCallAt(swap, ROWER_ONLY.available), gym: 'Marriott Downtown' })).toBe('Rower swap')
+    expect(suggestionHead(swap, { swapCall: swapCallAt(swap, NEITHER.available), gym: 'Marriott Downtown' })).toBe('No elliptical or rower at Marriott Downtown')
     expect(runPlanWords(swap)).toBe('Run: easy · 3 miles')
+  })
+  it('a run with no swap called heads with the run, whatever the gym has', () => {
+    expect(view.suggestion && suggestionHead(view.suggestion, { swapCall: swapCallAt(view.suggestion, NEITHER.available), gym: 'Marriott Downtown' })).toBe('Run: MBR · 3 miles')
+    expect(view.suggestion && swapCallAt(view.suggestion, NEITHER.available)).toBeNull()
+    expect(swapCallAt(null, BOTH.available)).toBeNull()
   })
   it('says why there is no suggestion', () => {
     expect(noSuggestionWords({ date: '2026-11-03', scheduledLabel: 'Session A', type: null, stop: null }, '2026-11-03')).toBe(

@@ -1,6 +1,6 @@
 import type { History } from '../db/repo.ts'
 import { addDays, dayOf, isDeloadWeek, scheduledSession } from '../rules/calendar.ts'
-import { locationCoverage, suggestedRunSwap, type Available, type CoverageMove, type ExerciseLookup } from '../rules/equipment.ts'
+import { locationCoverage, suggestedRunSwap, type Available, type CoverageMove, type ExerciseLookup, type RunSwapType } from '../rules/equipment.ts'
 import { attachChecks, subjectReadings, workoutReading } from '../rules/history.ts'
 import { listedLocations, locationIdOf, locationOrHome } from '../rules/locations.ts'
 import { morningCheckApplies, morningReading, type Reading } from '../rules/reading.ts'
@@ -457,6 +457,19 @@ export function markOffLines(location: Pick<Location, 'markedOff'>, items: reado
   return location.markedOff.map((m) => ({ itemId: m.id, words: `${itemName(m.id, items).name} marked not here since ${monthDayWords(m.on)}` }))
 }
 
+export type SwapCall = { kind: 'take'; type: RunSwapType } | { kind: 'neither' }
+
+/**
+ * What a hold or back-off morning's swap call comes to at a gym: `take` the first swap whose machine
+ * is here, elliptical then rower (`suggestedRunSwap`), or `neither`, when nothing is suggested and
+ * he picks (Shawn's Nov 1 answer 7). Null when the engine calls for no swap.
+ */
+export function swapCallAt(suggestion: Pick<RunSuggestion, 'swapSuggested'> | null, available: Available): SwapCall | null {
+  if (!suggestion?.swapSuggested) return null
+  const type = suggestedRunSwap(available)
+  return type ? { kind: 'take', type } : { kind: 'neither' }
+}
+
 /** A Hold run day at a gym with neither swap machine (Shawn's Nov 1 answer 7). */
 export function noSwapMachineWords(gymName: string): string {
   return `No elliptical or rower at ${gymName}`
@@ -472,14 +485,14 @@ export function noSwapSuggestedWords(morning: ReadingResult | null): string {
 
 /**
  * Today's run suggestion at the active gym: the engine's words (`suggestionWords`), unless it calls
- * for a swap and neither machine is here (`suggestedRunSwap`), when nothing is suggested and the
- * line says neither is here.
+ * for a swap and neither machine is here (`swapCallAt`), when nothing is suggested and the line
+ * says neither is here.
  */
 export function runSuggestionAtGym(
   suggestion: Pick<RunSuggestion, 'headline' | 'reasons' | 'swapSuggested'>,
   at: { available: Available; gymName: string; morning: ReadingResult | null },
 ): { headline: string; reasons: string[] } {
-  if (suggestion.swapSuggested && suggestedRunSwap(at.available) === null) {
+  if (swapCallAt(suggestion, at.available)?.kind === 'neither') {
     return { headline: noSwapMachineWords(at.gymName), reasons: [noSwapSuggestedWords(at.morning)] }
   }
   return suggestionWords(suggestion)
