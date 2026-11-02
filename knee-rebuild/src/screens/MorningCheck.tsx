@@ -14,25 +14,7 @@ import { addDays, isDeloadWeek } from '../rules/calendar.ts'
 import { morningReading } from '../rules/reading.ts'
 import { stopMessage } from '../rules/redFlags.ts'
 import type { IsoDate, Location, MorningCheck as CheckRecord, Settings } from '../schema/index.ts'
-import {
-  PAIN_CHANGE_MAX,
-  PAIN_CHANGE_MIN,
-  buildCheck,
-  emptyForm,
-  errorWords,
-  exerciseSentences,
-  formFromCheck,
-  nextWeekFor,
-  sessionName,
-  settingsAfter,
-  subjectFor,
-  subjectWords,
-  toggleFlag,
-  withCheck,
-  type CheckForm,
-  type CheckSubject,
-  type ExerciseSentence,
-} from './MorningCheck.helpers.ts'
+import { buildCheck, type CheckForm, type CheckSubject, emptyForm, errorWords, type ExerciseSentence, exerciseSentences, formFromCheck, nextTemplateFor, nextWeekFor, PAIN_CHANGE_MAX, PAIN_CHANGE_MIN, sessionName, settingsAfter, subjectFor, subjectWords, toggleFlag, withCheck } from './MorningCheck.helpers.ts'
 
 const TITLE = 'Morning check'
 
@@ -277,10 +259,12 @@ function NextTime({ subject, settings, history, gym }: { subject: CheckSubject |
     return <p className="text-body text-on-dark-dim">No session was logged for yesterday, so this check changes nothing on its own.</p>
   }
   if (subject.kind === 'run') {
-    return <p className="text-body text-on-dark-dim">Yesterday was a run. Its reading counts toward the week's mileage cap; the run logger and the Week screen arrive in M4.</p>
+    return <p className="text-body text-on-dark-dim">Yesterday was a run. Its reading counts toward this week's mileage cap; the Week screen shows where the week stands.</p>
   }
   const { workout } = subject
-  const template = PROGRAM.templates.find((t) => t.id === workout.templateId)
+  // After a gate advance the next session of this letter is the new phase's (nextTemplateFor).
+  const nextId = nextTemplateFor(workout.templateId, PROGRAM.templates, settings.currentPhase)
+  const template = PROGRAM.templates.find((t) => t.id === nextId)
   if (!template) {
     return <p className="text-body text-on-dark-dim">Yesterday's session uses a template this program does not have ({workout.templateId}), so there is nothing to plan from.</p>
   }
