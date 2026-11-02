@@ -1,0 +1,28 @@
+import type { Route } from '../app/router.ts'
+
+export type TabName = 'today' | 'week' | 'progress' | 'gates' | 'more'
+
+/**
+ * The tab each screen sits under, so the bar underlines where he is. A record over every route
+ * name: a new route without a tab fails to compile instead of leaving the bar with nothing underlined.
+ */
+const TAB_OF: Record<Route['name'], TabName> = {
+  today: 'today',
+  session: 'today',
+  week: 'week',
+  progress: 'progress',
+  gates: 'gates',
+  more: 'more',
+  morning: 'more',
+  run: 'more',
+  program: 'more',
+  settings: 'more',
+  locations: 'more',
+  location: 'more',
+  'new-location': 'more',
+  'next-update': 'more',
+}
+
+export function activeTab(route: Route): TabName {
+  return TAB_OF[route.name]
+}
