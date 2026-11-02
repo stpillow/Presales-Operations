@@ -139,10 +139,32 @@ export function typedOutcome(
   }
 }
 
+/** Characters that take no room on screen: zero-width spaces and joiners, fillers, variation selectors (Unicode's default-ignorable code points). */
+const INVISIBLE = /\p{Default_Ignorable_Code_Point}/gu
+
 /**
- * Another gym the lists offer already goes by this name (`normalizeTyped`: case, accents and
- * punctuation aside), so Today's Change couldn't tell the two apart. Archived gyms have left the
- * lists, so their names are free again; `exceptId` is the gym being renamed.
+ * A name as Today's Change tells names apart: case, accents, punctuation, spacing and invisible
+ * characters aside. Unlike typed equipment (`normalizeTyped`), emoji and other symbols stay, since
+ * "Hotel 🏨" and "Hotel 🏋️" read as two names on screen.
+ */
+function nameKey(name: string): string {
+  return name
+    .replace(INVISIBLE, '')
+    .normalize('NFKD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\p{S}]+/gu, ' ')
+    .trim()
+}
+
+/** A name as it shows: invisible characters out, trimmed, in one Unicode form. */
+const shown = (name: string) => name.replace(INVISIBLE, '').normalize('NFC').trim()
+
+/**
+ * Another gym the lists offer already goes by this name (`nameKey`: case, accents, punctuation and
+ * invisible characters aside), so Today's Change couldn't tell the two apart. A name of punctuation
+ * alone matches only the same punctuation, as shown: "!!!" and "???" are two names. Archived gyms
+ * have left the lists, so their names are free again; `exceptId` is the gym being renamed.
  */
 export function nameTaken(locations: readonly Pick<Location, 'id' | 'name' | 'archived'>[], name: string, exceptId: string | null): boolean {
   return nameTakenBy(locations, name, exceptId) !== null
@@ -150,8 +172,9 @@ export function nameTaken(locations: readonly Pick<Location, 'id' | 'name' | 'ar
 
 /** The gym that already goes by this name (`nameTaken`), as stored, so a refusal can name it; null when the name is free. */
 export function nameTakenBy<L extends Pick<Location, 'id' | 'name' | 'archived'>>(locations: readonly L[], name: string, exceptId: string | null): L | null {
-  const wanted = normalizeTyped(name)
-  return locations.find((l) => !l.archived && l.id !== exceptId && normalizeTyped(l.name) === wanted) ?? null
+  const wanted = nameKey(name)
+  const same = (other: string) => (wanted === '' ? nameKey(other) === '' && shown(other) === shown(name) : nameKey(other) === wanted)
+  return locations.find((l) => !l.archived && l.id !== exceptId && same(l.name)) ?? null
 }
 
 export interface PhaseMove extends CoverageMove {

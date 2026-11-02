@@ -194,6 +194,27 @@ describe('nameTaken', () => {
     expect(nameTakenBy(gyms, 'Marriott Downtown', 'loc-1')).toBeNull()
     expect(nameTakenBy(gyms, 'Hotel gym', null)).toBeNull()
   })
+
+  it('emoji and other symbols tell names apart; invisible characters don’t (PROGRAM-QUESTIONS 92)', () => {
+    const hotels = [
+      { id: 'loc-3', name: '🏨', archived: false },
+      { id: 'loc-4', name: 'Hotel 🏨', archived: false },
+      { id: 'loc-5', name: '!!!', archived: false },
+    ]
+    expect(nameTakenBy(hotels, '🏋️', null)).toBeNull()
+    expect(nameTakenBy(hotels, 'Hotel 🏋️', null)).toBeNull()
+    expect(nameTakenBy(hotels, 'hotel  🏨', null)?.id).toBe('loc-4')
+    expect(nameTakenBy(hotels, ' 🏨 ', null)?.id).toBe('loc-3')
+    expect(nameTakenBy(hotels, 'Ho\u200Btel 🏨', null)?.id).toBe('loc-4')
+  })
+
+  it('a name with nothing but punctuation matches only the same punctuation, not every other such name', () => {
+    const hotels = [{ id: 'loc-5', name: '!!!', archived: false }]
+    expect(nameTakenBy(hotels, '???', null)).toBeNull()
+    expect(nameTakenBy(hotels, '— —', null)).toBeNull()
+    expect(nameTakenBy(hotels, ' !!! ', null)?.id).toBe('loc-5')
+    expect(nameTakenBy(gyms, '!!!', null)).toBeNull()
+  })
 })
 
 describe('phaseCoverage: what moves for the rest of the phase', () => {
