@@ -1,0 +1,293 @@
+import { currentTemplate } from '../app/session.ts'
+import { weekOf } from '../rules/calendar.ts'
+import {
+  forNextProgramUpdate,
+  locationCoverage,
+  type Available,
+  type ChecklistGroup,
+  type ChecklistItem,
+  type CoverageMove,
+  type ExerciseLookup,
+  type RunSwapType,
+} from '../rules/equipment.ts'
+import { phaseWeekOf } from '../rules/session.ts'
+import { ifNotHere, nameTaken, newOnList, type SubstitutionRow, type TypedOutcome } from '../rules/whereYouTrain.ts'
+import { Location, type Equipment, type EquipmentId, type Exercise, type IsoDate, type Requirement, type SessionTemplate, type Settings } from '../schema/index.ts'
+
+/*
+ * The location editor (`#/location/:id`, `#/location/new`, M4b design section 5): its choices and
+ * every line it shows, in words. What is here, what moves and what typed text means come from
+ * src/rules (equipment.ts, whereYouTrain.ts); these only word them.
+ */
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/** "Nov 10": a stored date in words, read from the string itself, no clock or time zone involved. */
+export function shortDate(date: IsoDate): string {
+  const [, month, day] = date.split('-').map(Number)
+  return `${MONTHS[(month ?? 1) - 1] ?? ''} ${day ?? ''}`.trim()
+}
+
+// --- Name -------------------------------------------------------------------
+
+/** A gym's name, as the schema holds it: 1 to 60 characters once trimmed. */
+export const NAME_MAX = 60
+
+export type NameCheck = { ok: true; name: string } | { ok: false; message: string }
+
+/**
+ * Whether a typed name can be saved: the schema's 1 to 60 characters (trimmed), and not the name
+ * of another gym the lists offer (`nameTaken`), which Today's Change couldn't tell apart.
+ */
+export function nameCheck(text: string, locations: readonly Pick<Location, 'id' | 'name' | 'archived'>[], exceptId: string | null): NameCheck {
+  const name = text.trim()
+  if (name.length === 0) return { ok: false, message: 'A gym needs a name: type the one you will look for on Today.' }
+  if (!Location.shape.name.safeParse(name).success) return { ok: false, message: `That is ${name.length} characters; a gym’s name fits in ${NAME_MAX}.` }
+  if (nameTaken(locations, name, exceptId)) return { ok: false, message: `Another gym is already called ${name}. Pick a name Today can tell apart.` }
+  return { ok: true, name }
+}
+
+/** "12 of 60 characters", under the name field. */
+export function nameCountWords(text: string): string {
+  return `${text.trim().length} of ${NAME_MAX} characters`
+}
+
+// --- Start and rack -----------------------------------------------------------
+
+export const START_CHOICES: readonly { value: Location['startedFrom']; label: string }[] = [
+  { value: 'planet-fitness', label: 'Start from Planet Fitness’s list' },
+  { value: 'empty', label: 'Start empty' },
+]
+
+/** A new gym's start, preselected: Planet Fitness's list (design section 5). */
+export const DEFAULT_START: Location['startedFrom'] = 'planet-fitness'
+
+/** What a new gym starts with, said before it is made. */
+export function startWords(startedFrom: Location['startedFrom']): string {
+  return startedFrom === 'planet-fitness'
+    ? 'Everything Planet Fitness has is marked here to start; untick what this gym lacks.'
+    : 'Nothing is marked here to start; tick what this gym has.'
+}
+
+/** How a stored gym began, under its title. */
+export function startedFromWords(startedFrom: Location['startedFrom']): string {
+  return startedFrom === 'planet-fitness' ? 'Started from Planet Fitness’s list.' : 'Started empty.'
+}
+
+/** The rack presets (design section 5): none, then the racks a hotel or a club tends to have. */
+export const RACK_PRESETS: readonly number[] = [0, 25, 50, 60, 75, 80]
+export const RACK_STEP = 5
+export const RACK_MIN = 0
+export const RACK_MAX = 200
+
+/** A preset's label: "None" for no dumbbells, otherwise the pounds. */
+export function rackChoiceWords(lb: number): string {
+  return lb === 0 ? 'None' : `${lb} lb`
+}
+
+/** The line under the rack. */
+export function rackNote(lb: number): string {
+  return lb === 0
+    ? 'No dumbbells: slots that need them move to the next exercise on their list that runs here.'
+    : `The heaviest dumbbell is ${lb} lb. A load past it moves the slot, or with nothing to move to, is rack-capped and won’t count as clean.`
+}
+
+// --- Checklist ----------------------------------------------------------------
+
+const SWAP_WORDS: Record<RunSwapType, string> = { 'elliptical-swap': 'the Hold-day elliptical swap', 'rower-swap': 'the Hold-day rower swap' }
+
+/** "Used by: Smith machine box squat, Smith machine hip thrust", plus a run swap or the lift warm-up where the item is one. */
+export function usedByWords(entry: Pick<ChecklistItem, 'exerciseIds' | 'runSwap' | 'warmUp'>, byId: ExerciseLookup): string {
+  const names = [...new Set(entry.exerciseIds.map((id) => byId.get(id)?.name ?? id))]
+  if (entry.runSwap) names.push(SWAP_WORDS[entry.runSwap])
+  if (entry.warmUp) names.push('the lift warm-up')
+  return `Used by: ${names.join(', ')}`
+}
+
+export interface ChecklistRow {
+  id: EquipmentId
+  /** The Tap's label: the list's name, and "if your club has one" on a hedged item. */
+  label: string
+  here: boolean
+  /** Lines under the Tap, in order: what uses it, the table's "If not here", new on the list, a mark-off. */
+  notes: string[]
+}
+
+export interface ChecklistSection {
+  /** program.md's "Program slot" row. */
+  group: string
+  rows: ChecklistRow[]
+}
+
+/**
+ * The checklist (`equipmentChecklist`) as the editor shows it: each item Here or Not here as
+ * `available` says (so a mark-off reads Not here, and an item new on Planet Fitness's list reads
+ * Here at a gym started from it), with what uses it and the substitution table's row (`ifNotHere`).
+ */
+export function checklistSections(input: {
+  checklist: readonly ChecklistGroup[]
+  location: Pick<Location, 'listVersion' | 'markedOff'>
+  available: Available
+  byId: ExerciseLookup
+  vocabulary: readonly Pick<Equipment, 'id' | 'name' | 'aliases'>[]
+  table: readonly SubstitutionRow[]
+}): ChecklistSection[] {
+  return input.checklist.map((group) => ({
+    group: group.group,
+    rows: group.items.map((entry) => {
+      const { item } = entry
+      const row = ifNotHere(item.id, input.vocabulary, input.table)
+      const mark = input.location.markedOff.find((m) => m.id === item.id)
+      const notes = [
+        usedByWords(entry, input.byId),
+        ...(row ? [`If not here: ${row.useInstead}`] : []),
+        ...(newOnList(item, input.location) ? ['New on the program’s list since this gym was made.'] : []),
+        ...(mark ? [`Marked not here since ${shortDate(mark.on)}; Here clears the mark.`] : []),
+      ]
+      return { id: item.id, label: item.hedged ? `${item.name}, if your club has one` : item.name, here: input.available.has(item.id), notes }
+    }),
+  }))
+}
+
+// --- The bag ------------------------------------------------------------------
+
+export interface KitRow {
+  id: EquipmentId
+  name: string
+  inBag: boolean
+}
+
+/** "In your bag (every gym)": the items program.md says to bring, each in the bag or not. */
+export function kitRows(vocabulary: readonly Pick<Equipment, 'id' | 'name' | 'carried'>[], kit: readonly EquipmentId[]): KitRow[] {
+  return vocabulary.filter((item) => item.carried).map((item) => ({ id: item.id, name: item.name, inBag: kit.includes(item.id) }))
+}
+
+/** The bag after one item goes in or comes out: each item once, in the list's order, anything else already there kept. */
+export function kitAfter(kit: readonly EquipmentId[], id: EquipmentId, inBag: boolean, vocabulary: readonly Pick<Equipment, 'id' | 'carried'>[]): EquipmentId[] {
+  const next = new Set(kit.filter((k) => k !== id))
+  if (inBag) next.add(id)
+  const order = vocabulary.filter((item) => item.carried).map((item) => item.id)
+  return [...order.filter((k) => next.has(k)), ...[...next].filter((k) => !order.includes(k))]
+}
+
+// --- Something else here? -----------------------------------------------------
+
+/** Typed text inside a sentence: "kettlebells" for "Kettlebells", but "TRX straps" stays as typed. */
+export function typedWords(text: string): string {
+  const t = text.trim().replace(/\s+/g, ' ')
+  return /^\p{Lu}\p{Ll}/u.test(t) ? `${t.charAt(0).toLowerCase()}${t.slice(1)}` : t
+}
+
+const nameOf = (id: EquipmentId, items: readonly Pick<Equipment, 'id' | 'name'>[]) => items.find((i) => i.id === id)?.name ?? id.replace(/-/g, ' ')
+
+/** What typed equipment comes to, in words (design section 6). `typed` is the text as entered. */
+export function outcomeWords(outcome: TypedOutcome, typed: string, items: readonly Pick<Equipment, 'id' | 'name'>[]): string {
+  switch (outcome.kind) {
+    case 'empty':
+      return 'Type what the gym has first.'
+    case 'mark':
+      return `Matches ${nameOf(outcome.id, items)}. Mark it here?`
+    case 'already':
+      return `${nameOf(outcome.id, items)} is already marked here.`
+    case 'bag':
+      return `${nameOf(outcome.id, items)} goes in your bag, not on a gym’s list: In your bag (every gym) says whether you carry it.`
+    case 'rack':
+      return 'Dumbbells go by the rack: set the heaviest one under Dumbbells.'
+    case 'unused':
+      return `${nameOf(outcome.id, items)} is on program.md’s list, but no session uses it. Kept for the next program.md update.`
+    case 'choose':
+      return `Did you mean one of these? Nothing is marked until you tap one.`
+    case 'keep':
+      return `No exercise in the program uses ${typedWords(typed)}. Kept for the next program.md update.`
+  }
+}
+
+/** After "Mark it here" or a near miss picked: the item is marked here. */
+export function markedWords(id: EquipmentId, items: readonly Pick<Equipment, 'id' | 'name'>[]): string {
+  return `${nameOf(id, items)} is marked here.`
+}
+
+/** The way out of a near-miss list. */
+export const KEEP_AS_TYPED = 'Neither: keep as typed'
+
+// --- What this changes --------------------------------------------------------
+
+/** The week of the phase "What this changes" reads banded slots by: today's, as Today and the plan read it (from week 1 before the start). */
+export function coverageWeek(settings: Pick<Settings, 'startDate' | 'phaseEnteredWeek'>, today: IsoDate): number {
+  return phaseWeekOf(Math.max(weekOf(today, settings.startDate), settings.phaseEnteredWeek), settings.phaseEnteredWeek)
+}
+
+/** The current phase's sessions, A then B then C; none in Phase 4, whose sessions aren't written. */
+export function currentTemplates(settings: Settings): SessionTemplate[] {
+  return (['A', 'B', 'C'] as const).flatMap((letter) => currentTemplate(settings, letter) ?? [])
+}
+
+type ItemLike = Pick<Equipment, 'id' | 'name' | 'carried'>
+
+/** A list name inside a sentence: "seated leg press", but "Smith machine", which program.md capitalizes. */
+function inSentence(name: string): string {
+  return /^Smith\b/.test(name) ? name : `${name.charAt(0).toLowerCase()}${name.slice(1)}`
+}
+
+/** What a gym lacks, in words: "no Smith machine", "no cable ankle strap in your bag", each item of an either-or. */
+export function lackWords(missing: readonly Requirement[], items: readonly ItemLike[]): string {
+  return missing
+    .flatMap((r) => (typeof r === 'string' ? [r] : r.anyOf))
+    .map((id) => {
+      const item = items.find((i) => i.id === id)
+      const name = inSentence(item?.name ?? id.replace(/-/g, ' '))
+      return item?.carried ? `no ${name} in your bag` : `no ${name}`
+    })
+    .join(', ')
+}
+
+/** One move: "Seated leg press → Goblet squat to a bench (no seated leg press)", or "Nothing here for Step-off landing (no step platforms)". */
+export function changeWords(move: CoverageMove, byId: ExerciseLookup, items: readonly ItemLike[]): string {
+  const name = (id: string) => byId.get(id)?.name ?? id
+  const lack = move.missing.length > 0 ? ` (${lackWords(move.missing, items)})` : ''
+  return move.kind === 'none' ? `Nothing here for ${name(move.from)}${lack}` : `${name(move.from)} → ${name(move.to)}${lack}`
+}
+
+export interface ChangesView {
+  /** The line over the list. */
+  heading: string
+  /** One per session with something that moves, in session order. */
+  sessions: { label: string; lines: string[] }[]
+}
+
+/**
+ * "What this changes": `locationCoverage`'s moves for the current phase's sessions in this week of
+ * the phase, each in words; the heading says when nothing moves, and that Phase 4 has no sessions yet.
+ */
+export function changesView(input: {
+  templates: readonly SessionTemplate[]
+  phase: number
+  phaseWeek: number
+  byId: ExerciseLookup
+  available: Available
+  items: readonly ItemLike[]
+  gymName: string
+}): ChangesView {
+  if (input.templates.length === 0) return { heading: `Phase ${input.phase}’s sessions aren’t written yet, so nothing moves at ${input.gymName} yet.`, sessions: [] }
+  const sessions = locationCoverage(input.templates, input.phaseWeek, input.byId, input.available)
+    .map((coverage) => ({
+      label: `Session ${input.templates.find((t) => t.id === coverage.templateId)?.letter ?? coverage.templateId}`,
+      lines: coverage.moves.map((move) => changeWords(move, input.byId, input.items)),
+    }))
+    .filter((session) => session.lines.length > 0)
+  if (sessions.length === 0) return { heading: `Every slot of Phase ${input.phase}’s sessions runs its own exercise at ${input.gymName}.`, sessions: [] }
+  return { heading: `What moves at ${input.gymName} in Phase ${input.phase} this week:`, sessions }
+}
+
+// --- Kept for the next program update ----------------------------------------
+
+/** This gym's lines of the next-update list: what was typed (with the day), then list items no session uses. */
+export function keptLines(
+  location: Pick<Location, 'name' | 'present' | 'extras' | 'markedOff'>,
+  vocabulary: readonly Pick<Equipment, 'id' | 'name'>[],
+  exercises: readonly Pick<Exercise, 'requires' | 'stageRequires'>[],
+): string[] {
+  return forNextProgramUpdate([location], vocabulary, exercises).map((note) =>
+    note.addedOn ? `${note.text}, typed ${shortDate(note.addedOn)}` : `${note.text}, on program.md’s list`,
+  )
+}

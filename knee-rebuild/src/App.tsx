@@ -7,6 +7,7 @@ import { TabBar } from './components/TabBar.tsx'
 import { useActiveLocation, useSettings } from './db/hooks.ts'
 import { defaultSettings, ensureLocations, ensureSettings, requestPersistentStorage } from './db/repo.ts'
 import { program } from './program/program.ts'
+import { LocationEditor } from './screens/LocationEditor.tsx'
 import { Locations } from './screens/Locations.tsx'
 import { MorningCheck } from './screens/MorningCheck.tsx'
 import { More } from './screens/More.tsx'
@@ -79,6 +80,10 @@ export function App() {
             return <More />
           case 'locations':
             return <Locations />
+          case 'location':
+            return <LocationEditor key={route.locationId} locationId={route.locationId} />
+          case 'new-location':
+            return <LocationEditor key="new" locationId={null} />
           case 'run':
             return <RunLogger />
           case 'week':
