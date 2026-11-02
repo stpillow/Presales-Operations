@@ -42,8 +42,9 @@ type Problem = { field: Field; text: string } | null
 type ResetStep = 'idle' | 'confirm' | 'erasing'
 
 /**
- * Resetting storage empties the settings row for a moment, and the app shell swaps this screen out
- * until the row is seeded again. What the reset came to waits here for the next mount to say it.
+ * Resetting storage seeds the settings row and the home gym again in the same transaction, but if
+ * the app shell swaps this screen out meanwhile, what the reset came to waits here for the next
+ * mount to say it.
  */
 let pendingNotice: string | null = null
 
@@ -156,7 +157,7 @@ function SettingsForm({ stored }: { stored: SettingsRecord }) {
     pending.current += 1
     pendingNotice = ERASED
     try {
-      await resetAll()
+      await resetAll(defaultSettings(PROGRAM), PROGRAM, today)
     } catch (e) {
       pending.current -= 1
       pendingNotice = null

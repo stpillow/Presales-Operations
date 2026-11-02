@@ -1,12 +1,15 @@
 import { db, type SettingsRow } from './db.ts'
+import { homeLocation } from './migrations.ts'
 import {
   GateTest,
+  Location,
   MorningCheck,
   Run,
   SessionMove,
   SetLog,
   Settings,
   Workout,
+  PLANET_FITNESS_LOCATION_ID,
   type IsoDate,
   type Program,
   type SetSide,
@@ -75,6 +78,31 @@ export async function ensureSettings(defaults: Settings): Promise<Settings> {
   if (existing) return existing
   await saveSettings(defaults)
   return defaults
+}
+
+/** What the home gym is written from: the seed's Planet Fitness list and its list version. */
+export type HomeLists = Pick<Program, 'planetFitness' | 'equipmentListVersion'>
+
+/** The home gym, from the stored settings' dumbbell max (the only place outside a migration that reads it). Inside a transaction on settings and locations. */
+async function writeHome(lists: HomeLists, createdOn: IsoDate): Promise<Location> {
+  const settings = await getSettings()
+  if (!settings) throw new Error('no settings row to write the home gym from; ensureSettings runs first')
+  const home = Location.parse(homeLocation(settings.dumbbellMax, lists.planetFitness, createdOn, lists.equipmentListVersion))
+  await db.locations.put(home)
+  return home
+}
+
+/**
+ * Seed at launch, after ensureSettings (design section 2): write the home gym, Planet Fitness,
+ * when no row for it exists yet, and return it. On a phone that ran version 2 this is how the
+ * dumbbell max it had set reaches the gym; nothing else changes. A row already there is left as it is.
+ */
+export async function ensureLocations(lists: HomeLists, createdOn: IsoDate): Promise<Location> {
+  return db.transaction('rw', db.settings, db.locations, async () => {
+    const existing = await db.locations.get(PLANET_FITNESS_LOCATION_ID)
+    if (existing) return Location.parse(existing)
+    return writeHome(lists, createdOn)
+  })
 }
 
 export async function putWorkout(workout: Workout): Promise<void> {
@@ -164,13 +192,21 @@ export async function loadHistory(): Promise<History> {
   return { workouts, setLogs, morningChecks, runs, gateTests, sessionMoves }
 }
 
-/** Wipes every table, settings included. The Settings screen asks twice before calling this. */
 /** The prefix the Session runner stores a workout's swaps under in local storage. */
 export const SWAP_KEY_PREFIX = 'knee-rebuild:swaps:'
 
-export async function resetAll(): Promise<void> {
+/**
+ * Wipes every table, settings and gyms included, and seeds them again through the launch path:
+ * `defaults` as the settings row, then the home gym from them (ensureLocations' `homeLocation`).
+ * One transaction, so a seed that fails its parse erases nothing. The Settings screen asks twice
+ * before calling this.
+ */
+export async function resetAll(defaults: Settings, lists: HomeLists, createdOn: IsoDate): Promise<void> {
+  const row: SettingsRow = { ...Settings.parse(defaults), id: SETTINGS_ID }
   await db.transaction('rw', db.tables, async () => {
     for (const table of db.tables) await table.clear()
+    await db.settings.put(row)
+    await writeHome(lists, createdOn)
   })
   // Workout ids repeat after a reset (they are the date and template), so stale swaps would come back.
   try {

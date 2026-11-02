@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 import { useRoute } from './app/router.ts'
+import { useToday } from './app/today.ts'
 import { Button } from './components/Button.tsx'
 import { TabBar } from './components/TabBar.tsx'
 import { useSettings } from './db/hooks.ts'
-import { defaultSettings, ensureSettings, requestPersistentStorage } from './db/repo.ts'
+import { defaultSettings, ensureLocations, ensureSettings, requestPersistentStorage } from './db/repo.ts'
 import { program } from './program/program.ts'
 import { MorningCheck } from './screens/MorningCheck.tsx'
 import { More } from './screens/More.tsx'
@@ -18,6 +19,7 @@ import { Week } from './screens/Week.tsx'
 export function App() {
   const route = useRoute()
   const settings = useSettings()
+  const today = useToday()
   const [seedError, setSeedError] = useState<string | null>(null)
   const {
     needRefresh: [needRefresh],
@@ -25,9 +27,12 @@ export function App() {
   } = useRegisterSW()
 
   useEffect(() => {
+    // Settings first: the home gym is written from the dumbbell max they hold (design section 2).
     ensureSettings(defaultSettings(program))
+      .then(() => ensureLocations(program, today))
       .then(() => requestPersistentStorage())
       .catch((e: unknown) => setSeedError(e instanceof Error ? e.message : String(e)))
+    // Once, at launch: the day the home gym is first written is the day the app opened.
   }, [])
 
   if (seedError) {
