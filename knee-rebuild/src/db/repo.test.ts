@@ -16,6 +16,7 @@ import {
   getSettings,
   markOff,
   putWorkout,
+  removeExtra,
   renameLocation,
   setActiveLocation,
   setDumbbellMax,
@@ -88,6 +89,15 @@ describe('what is here', () => {
     expect(await addExtra(gym.id, 'kettlebells', '2026-11-13')).toEqual({ id: 'extra-1', text: 'Kettlebells', addedOn: '2026-11-12' })
     await expect(addExtra(gym.id, '  ', '2026-11-13')).rejects.toThrow()
     expect((await getLocation(gym.id))?.extras).toHaveLength(1)
+  })
+
+  it('takes a kept line back by its id', async () => {
+    const gym = await hotel()
+    await addExtra(gym.id, 'Kettlebels', '2026-11-12')
+    await addExtra(gym.id, 'Battle ropes', '2026-11-12')
+    expect((await removeExtra(gym.id, 'extra-1')).extras.map((e) => e.text)).toEqual(['Battle ropes'])
+    expect((await getLocation(gym.id))?.extras.map((e) => e.text)).toEqual(['Battle ropes'])
+    await expect(removeExtra('loc-9', 'extra-1')).rejects.toThrow()
   })
 
   it('refuses typed text past 80 characters, so a mistaken paste is never kept', async () => {

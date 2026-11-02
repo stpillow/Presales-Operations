@@ -13,6 +13,7 @@ import {
   nextLocationId,
   withExtra,
   withMarkOff,
+  withoutExtra,
   withoutMarkOff,
   withPresent,
 } from './locations.ts'
@@ -118,6 +119,16 @@ describe('something else here', () => {
     expect(again.location).toEqual(one.location)
     expect(again.extra).toEqual(one.extra)
     expect(withExtra(one.location, 'kettle bells', '2026-11-20').location.extras).toHaveLength(2)
+  })
+
+  it('a kept line can be taken back, and the text typed again is kept afresh (PROGRAM-QUESTIONS 93)', () => {
+    const one = withExtra(hotel, 'Kettlebels', '2026-11-12')
+    const two = withExtra(one.location, 'Battle ropes', '2026-11-13')
+    const removed = withoutExtra(two.location, 'extra-1')
+    expect(removed.extras.map((e) => e.text)).toEqual(['Battle ropes'])
+    expect(withoutExtra(removed, 'extra-9')).toEqual(removed)
+    expect(withExtra(removed, 'Kettlebells', '2026-11-14').extra).toEqual({ id: 'extra-1', text: 'Kettlebells', addedOn: '2026-11-14' })
+    expect(two.location.extras).toHaveLength(2)
   })
 
   it('typed text past 80 characters, trimmed, is too long to keep (PROGRAM-QUESTIONS 93)', () => {

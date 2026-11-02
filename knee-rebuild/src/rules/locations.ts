@@ -111,6 +111,14 @@ export function withExtra(location: Location, text: string, addedOn: IsoDate): {
 }
 
 /**
+ * A kept line taken back (the editor's Remove), by its id: a mistaken paste or a typo leaves the
+ * next-update list. An id the gym doesn't have changes nothing.
+ */
+export function withoutExtra(location: Location, extraId: string): Location {
+  return location.extras.some((e) => e.id === extraId) ? { ...location, extras: location.extras.filter((e) => e.id !== extraId) } : location
+}
+
+/**
  * Whether typed text is too long to keep as an extra (`EXTRA_TEXT_MAX`, trimmed): the editor says
  * so instead of keeping it, so a mistaken paste never lands on the next-update list.
  */

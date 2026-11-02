@@ -9,6 +9,7 @@ import {
   nextLocationId,
   withExtra,
   withMarkOff,
+  withoutExtra,
   withoutMarkOff,
   withPresent,
   type Extra,
@@ -180,6 +181,11 @@ export async function addExtra(locationId: string, text: string, addedOn: IsoDat
   })
   if (!extra) throw new Error(`no extra kept for ${locationId}`)
   return extra
+}
+
+/** A kept line taken back (`withoutExtra`), so a mistaken paste or a typo leaves the next-update list. Returns the row written. */
+export async function removeExtra(locationId: string, extraId: string): Promise<Location> {
+  return editLocation(locationId, (l) => withoutExtra(l, extraId))
 }
 
 /** The gym's rack, in lb; 0 means no dumbbells. */
