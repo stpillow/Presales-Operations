@@ -1,7 +1,7 @@
 import type { History } from '../db/repo.ts'
 import { addDays, daysBetween, weekOf } from '../rules/calendar.ts'
 import { attachChecks, subjectReadings, type SubjectReading, type WorkoutRecord } from '../rules/history.ts'
-import { awaitingMorningCheck, consecutiveCleanDays, loadSeries, milesSeries, symmetrySeries, type LoadPoint, type MilesWeek, type SymmetryPoint } from '../rules/progress.ts'
+import { awaitingMorningCheck, consecutiveCleanDays, loadSeries, milesSeries, symmetryLeftOut, symmetrySeries, type LoadPoint, type MilesWeek, type SymmetryLeftOut, type SymmetryPoint } from '../rules/progress.ts'
 import { LOWER_BODY_PATTERNS } from '../rules/wholeKnee.ts'
 import type { Exercise, Gate, IsoDate, MileageWeek, MorningCheck, Program, Run, SessionTemplate, SetLog, SetSide, Settings, Side } from '../schema/index.ts'
 import { runLabel, shortDateWords, workoutLabel } from './Today.helpers.ts'
@@ -829,10 +829,19 @@ export function symmetryTable(points: readonly SymmetryPoint[], name: string, in
   }
 }
 
-/** Why there is no symmetry line for the exercise on show, in words. */
-export function symmetryEmptyWords(row: ExerciseRow | null, chart: LoadChart | null, injuredSide: Side): string {
+/**
+ * The sessions the symmetry line leaves out (symmetryLeftOut), newest first as the table runs, each
+ * with its reason: "Tuesday Nov 10 · left out: the sides stepped from different heights (…)".
+ */
+export function leftOutLines(leftOut: readonly SymmetryLeftOut[]): string[] {
+  return [...leftOut].reverse().map((l) => `${shortDateWords(l.date)} · left out: ${l.reason}`)
+}
+
+/** Why there is no symmetry line for the exercise on show, in words; `leftOut` counts the sessions logged on both sides but left out. */
+export function symmetryEmptyWords(row: ExerciseRow | null, chart: LoadChart | null, injuredSide: Side, leftOut = 0): string {
   if (!row || !chart) return 'Log a session with single-leg work to see this: the injured side as a percent of the other, per session.'
   if (!row.twoSided) return `${row.name} is logged as one set, not one per side, so it has no side-to-side number. Pick a per-side exercise above to see its symmetry.`
+  if (leftOut > 0) return `Every session of ${row.name} that logged both sides is left out of the line so far, so there is nothing to draw yet. Each one and why:`
   const sides = chart.lines.filter((l) => l.role !== 'both').map((l) => l.key)
   const only = sides.length === 1 ? ` So far only the ${sides[0]} side is logged.` : ''
   return `Symmetry shows once both sides of ${row.name} are logged in the same session.${only} The ${injuredSide} side is logged first, then the other.`
@@ -905,6 +914,8 @@ export interface ExerciseView {
   chart: LoadChart
   /** `symmetrySeries` for a two-sided exercise; empty for one logged as one set. */
   symmetry: SymmetryPoint[]
+  /** The sessions logged on both sides that the line leaves out, newest first, in words (leftOutLines). */
+  leftOut: string[]
 }
 
 export interface ProgressView {
@@ -938,5 +949,6 @@ export function exerciseView(input: { records: readonly WorkoutRecord[]; setLogs
     exercise: input.catalog.find((e) => e.id === row.id) ?? null,
     chart,
     symmetry: row.twoSided ? symmetrySeries(records, row.id, injuredSide) : [],
+    leftOut: row.twoSided ? leftOutLines(symmetryLeftOut(records, row.id, injuredSide)) : [],
   }
 }

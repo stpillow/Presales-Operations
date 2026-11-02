@@ -18,6 +18,7 @@ import {
   fmt,
   gatesWords,
   labelledPoints,
+  leftOutLines,
   lineChartGeometry,
   linePath,
   lineYAt,
@@ -573,6 +574,37 @@ describe('symmetry', () => {
     expect(symmetryAxis([{ date: '2026-11-03', percent: 95, basis: 'load', injured: 19, other: 20 }], refs)).toEqual({ min: 70, max: 100, ticks: [70, 80, 90, 100] })
     expect(symmetryAxis([{ date: '2026-11-03', percent: 56, basis: 'load', injured: 14, other: 25 }], refs).min).toBeLessThanOrEqual(56)
     expect(symmetryAxis([{ date: '2026-11-03', percent: 112, basis: 'count', injured: 9, other: 8 }], refs).max).toBeGreaterThanOrEqual(112)
+  })
+
+  it('lists the sessions the line leaves out, newest first, with why (PROGRAM-QUESTIONS 111, 112, 116)', () => {
+    const step = (workoutId: string, side: SetLog['side'], heightIn: number): SetLog => ({ ...set(workoutId, side, 1, 0, 10, 'lateral-step-down'), heightIn })
+    const records = attachChecks(
+      [workout('w1', '2026-11-03'), workout('w2', '2026-11-10'), workout('w3', '2026-11-17')],
+      [step('w1', 'right', 4), step('w1', 'left', 4), step('w2', 'right', 4), step('w2', 'left', 8), { ...set('w3', 'right', 1, 10, 10, 'lateral-step-down'), heightIn: 4, rackCapped: true }, { ...set('w3', 'left', 1, 10, 10, 'lateral-step-down'), heightIn: 4, rackCapped: true }],
+      [],
+    )
+    const stepDown = catalog({ id: 'lateral-step-down', name: 'Lateral step-down' })
+    const row = loggedExercises(records, [stepDown])[0]!
+    const view = exerciseView({ records, setLogs: records.flatMap((r) => r.sets), row, injuredSide: 'right', catalog: [stepDown] })
+    expect(view.symmetry.map((p) => p.date)).toEqual(['2026-11-03'])
+    expect(view.leftOut).toEqual([
+      'Tuesday Nov 17 · left out: the gym’s rack capped the loads (10 lb on the injured side, 10 lb on the other), so they say nothing of the knee',
+      'Tuesday Nov 10 · left out: the sides stepped from different heights (4 in. on the injured side, 8 in. on the other)',
+    ])
+    expect(leftOutLines([])).toEqual([])
+  })
+
+  it('when every session is left out, the empty state says so rather than asking for both sides', () => {
+    const step = (workoutId: string, side: SetLog['side'], heightIn: number): SetLog => ({ ...set(workoutId, side, 1, 0, 10, 'lateral-step-down'), heightIn })
+    const records = attachChecks([workout('w1', '2026-11-10')], [step('w1', 'right', 4), step('w1', 'left', 8)], [])
+    const stepDown = catalog({ id: 'lateral-step-down', name: 'Lateral step-down' })
+    const row = loggedExercises(records, [stepDown])[0]!
+    const view = exerciseView({ records, setLogs: records.flatMap((r) => r.sets), row, injuredSide: 'right', catalog: [stepDown] })
+    expect(view.symmetry).toEqual([])
+    expect(view.leftOut).toHaveLength(1)
+    expect(symmetryEmptyWords(row, view.chart, 'right', view.leftOut.length)).toBe(
+      'Every session of Lateral step-down that logged both sides is left out of the line so far, so there is nothing to draw yet. Each one and why:',
+    )
   })
 
   it('says why there is no line: nothing logged, a two-leg exercise, or one side only', () => {

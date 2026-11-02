@@ -183,14 +183,31 @@ function SymmetrySection({ row, exercise, settings, refs }: { row: ExerciseRow |
       {row && exercise && points.length > 0 ? (
         <>
           <p className="text-small text-on-dark-muted">
-            {row.name}: the {settings.injuredSide} side as a percent of the other ({symmetryName(settings.injuredSide).toLowerCase()}), per session. Loads are compared when they differ; the reps or seconds when they match or there is no load.
+            {row.name}: the {settings.injuredSide} side as a percent of the other ({symmetryName(settings.injuredSide).toLowerCase()}), per session. Loads are compared when they differ; the reps or seconds when they match or there is no load. A session on different steps, stages or ranges, or capped by a gym’s rack, is left out and listed under the chart.
           </p>
           <SymmetryChart key={row.id} points={points} name={row.name} injuredSide={settings.injuredSide} countUnit={exercise.chart.countUnit} refs={refs} />
         </>
       ) : (
-        <p className="text-body text-on-dark-dim">{symmetryEmptyWords(row, exercise?.chart ?? null, settings.injuredSide)}</p>
+        <p className="text-body text-on-dark-dim">{symmetryEmptyWords(row, exercise?.chart ?? null, settings.injuredSide, exercise?.leftOut.length ?? 0)}</p>
       )}
+      {exercise && exercise.leftOut.length > 0 ? <LeftOutList lines={exercise.leftOut} /> : null}
     </section>
+  )
+}
+
+/** The sessions the symmetry line leaves out, each with why, so none is simply missing. */
+function LeftOutList({ lines }: { lines: string[] }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <h3 className="font-mono text-small font-normal uppercase tracking-[0.22em] text-on-dark-muted">Left out of the line</h3>
+      <ul className="flex flex-col">
+        {lines.map((line) => (
+          <li key={line} className="border-t border-on-dark-faint py-2 text-small text-on-dark-dim first:border-t-0">
+            {line}
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }
 
