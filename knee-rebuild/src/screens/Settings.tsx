@@ -23,7 +23,8 @@ import {
   dateWords,
   errorWords,
   exportedOnWords,
-  holdsWords,
+  holdsLine,
+  importedWords,
   lastExportWords,
   lostWords,
   migratedWords,
@@ -280,7 +281,7 @@ function SettingsForm({ stored }: { stored: SettingsRecord }) {
 
       <ExportSection today={today} lastExportedAt={draft.lastExportedAt} saved={savedField === 'export'} problem={problemFor('export')} onExported={recordExport} />
 
-      <ImportSection today={today} onImported={(text) => setNotice(text)} />
+      <ImportSection today={today} />
 
       <ResetSection
         step={resetStep}
@@ -543,11 +544,6 @@ interface ReadyFile {
   url: string | null
 }
 
-function holdsLine(summary: BackupSummary): string {
-  const { headline, also } = holdsWords(summary)
-  return also ? `${headline}. ${also}` : `${headline}.`
-}
-
 /**
  * Export (M6 brief, section 2): "Export JSON" reads every table into one file and says what it
  * holds; a second tap hands it to the share sheet (Save to Files, AirDrop) where the phone takes a
@@ -693,13 +689,15 @@ interface PendingImport {
  * Import (M6 brief, section 2): a file picker for `.json`. The whole file is read by the rules
  * before anything is touched; a refusal says why in words. An accepted file shows what it holds,
  * what this phone holds now and what the file lacks, then an inline confirm; Yes replaces every
- * table in one transaction, all or nothing.
+ * table in one transaction, all or nothing, and says it did here, where Yes was tapped (the top of
+ * the screen is a long scroll away).
  */
-function ImportSection({ today, onImported }: { today: IsoDate; onImported: (notice: string) => void }) {
+function ImportSection({ today }: { today: IsoDate }) {
   const inputId = useId()
   const [pending, setPending] = useState<PendingImport | null>(null)
   const [step, setStep] = useState<'idle' | 'reading' | 'writing'>('idle')
   const [refusal, setRefusal] = useState<string | null>(null)
+  const [imported, setImported] = useState<string | null>(null)
 
   async function choose(event: ChangeEvent<HTMLInputElement>): Promise<void> {
     const input = event.currentTarget
@@ -709,6 +707,7 @@ function ImportSection({ today, onImported }: { today: IsoDate; onImported: (not
     if (!picked) return
     setPending(null)
     setRefusal(null)
+    setImported(null)
     const size = sizeProblem(picked.size)
     if (size) {
       setRefusal(size)
@@ -743,7 +742,7 @@ function ImportSection({ today, onImported }: { today: IsoDate; onImported: (not
     try {
       await replaceAll(file.backup, PROGRAM, today)
       setPending(null)
-      onImported(`Imported ${file.name}. This phone now holds what the file holds: ${holdsLine(file.file)}`)
+      setImported(importedWords(file.name, file.file))
     } catch (e) {
       setRefusal(`Nothing was imported (${errorWords(e)}); this phone still holds what it held.`)
     } finally {
@@ -761,6 +760,11 @@ function ImportSection({ today, onImported }: { today: IsoDate; onImported: (not
       {refusal ? (
         <p role="alert" className="text-body text-on-dark">
           {refusal}
+        </p>
+      ) : null}
+      {imported ? (
+        <p role="status" className="text-body text-on-dark wrap-anywhere">
+          {imported}
         </p>
       ) : null}
       {pending ? (

@@ -5,7 +5,9 @@ import {
   DUMBBELLS_LINE,
   IMPORT_CONFIRM,
   exportedOnWords,
+  holdsLine,
   holdsWords,
+  importedWords,
   lastExportWords,
   lostWords,
   migratedWords,
@@ -261,6 +263,15 @@ describe('backup words (M6)', () => {
     expect(holdsWords(one)).toEqual({ headline: '1 set, 1 run, 1 gym, on Nov 3', also: 'Also 1 session, 3 Program edits and 1 archived gym.' })
     const empty = summary({ counts: { workouts: 0, setLogs: 0, morningChecks: 0, runs: 0, gateTests: 0, sessionMoves: 0, locations: 1, programOverrides: 0 }, first: null, last: null })
     expect(holdsWords(empty)).toEqual({ headline: '0 sets, 0 runs, 1 gym; nothing logged yet', also: null })
+  })
+
+  it('says what a file holds as one sentence, and what an import did, by the file’s name', () => {
+    expect(holdsLine(summary())).toBe('312 sets, 41 runs, 3 gyms, from Nov 2 to Dec 20. Also 24 sessions, 30 morning checks, 2 gate tests and 1 session move.')
+    const empty = summary({ counts: { workouts: 0, setLogs: 0, morningChecks: 0, runs: 0, gateTests: 0, sessionMoves: 0, locations: 1, programOverrides: 0 }, first: null, last: null })
+    expect(holdsLine(empty)).toBe('0 sets, 0 runs, 1 gym; nothing logged yet.')
+    expect(importedWords('knee-rebuild-2026-12-20.json', summary())).toBe(
+      'Imported knee-rebuild-2026-12-20.json. This phone now holds what the file holds: 312 sets, 41 runs, 3 gyms, from Nov 2 to Dec 20. Also 24 sessions, 30 morning checks, 2 gate tests and 1 session move.',
+    )
   })
 
   it('names the years only when the range crosses one', () => {

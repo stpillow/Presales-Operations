@@ -243,6 +243,17 @@ export function holdsWords(summary: BackupSummary): { headline: string; also: st
   return { headline, also: rest.length > 0 ? `Also ${andList(rest)}.` : null }
 }
 
+/** `holdsWords` as one sentence: the headline, then the rest when there is any. */
+export function holdsLine(summary: BackupSummary): string {
+  const { headline, also } = holdsWords(summary)
+  return also ? `${headline}. ${also}` : `${headline}.`
+}
+
+/** What a finished import says, in the Import section where Yes was tapped: the file's name and what the phone now holds. */
+export function importedWords(fileName: string, summary: BackupSummary): string {
+  return `Imported ${fileName}. This phone now holds what the file holds: ${holdsLine(summary)}`
+}
+
 /** "It would erase 8 sets and 1 run on this phone that the file doesn’t have.", or null when the file has everything the phone does. */
 export function lostWords(lost: readonly { table: BackupTable; count: number }[]): string | null {
   if (lost.length === 0) return null
