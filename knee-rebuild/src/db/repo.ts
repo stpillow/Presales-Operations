@@ -1,6 +1,20 @@
 import { db, type SettingsRow } from './db.ts'
 import { homeLocation } from './migrations.ts'
 import {
+  activeAfterArchive,
+  canArchive,
+  gymLocked,
+  inListOrder,
+  newLocation,
+  nextLocationId,
+  withExtra,
+  withMarkOff,
+  withoutMarkOff,
+  withPresent,
+  type Extra,
+  type NewLocationInput,
+} from '../rules/locations.ts'
+import {
   GateTest,
   Location,
   MorningCheck,
@@ -10,6 +24,7 @@ import {
   Settings,
   Workout,
   PLANET_FITNESS_LOCATION_ID,
+  type EquipmentId,
   type IsoDate,
   type Program,
   type SetSide,
@@ -102,6 +117,127 @@ export async function ensureLocations(lists: HomeLists, createdOn: IsoDate): Pro
     const existing = await db.locations.get(PLANET_FITNESS_LOCATION_ID)
     if (existing) return Location.parse(existing)
     return writeHome(lists, createdOn)
+  })
+}
+
+/** Every stored gym, archived ones included (workouts point at them), Planet Fitness first (`inListOrder`). */
+export async function getLocations(): Promise<Location[]> {
+  return inListOrder((await db.locations.toArray()).map((row) => Location.parse(row)))
+}
+
+export async function getLocation(id: string): Promise<Location | undefined> {
+  const row = await db.locations.get(id)
+  return row ? Location.parse(row) : undefined
+}
+
+/** Reads a gym, applies an edit from src/rules/locations.ts, parses and writes it, in one transaction. Throws for an id with no row. */
+async function editLocation(id: string, edit: (location: Location) => Location): Promise<Location> {
+  return db.transaction('rw', db.locations, async () => {
+    const row = await db.locations.get(id)
+    if (!row) throw new Error(`no location ${id}`)
+    const next = Location.parse(edit(Location.parse(row)))
+    await db.locations.put(next)
+    return next
+  })
+}
+
+/** A new gym (the editor's New): Planet Fitness's list or nothing, a name of 1 to 60 characters, the next free id. Returns the row written. */
+export async function addLocation(input: NewLocationInput, lists: HomeLists): Promise<Location> {
+  return db.transaction('rw', db.locations, async () => {
+    const id = nextLocationId((await db.locations.toCollection().primaryKeys()).map(String))
+    const location = Location.parse(newLocation(id, input, lists))
+    await db.locations.add(location)
+    return location
+  })
+}
+
+export async function renameLocation(id: string, name: string): Promise<Location> {
+  return editLocation(id, (l) => ({ ...l, name }))
+}
+
+/** The editor's Tap, the runner's "Mark … here": here or not here, clearing any mark-off of the item (`withPresent`). */
+export async function setPresent(locationId: string, itemId: EquipmentId, here: boolean): Promise<Location> {
+  return editLocation(locationId, (l) => withPresent(l, itemId, here))
+}
+
+/** "Smith machine isn't here: mark it", from the runner or Today: not here since `on`, until "It's back". */
+export async function markOff(locationId: string, itemId: EquipmentId, on: IsoDate): Promise<Location> {
+  return editLocation(locationId, (l) => withMarkOff(l, itemId, on))
+}
+
+/** "It's back". */
+export async function clearMarkOff(locationId: string, itemId: EquipmentId): Promise<Location> {
+  return editLocation(locationId, (l) => withoutMarkOff(l, itemId))
+}
+
+/** "Something else here?" kept as typed; text kept already is not kept twice. Returns the extra. */
+export async function addExtra(locationId: string, text: string, addedOn: IsoDate): Promise<Extra> {
+  let extra: Extra | undefined
+  await editLocation(locationId, (l) => {
+    const result = withExtra(l, text, addedOn)
+    extra = result.extra
+    return result.location
+  })
+  if (!extra) throw new Error(`no extra kept for ${locationId}`)
+  return extra
+}
+
+/** The gym's rack, in lb; 0 means no dumbbells. */
+export async function setDumbbellMax(locationId: string, lb: number): Promise<Location> {
+  return editLocation(locationId, (l) => ({ ...l, dumbbellMaxLb: lb }))
+}
+
+/**
+ * Archives a gym (no delete: workouts point at it). Archiving the active gym makes Planet Fitness
+ * active in the same transaction, and the result says so for the screen. Planet Fitness itself is
+ * never archived.
+ */
+export async function archiveLocation(id: string): Promise<{ activeMovedHome: boolean }> {
+  if (!canArchive(id)) throw new Error('Planet Fitness is the home gym and is never archived')
+  return db.transaction('rw', db.settings, db.locations, async () => {
+    const settings = await getSettings()
+    if (!settings) throw new Error('no settings row')
+    await editLocation(id, (l) => ({ ...l, archived: true }))
+    const active = activeAfterArchive(settings.activeLocationId, id)
+    if (active !== settings.activeLocationId) await saveSettings({ ...settings, activeLocationId: active })
+    return { activeMovedHome: active !== settings.activeLocationId }
+  })
+}
+
+/** The gym Today plans for, until it is changed (Shawn's Nov 1 answer 9). Refuses a gym not stored or archived. */
+export async function setActiveLocation(id: string): Promise<void> {
+  await db.transaction('rw', db.settings, db.locations, async () => {
+    const location = await getLocation(id)
+    if (!location) throw new Error(`no location ${id}`)
+    if (location.archived) throw new Error(`${location.name} is archived`)
+    const settings = await getSettings()
+    if (!settings) throw new Error('no settings row')
+    await saveSettings({ ...settings, activeLocationId: id })
+  })
+}
+
+/** What Shawn carries to every gym ("In your bag"), each item once. */
+export async function setKit(kit: readonly EquipmentId[]): Promise<void> {
+  await db.transaction('rw', db.settings, async () => {
+    const settings = await getSettings()
+    if (!settings) throw new Error('no settings row')
+    await saveSettings({ ...settings, kit: [...kit] })
+  })
+}
+
+/**
+ * The runner's Change: the session's gym, only until its first set is logged (`gymLocked`), and only
+ * to a gym that is stored and not archived.
+ */
+export async function setWorkoutLocation(workoutId: string, locationId: string): Promise<void> {
+  await db.transaction('rw', db.workouts, db.setLogs, db.locations, async () => {
+    const workout = await db.workouts.get(workoutId)
+    if (!workout) throw new Error(`no workout ${workoutId}`)
+    if (gymLocked(await db.setLogs.where('workoutId').equals(workoutId).count())) throw new Error('the gym is locked once a set is logged')
+    const location = await getLocation(locationId)
+    if (!location) throw new Error(`no location ${locationId}`)
+    if (location.archived) throw new Error(`${location.name} is archived`)
+    await db.workouts.put(Workout.parse({ ...workout, locationId }))
   })
 }
 

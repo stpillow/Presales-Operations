@@ -4,7 +4,7 @@ import { useRoute } from './app/router.ts'
 import { useToday } from './app/today.ts'
 import { Button } from './components/Button.tsx'
 import { TabBar } from './components/TabBar.tsx'
-import { useSettings } from './db/hooks.ts'
+import { useActiveLocation, useSettings } from './db/hooks.ts'
 import { defaultSettings, ensureLocations, ensureSettings, requestPersistentStorage } from './db/repo.ts'
 import { program } from './program/program.ts'
 import { MorningCheck } from './screens/MorningCheck.tsx'
@@ -19,6 +19,7 @@ import { Week } from './screens/Week.tsx'
 export function App() {
   const route = useRoute()
   const settings = useSettings()
+  const activeLocation = useActiveLocation()
   const today = useToday()
   const [seedError, setSeedError] = useState<string | null>(null)
   const {
@@ -43,7 +44,8 @@ export function App() {
       </main>
     )
   }
-  if (settings === undefined || settings === null) {
+  // Every screen plans at a gym: wait for the home gym too, which ensureLocations writes right after the settings.
+  if (settings === undefined || settings === null || activeLocation === undefined || activeLocation === null) {
     return (
       <main className="mx-auto flex min-h-dvh max-w-[36rem] flex-col gap-4 px-4 py-12">
         <h1 className="font-display text-h2 text-on-dark">Knee Rebuild</h1>
