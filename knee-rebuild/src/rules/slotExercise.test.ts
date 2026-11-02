@@ -3,7 +3,7 @@ import type { Exercise, MorningCheck, SetLog, Slot, Workout } from '../schema/in
 import { addDays } from './calendar.ts'
 import { attachChecks } from './history.ts'
 import { prescribe } from './prescription.ts'
-import { sessionSlotExercise, slotExercise, type SlotExerciseInput } from './slotExercise.ts'
+import { sessionSlotExercise, slotAtGym, slotExercise, type SlotExerciseInput } from './slotExercise.ts'
 
 // Question 55: after a back-off moves a slot to its easier version, two cleans on it bring the slot back.
 
@@ -248,5 +248,73 @@ describe('slotExercise: one step at a time down a longer list', () => {
     const twice = steps([...base, at6('2027-01-16', 'step-up-stair', 'clean'), at6('2027-01-20', 'step-up-stair', 'clean')])
     expect(twice.exercise).toBe(stepUp)
     expect(twice.placement).toEqual({ note: 'Back on Step-up: Step-up on the lowest stair read clean twice.', returned: true })
+  })
+})
+
+describe('slotAtGym: the gym routes the slot forward from where its history put it (PROGRAM-QUESTIONS 86)', () => {
+  // Nordics need a mat; the leg curls need their machines.
+  const nordicMat = { ...nordic, requires: ['mats'] }
+  const seated = { ...legCurl, requires: ['seated-leg-curl'] }
+  const lying = { ...lyingCurl, requires: ['lying-leg-curl'] }
+  const atGym = (entries: readonly Logged[]) => input(entries, { own: nordicMat, substitutions: [seated, lying] })
+  const all = new Set(['mats', 'seated-leg-curl', 'lying-leg-curl'])
+  const onCurls = [backedOff, curl('2027-01-08', 'clean')]
+
+  it('with everything here it is the history’s pick, routed own', () => {
+    const here = slotAtGym(atGym(onCurls), undefined, all)
+    expect(here).toEqual({ ...slotExercise(atGym(onCurls)), route: { kind: 'own', exerciseId: 'leg-curl', passedOver: [] } })
+    expect(slotAtGym(atGym([]), undefined, all)).toEqual({ exercise: nordicMat, readings: [], lastSets: [], route: { kind: 'own', exerciseId: 'nordic', passedOver: [] } })
+  })
+
+  it('the slot’s own exercise not here moves the slot to the first one here, on that one’s own history', () => {
+    const here = slotAtGym(atGym([curl('2026-12-01', 'clean')]), undefined, new Set(['seated-leg-curl', 'lying-leg-curl']))
+    expect(here.route).toEqual({ kind: 'moved', exerciseId: 'leg-curl', passedOver: [{ exerciseId: 'nordic', missing: ['mats'] }] })
+    expect(here.exercise).toBe(seated)
+    expect(here.readings).toEqual(['clean'])
+    expect(here.lastSets.map((s) => s.load)).toEqual([40, 40, 40])
+    expect(here.placement).toBeUndefined()
+  })
+
+  it('on the easier version, a gym without it moves on down the list, never back up to the harder own exercise', () => {
+    const here = slotAtGym(atGym(onCurls), undefined, new Set(['mats', 'lying-leg-curl']))
+    expect(here.route).toEqual({ kind: 'moved', exerciseId: 'lying-curl', passedOver: [{ exerciseId: 'leg-curl', missing: ['seated-leg-curl'] }] })
+    expect(here.exercise).toBe(lying)
+    expect(here.placement).toBeUndefined()
+  })
+
+  it('with nothing here from the history’s pick on, the slot stays on it, marked none, its placement kept', () => {
+    const here = slotAtGym(atGym(onCurls), undefined, new Set(['mats']))
+    expect(here.route).toEqual({
+      kind: 'none',
+      exerciseId: 'leg-curl',
+      passedOver: [{ exerciseId: 'leg-curl', missing: ['seated-leg-curl'] }, { exerciseId: 'lying-curl', missing: ['lying-leg-curl'] }],
+    })
+    expect(here.exercise).toBe(seated)
+    expect(here.placement?.note).toMatch(/^On Leg curls since Nordic negatives backed off/)
+  })
+
+  it('with nothing on the list here, the slot keeps its own exercise and its history, marked none', () => {
+    const here = slotAtGym(atGym([]), undefined, new Set())
+    expect(here.route.kind).toBe('none')
+    expect(here.exercise).toBe(nordicMat)
+  })
+
+  it('back on its own exercise after two cleans, a gym without it takes the next one here, with no placement', () => {
+    const entries = [backedOff, curl('2027-01-08', 'clean'), curl('2027-01-12', 'clean')]
+    expect(slotExercise(atGym(entries)).placement?.returned).toBe(true)
+    const here = slotAtGym(atGym(entries), undefined, new Set(['seated-leg-curl']))
+    expect(here.route).toMatchObject({ kind: 'moved', exerciseId: 'leg-curl' })
+    expect(here.exercise).toBe(seated)
+    expect(here.readings).toEqual(['clean', 'clean'])
+    expect(here.placement).toBeUndefined()
+  })
+
+  it('a swap chosen for the session beats the gym, here or not; the route stays what the gym does without it', () => {
+    const noMats = new Set(['seated-leg-curl'])
+    const here = slotAtGym(atGym([]), 'lying-curl', noMats)
+    expect(here.exercise).toBe(lying)
+    expect(here.placement).toBeUndefined()
+    expect(here.route).toEqual(slotAtGym(atGym([]), undefined, noMats).route)
+    expect(slotAtGym(atGym([]), 'nordic', noMats).exercise).toBe(nordicMat)
   })
 })

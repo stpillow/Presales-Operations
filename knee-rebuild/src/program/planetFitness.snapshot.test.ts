@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { planSession } from '../app/session.ts'
+import { planSession, type Gym } from '../app/session.ts'
+import { homeLocation } from '../db/migrations.ts'
 import type { History } from '../db/repo.ts'
-import { Settings } from '../schema/index.ts'
+import { DEFAULT_KIT, Settings } from '../schema/index.ts'
 import { program } from './program.ts'
 
 /*
@@ -13,9 +14,15 @@ import { program } from './program.ts'
  * covers the rest, comparing `prescribe` at the home gym with no gym given under readings, loads
  * and a deload week.
  *
+ * Since planSession takes a gym (M4b Part B), it plans here at the home gym every install starts
+ * with (`homeLocation`: Planet Fitness's list, Shawn's additions, an 80 lb rack, both carried items),
+ * and the snapshot stays byte-identical: every slot routes own there.
+ *
  * The slot, the exercise and the substitutions are the seed's own objects handed back, so they are
  * recorded by id; every prescription is recorded in full.
  */
+
+const home: Gym = { location: homeLocation(80, program.planetFitness, '2026-11-02', program.equipmentListVersion), kit: DEFAULT_KIT }
 
 const empty: History = { workouts: [], setLogs: [], morningChecks: [], runs: [], gateTests: [], sessionMoves: [] }
 
@@ -35,7 +42,7 @@ function planetFitnessToday() {
   return program.templates.map((template) => {
     const phase = program.phases.find((p) => p.number === template.phase)
     if (!phase) throw new Error(`no phase ${template.phase}`)
-    const plans = planSession({ template, week: phase.weekStart, settings: settingsFor(phase.number, phase.weekStart), history: empty })
+    const plans = planSession({ template, week: phase.weekStart, settings: settingsFor(phase.number, phase.weekStart), history: empty, gym: home })
     return {
       templateId: template.id,
       week: phase.weekStart,

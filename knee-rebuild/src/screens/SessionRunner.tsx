@@ -1,18 +1,19 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { navigate } from '../app/router.ts'
-import { planSession, PROGRAM, type SlotPlan } from '../app/session.ts'
+import { planSession, PROGRAM, type Gym, type SlotPlan } from '../app/session.ts'
 import { useToday } from '../app/today.ts'
 import { Button } from '../components/Button.tsx'
 import { RestTimer } from '../components/RestTimer.tsx'
 import { Screen } from '../components/Screen.tsx'
-import { useHistory, useSetsFor, useSettings, useWorkout } from '../db/hooks.ts'
+import { useHistory, useLocation, useSetsFor, useSettings, useWorkout } from '../db/hooks.ts'
 import { deleteSet, deleteWorkout, SWAP_KEY_PREFIX, updateWorkout, upsertSet, type History } from '../db/repo.ts'
 import { exerciseById } from '../program/program.ts'
 import { effectiveSlot } from '../rules/effectiveSlot.ts'
+import { locationIdOf } from '../rules/locations.ts'
 import { loggedPain, painRewriteAllowed, type Draft } from '../rules/prefill.ts'
 import { firstOpenStepOf, nextStep, openStepForSide, restAfter, sessionSteps, type Step } from '../rules/runOrder.ts'
 import { healthySideTargets } from '../rules/unilateral.ts'
-import type { IsoDate, SessionTemplate, SetLog, SetSide, Settings, StopReason, Workout } from '../schema/index.ts'
+import type { IsoDate, Location, SessionTemplate, SetLog, SetSide, Settings, StopReason, Workout } from '../schema/index.ts'
 import { ActiveCard } from './session/ActiveCard.tsx'
 import { DoneBar } from './session/DoneBar.tsx'
 import { EndPanel, FinishPanel } from './session/EndPanels.tsx'
@@ -88,10 +89,21 @@ export function SessionRunner({ workoutId }: { workoutId: string }) {
       </Screen>
     )
   }
-  return <Runner workout={workout} template={template} sets={sets} settings={settings} history={history} today={today} lead={lead} />
+  return <RunnerAtGym workout={workout} template={template} sets={sets} settings={settings} history={history} today={today} lead={lead} />
 }
 
-function Runner({ workout, template, sets, settings, history, today, lead }: { workout: Workout; template: SessionTemplate; sets: SetLog[]; settings: Settings; history: History; today: IsoDate; lead: string }) {
+type RunnerProps = { workout: Workout; template: SessionTemplate; sets: SetLog[]; settings: Settings; history: History; today: IsoDate; lead: string }
+
+/** The runner plans at the workout's own gym, stamped at Start (absent means Planet Fitness), not the active one. */
+function RunnerAtGym(props: RunnerProps) {
+  const location = useLocation(locationIdOf(props.workout))
+  if (location === undefined || location === null) {
+    return <Screen title={`Session ${props.template.letter}`} lead="Opening storage…">{null}</Screen>
+  }
+  return <Runner {...props} location={location} />
+}
+
+function Runner({ workout, template, sets, settings, history, today, lead, location }: RunnerProps & { location: Location }) {
   const storageKey = `${SWAP_KEY_PREFIX}${workout.id}`
   const [stored, setStored] = useState<Record<string, string | null>>(() => readStoredSwaps(storageKey))
   const [focusSlot, setFocusSlot] = useState<string | null>(null)
@@ -121,10 +133,11 @@ function Runner({ workout, template, sets, settings, history, today, lead }: { w
   }, [scrollTick])
   const bringToTop = () => setScrollTick((n) => n + 1)
 
-  const planInput = { template, week: workout.week, settings, history, before: workout.date }
-  const unswapped = useMemo(() => planSession(planInput), [template, workout.week, workout.date, settings, history])
+  const gym = useMemo<Gym>(() => ({ location, kit: settings.kit }), [location, settings.kit])
+  const planInput = { template, week: workout.week, settings, history, gym, before: workout.date }
+  const unswapped = useMemo(() => planSession(planInput), [template, workout.week, workout.date, settings, history, gym])
   const chosen = useMemo(() => mergeSwaps(swapsFromSets(unswapped, sets), stored), [unswapped, sets, stored])
-  const plans = useMemo(() => planSession({ ...planInput, chosenExercise: chosen }), [template, workout.week, workout.date, settings, history, chosen])
+  const plans = useMemo(() => planSession({ ...planInput, chosenExercise: chosen }), [template, workout.week, workout.date, settings, history, gym, chosen])
   const steps = useMemo(
     () => sessionSteps(plans.map((p) => ({ slotId: p.slot.id, ...(p.slot.groupId ? { groupId: p.slot.groupId } : {}), optional: p.slot.optional, sides: p.prescriptions.map((x) => ({ side: x.side, sets: x.sets })) }))),
     [plans],
@@ -354,7 +367,7 @@ function Runner({ workout, template, sets, settings, history, today, lead }: { w
             sides={sidesFor(activePlan)}
             injuredSide={settings.injuredSide}
             painPerSet={settings.painPerSet}
-            dumbbellMax={settings.dumbbellMax}
+            dumbbellMax={location.dumbbellMaxLb}
             historyRpe={lastRpeFor(activePlan.prescriptions[0]?.exerciseId ?? activePlan.exercise.id, history.setLogs)}
             budget={healthySideTargets(slotSetsOf(activePlan.slot.id).filter((s) => s.side === settings.injuredSide && s.exerciseId === (activePlan.prescriptions[0]?.exerciseId ?? activePlan.exercise.id)))}
             exercisePain={exercisePain(activePlan.slot.id, editing?.exerciseId ?? activePlan.prescriptions[0]?.exerciseId ?? activePlan.exercise.id)}

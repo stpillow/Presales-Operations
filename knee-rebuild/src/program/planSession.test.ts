@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { planSession } from '../app/session.ts'
+import { availableAt, planSession, type Gym } from '../app/session.ts'
+import { homeLocation } from '../db/migrations.ts'
 import type { History } from '../db/repo.ts'
 import { isLowerBody } from '../rules/wholeKnee.ts'
-import { Settings, type MorningCheck, type SetLog, type Workout } from '../schema/index.ts'
+import { DEFAULT_KIT, Settings, type Location, type MorningCheck, type SetLog, type Workout } from '../schema/index.ts'
 import { exerciseById, program, templateFor } from './program.ts'
 
 // planSession on the live seed: which exercise a slot runs after a back-off, a Swap chosen for the
-// session, and the next lift after a morning that read back off.
+// session, the next lift after a morning that read back off, and the gym it runs at.
+
+const home: Gym = { location: homeLocation(80, program.planetFitness, '2026-11-02', program.equipmentListVersion), kit: DEFAULT_KIT }
 
 const settingsIn = (phase: number, phaseEnteredWeek: number): Settings =>
   Settings.parse({ injuredSide: program.injuredSide, startDate: program.startDate, dumbbellMax: 80, restTimerSeconds: 60, painPerSet: false, currentPhase: phase, phaseEnteredWeek })
@@ -32,7 +35,7 @@ describe('Phase 3 A, slot 2: Nordics back off to the single-leg leg curl and com
   ]
   const checks = [check('2026-12-30'), check('2027-01-06'), check('2027-01-13')]
   const slotTwo = (before: string, workouts: Workout[], chosenExercise?: Record<string, string>) => {
-    const plan = planSession({ template, week: 11, settings, history: historyOf(workouts, logs, checks), before, ...(chosenExercise ? { chosenExercise } : {}) }).find((p) => p.slot.id === 'p3a-2')
+    const plan = planSession({ template, week: 11, settings, history: historyOf(workouts, logs, checks), gym: home, before, ...(chosenExercise ? { chosenExercise } : {}) }).find((p) => p.slot.id === 'p3a-2')
     if (!plan) throw new Error('no slot p3a-2')
     return plan
   }
@@ -88,7 +91,7 @@ describe('the whole knee on the live seed (PROGRAM-QUESTIONS 6)', () => {
   ]
   const checks = [check('2026-11-15'), check('2026-12-06'), check('2026-12-10', { visibleSwelling: true })]
   const plan = (workouts: Workout[], before?: string) => {
-    const plans = planSession({ template, week: 6, settings, history: historyOf(workouts, logs, checks), ...(before ? { before } : {}) })
+    const plans = planSession({ template, week: 6, settings, history: historyOf(workouts, logs, checks), gym: home, ...(before ? { before } : {}) })
     return (slotId: string) => plans.find((p) => p.slot.id === slotId)?.prescriptions[0]
   }
 
@@ -106,5 +109,75 @@ describe('the whole knee on the live seed (PROGRAM-QUESTIONS 6)', () => {
 
   it('a plan with no session date (the morning check’s next-time preview) is not the next lift', () => {
     expect(plan([phaseOne, phaseTwo])('p2c-5')).toMatchObject({ load: 100, basis: 'progress-reps' })
+  })
+})
+
+describe('planSession at a gym (M4b, design section 4)', () => {
+  // Shawn's hotel: started empty, a flat bench and 25 lb dumbbells, with the bag (ankle strap, mini band).
+  const hotelRow: Location = { ...home.location, id: 'loc-1', name: 'Marriott Downtown', present: ['flat-bench'], dumbbellMaxLb: 25, startedFrom: 'empty', createdOn: '2026-11-10' }
+  const hotel: Gym = { location: hotelRow, kit: DEFAULT_KIT }
+  const template = templateFor(1, 'A')
+  const settings = settingsIn(1, 1)
+  const empty = historyOf([], [], [])
+  const at = (gym: Gym, history: History = empty, chosenExercise?: Record<string, string>) => {
+    const plans = planSession({ template, week: 2, settings, history, gym, before: '2026-11-10', ...(chosenExercise ? { chosenExercise } : {}) })
+    return (slotId: string) => {
+      const plan = plans.find((p) => p.slot.id === slotId)
+      if (!plan) throw new Error(`no slot ${slotId}`)
+      return plan
+    }
+  }
+
+  it('at the home gym every slot of Session A runs its own exercise, routed own', () => {
+    const plans = planSession({ template, week: 2, settings, history: empty, gym: home })
+    expect(plans.map((p) => [p.slot.id, p.route.kind, p.exercise.id === p.slot.exerciseId])).toEqual(plans.map((p) => [p.slot.id, 'own', true]))
+  })
+
+  it('at the hotel a slot whose own exercise isn’t there moves to the first on its list that is, and says what was passed over', () => {
+    const slot = at(hotel)('p1a-1')
+    expect(slot.route).toEqual({
+      kind: 'moved',
+      exerciseId: 'goblet-squat-bench',
+      passedOver: [
+        { exerciseId: 'leg-press', missing: ['seated-leg-press'] },
+        { exerciseId: 'leg-press-45', missing: ['leg-press-45'] },
+        { exerciseId: 'smith-box-squat', missing: ['smith-machine'] },
+      ],
+    })
+    expect(slot.exercise.id).toBe('goblet-squat-bench')
+    expect(slot.prescriptions.map((p) => p.exerciseId)).toEqual(['goblet-squat-bench'])
+    // The bag counts: cable hip abduction needs a cable station, so the mini band's walk runs.
+    expect(at(hotel)('p1a-5').route).toMatchObject({ kind: 'moved', exerciseId: 'lateral-band-walk' })
+    expect(at({ ...hotel, kit: [] })('p1a-5').route).toMatchObject({ kind: 'moved', exerciseId: 'copenhagen-plank-short' })
+  })
+
+  it('a slot with nothing on its list there keeps its own exercise, routed none', () => {
+    expect(at(hotel)('p1a-2')).toMatchObject({ route: { kind: 'none', exerciseId: 'seated-leg-curl' }, exercise: { id: 'seated-leg-curl' } })
+    expect(at(hotel)('p1a-9').route.kind).toBe('none')
+    expect(at(hotel)('p1a-3').route).toEqual({ kind: 'own', exerciseId: 'db-bench-press', passedOver: [] })
+  })
+
+  it('a swap chosen for the session beats the gym; the route still says what the gym does without it', () => {
+    const slot = at(hotel, empty, { 'p1a-1': 'smith-box-squat' })('p1a-1')
+    expect(slot.exercise.id).toBe('smith-box-squat')
+    expect(slot.prescriptions[0]?.exerciseId).toBe('smith-box-squat')
+    expect(slot.route).toEqual(at(hotel)('p1a-1').route)
+  })
+
+  it('the rack is the gym’s: 40 lb dumbbells at a 25 lb rack with nothing here to swap to runs rack-capped', () => {
+    const last = workout('w1', '2026-11-03', 'p1-a', 1, 1)
+    const logs = sets('w1', 'p1a-3', 'db-bench-press', { load: 40, loadUnit: 'lb', reps: 10, rpe: 7 })
+    const history = historyOf([last], logs, [check('2026-11-04')])
+    expect(at(home, history)('p1a-3').prescriptions[0]).toMatchObject({ exerciseId: 'db-bench-press', load: 40 })
+    expect(at(home, history)('p1a-3').prescriptions[0]?.rackCapped).toBeUndefined()
+    const capped = at(hotel, history)('p1a-3').prescriptions[0]
+    expect(capped).toMatchObject({ exerciseId: 'db-bench-press', load: 25, rackCapped: true })
+    expect(capped?.note).toMatch(/The rack stops at 25 lb and nothing written to swap to is here: 25 lb, rack-capped, so the session won’t count as clean\.$/)
+  })
+
+  it('what is here is the gym’s list, its dumbbells and the bag, read against the program’s list', () => {
+    const here = availableAt(hotel)
+    expect([...here].sort()).toEqual(['ankle-strap', 'dumbbells', 'flat-bench', 'mini-band'])
+    expect(availableAt({ location: { ...hotelRow, dumbbellMaxLb: 0, markedOff: [{ id: 'flat-bench', on: '2026-11-12' }] }, kit: [] }).size).toBe(0)
   })
 })

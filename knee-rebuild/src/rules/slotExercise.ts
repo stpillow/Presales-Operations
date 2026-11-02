@@ -1,4 +1,5 @@
 import type { Exercise, ReadingResult, SetLog, Side, Slot } from '../schema/index.ts'
+import { routeSlot, type Available, type SlotRoute } from './equipment.ts'
 import { exerciseHistory } from './gymLoads.ts'
 import type { WorkoutRecord } from './history.ts'
 import { backOffMoves, effectiveReading, type Placement } from './prescription.ts'
@@ -110,4 +111,38 @@ export function slotExercise(input: SlotExerciseInput): SlotExercise {
 export function sessionSlotExercise(input: SlotExerciseInput, chosenId: string | undefined): SlotExercise {
   const chosen = chosenId === undefined ? undefined : [input.own, ...input.substitutions].find((e) => e.id === chosenId)
   return chosen ? { exercise: chosen, ...historyOf(input, chosen) } : slotExercise(input)
+}
+
+export interface SlotAtGym extends SlotExercise {
+  /**
+   * What this gym does to the slot without a swap: `routeSlot` over the slot's list from where its
+   * history put it (the slot's own exercise, or the easier version it is on) onward. `own`: that
+   * exercise runs here. `moved`: it isn't here, and the first exercise after it that is runs, each
+   * one passed over with what is missing. `none`: nothing from it on is here; it stays, so the
+   * runner can offer Skip or Do it anyway. A swap chosen for the session doesn't change it.
+   */
+  route: SlotRoute
+}
+
+/**
+ * Which exercise a slot runs in the session being planned at this gym (M4b, design section 4). A
+ * swap chosen for the session wins, here or not (`sessionSlotExercise`). Otherwise the history
+ * places the slot (`slotExercise`), and the gym routes it forward from there on [own,
+ * ...substitutions]: the history's pick when it runs here; else the first exercise after it that
+ * does, on that exercise's own history and with no placement, since the move is the gym's and
+ * `route` says it; with nothing from the pick on here, the pick as the history placed it. The gym
+ * never moves a slot back up its list past where its history put it, to an exercise harder than
+ * the one a back-off moved it to (PROGRAM-QUESTIONS 86).
+ */
+export function slotAtGym(input: SlotExerciseInput, chosenId: string | undefined, available: Available): SlotAtGym {
+  const placed = slotExercise(input)
+  const list = [input.own, ...input.substitutions]
+  const ids = list.map((e) => e.id)
+  const from = ids.indexOf(placed.exercise.id)
+  const byId = new Map(list.map((e) => [e.id, e]))
+  const route = routeSlot({ exerciseId: placed.exercise.id, substitutionIds: ids.slice(from + 1) }, byId, available)
+  if (chosenId !== undefined && byId.has(chosenId)) return { ...sessionSlotExercise(input, chosenId), route }
+  if (route.kind !== 'moved') return { ...placed, route }
+  const moved = byId.get(route.exerciseId) ?? placed.exercise
+  return { exercise: moved, ...historyOf(input, moved), route }
 }

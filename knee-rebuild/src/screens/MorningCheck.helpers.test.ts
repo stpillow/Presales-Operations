@@ -170,7 +170,7 @@ describe('next time', () => {
   const prescription = (over: Partial<Prescription> = {}): Prescription => ({
     exerciseId: 'leg-press', side: 'both', sets: 3, load: 8, loadUnit: 'plate', repsTarget: 10, repUnit: 'reps', basis: 'same', note: 'Clean once: same load, same target; clean again to progress.', ...over,
   })
-  const plan = (over: Partial<SlotPlan> = {}): SlotPlan => ({ slot: slot(), exercise: exercise(), substitutions: [], prescriptions: [prescription()], ...over })
+  const plan = (over: Partial<SlotPlan> = {}): SlotPlan => ({ slot: slot(), exercise: exercise(), substitutions: [], prescriptions: [prescription()], route: { kind: 'own', exerciseId: 'leg-press', passedOver: [] }, ...over })
 
   it('the next time a session comes round is next week', () => {
     expect(nextWeekFor({ date: '2026-11-03' }, '2026-11-02')).toBe(2)
