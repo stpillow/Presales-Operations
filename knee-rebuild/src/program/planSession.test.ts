@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { planSession } from '../app/session.ts'
 import type { History } from '../db/repo.ts'
+import { isLowerBody } from '../rules/wholeKnee.ts'
 import { Settings, type MorningCheck, type SetLog, type Workout } from '../schema/index.ts'
-import { program, templateFor } from './program.ts'
+import { exerciseById, program, templateFor } from './program.ts'
 
-// planSession on the live seed: which exercise a slot runs after a back-off, and a Swap chosen for the session.
+// planSession on the live seed: which exercise a slot runs after a back-off, a Swap chosen for the
+// session, and the next lift after a morning that read back off.
 
 const settingsIn = (phase: number, phaseEnteredWeek: number): Settings =>
   Settings.parse({ injuredSide: program.injuredSide, startDate: program.startDate, dumbbellMax: 80, restTimerSeconds: 60, painPerSet: false, currentPhase: phase, phaseEnteredWeek })
@@ -59,5 +61,50 @@ describe('Phase 3 A, slot 2: Nordics back off to the single-leg leg curl and com
     expect(plan.exercise.id).toBe('nordic-negatives')
     expect(plan.prescriptions[0]).toMatchObject({ exerciseId: 'nordic-negatives', load: 0, repsTarget: 3, basis: 'repeat' })
     expect(plan.prescriptions[0]?.note).toBe('Back on Nordic hamstring negatives: Single-leg seated leg curl read clean twice. Same loads and reps as its last session.')
+  })
+})
+
+describe('the whole knee on the live seed (PROGRAM-QUESTIONS 6)', () => {
+  it('lower-body work is every slot but the pressing, pulling, core, carry and cardio ones', () => {
+    const notLower = program.templates.flatMap((t) => t.slots.filter((s) => !isLowerBody(exerciseById(s.exerciseId))).map((s) => `${s.id} ${exerciseById(s.exerciseId).pattern}`))
+    expect(notLower).toEqual([
+      'p1a-3 push', 'p1a-4 pull', 'p1a-8 core', 'p1a-9 cardio', 'p1b-3 pull', 'p1b-4 push', 'p1b-7 core', 'p1b-8 core', 'p1c-3 pull', 'p1c-4 push', 'p1c-7 carry',
+      'p2a-3 push', 'p2a-4 pull', 'p2a-8 core', 'p2a-9 cardio', 'p2b-3 pull', 'p2b-4 push', 'p2b-7 core', 'p2b-8 core', 'p2c-3 pull', 'p2c-4 push', 'p2c-7 carry',
+      'p3a-3 push', 'p3a-4 pull', 'p3a-8 core', 'p3a-9 cardio', 'p3a-upper4 pull', 'p3b-3 pull', 'p3b-4 push', 'p3b-7 core', 'p3b-8 core', 'p3b-upper4 pull',
+      'p3c-3 pull', 'p3c-4 push', 'p3c-7 carry', 'p3c-upper4 pull',
+    ])
+  })
+
+  // Phase 2 C in week 6: the leg extension last ran at 100 lb in Phase 2 and at 70 lb in Phase 1;
+  // the incline press last ran at 40 lb. Every session read clean. Thursday morning reads back off.
+  const template = templateFor(2, 'C')
+  const settings = settingsIn(2, 4)
+  const phaseOne = workout('w1', '2026-11-14', 'p1-c', 1, 2)
+  const phaseTwo = workout('w2', '2026-12-05', 'p2-c', 2, 5)
+  const logs = [
+    ...sets('w1', 'p1c-5', 'leg-extension', { load: 70, loadUnit: 'lb', reps: 15, rangeStopDeg: 45 }),
+    ...sets('w2', 'p2c-5', 'leg-extension', { load: 100, loadUnit: 'lb', reps: 15, rangeStopDeg: 30 }),
+    ...sets('w2', 'p2c-4', 'incline-db-press', { load: 40, loadUnit: 'lb', reps: 8, rpe: 8 }),
+  ]
+  const checks = [check('2026-11-15'), check('2026-12-06'), check('2026-12-10', { visibleSwelling: true })]
+  const plan = (workouts: Workout[], before?: string) => {
+    const plans = planSession({ template, week: 6, settings, history: historyOf(workouts, logs, checks), ...(before ? { before } : {}) })
+    return (slotId: string) => plans.find((p) => p.slot.id === slotId)?.prescriptions[0]
+  }
+
+  it('the next lift backs off its lower-body work, at the lower of load × 0.75 and the last Phase 1 load', () => {
+    const slot = plan([phaseOne, phaseTwo], '2026-12-12')
+    expect(slot('p2c-5')).toMatchObject({ exerciseId: 'leg-extension', load: 70, rangeStopDeg: 30, basis: 'back-off' })
+    expect(slot('p2c-5')?.note).toBe('Whole knee: a morning check since the last lift read back off. Back off: the last Phase 1 load, 70 lb, is lighter than load × 0.75 (75 lb), so it wins.')
+    expect(slot('p2c-4')).toMatchObject({ exerciseId: 'incline-db-press', load: 40, basis: 'same' })
+  })
+
+  it('once a lift has run since that morning, this one reads its own history', () => {
+    const slot = plan([phaseOne, phaseTwo, workout('w3', '2026-12-10', 'p2-b', 2, 6)], '2026-12-12')
+    expect(slot('p2c-5')).toMatchObject({ load: 100, basis: 'progress-reps' })
+  })
+
+  it('a plan with no session date (the morning check’s next-time preview) is not the next lift', () => {
+    expect(plan([phaseOne, phaseTwo])('p2c-5')).toMatchObject({ load: 100, basis: 'progress-reps' })
   })
 })

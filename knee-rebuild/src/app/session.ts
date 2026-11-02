@@ -4,6 +4,7 @@ import { attachChecks, recordsBefore, type WorkoutRecord } from '../rules/histor
 import { prescribe, type Prescription } from '../rules/prescription.ts'
 import { phaseWeekOf, slotsForPhaseWeek } from '../rules/session.ts'
 import { slotExercise, type SlotExercise } from '../rules/slotExercise.ts'
+import { kneeMorning, wholeKneeFor } from '../rules/wholeKnee.ts'
 import type { Exercise, IsoDate, SessionLetter, SessionTemplate, Settings, Slot } from '../schema/index.ts'
 import type { History } from '../db/repo.ts'
 
@@ -35,6 +36,8 @@ export function planSession(input: {
   const all: WorkoutRecord[] = attachChecks(history.workouts, history.setLogs, history.morningChecks)
   const records = input.before ? recordsBefore(all, input.before) : all
   const phaseWeek = phaseWeekOf(Math.max(week, settings.phaseEnteredWeek), settings.phaseEnteredWeek)
+  // A morning since the last lift that read back-off makes this the next lift (wholeKnee.ts); only a dated session is one.
+  const morning = input.before ? kneeMorning(history.morningChecks, history.workouts, input.before) : null
   return slotsForPhaseWeek(template, phaseWeek).map((slot) => {
     const choice = input.chosenExercise?.[slot.id]
     const allowed = choice !== undefined && (choice === slot.exerciseId || slot.substitutionIds.includes(choice))
@@ -46,6 +49,7 @@ export function planSession(input: {
       ? { exercise: exerciseById(choice), ...exerciseHistory(records, choice, settings.injuredSide) }
       : slotExercise({ slot, own: exerciseById(slot.exerciseId), substitutions, records, injuredSide: settings.injuredSide })
     const { exercise, readings, lastSets, placement } = placed
+    const wholeKnee = wholeKneeFor({ morning, own: exerciseById(slot.exerciseId), exerciseId: exercise.id, phase: template.phase, records })
     const prescriptions = prescribe({
       slot,
       exercise,
@@ -57,6 +61,7 @@ export function planSession(input: {
       dumbbellMax: settings.dumbbellMax,
       redFlagActive: settings.redFlag.active,
       ...(placement ? { placement } : {}),
+      ...(wholeKnee ? { wholeKnee } : {}),
     })
     return { slot, exercise, substitutions, prescriptions }
   })

@@ -1,4 +1,4 @@
-import type { EquipmentId, Exercise, LoadUnit, ReadingResult, RepUnit, Requirement, SetLog, SetSide, Side, Slot } from '../schema/index.ts'
+import type { EquipmentId, Exercise, IsoDate, LoadUnit, ReadingResult, RepUnit, Requirement, SetLog, SetSide, Side, Slot } from '../schema/index.ts'
 import { isDeloadWeek } from './calendar.ts'
 import { prescribedSets } from './deload.ts'
 import { effectiveSlot } from './effectiveSlot.ts'
@@ -79,7 +79,31 @@ export interface PrescriptionInput {
   gym?: GymHere
   /** Where the slot's history put it (slotExercise.ts, PROGRAM-QUESTIONS 55). Absent: the slot runs its exercise as usual. */
   placement?: Placement
+  /** The next lift after a morning that read back-off, on a lower-body slot (wholeKnee.ts, PROGRAM-QUESTIONS 6). */
+  wholeKnee?: WholeKnee
 }
+
+/** A load as it was logged. */
+export interface LoggedLoad {
+  load: number
+  loadUnit: LoadUnit
+}
+
+/**
+ * "If the whole knee is complaining" (wholeKnee.ts, PROGRAM-QUESTIONS 6): the slot backs off
+ * whatever its own readings say, and a load cut takes the lower of load × 0.75 and the side's last
+ * Phase 1 load, when there is one in the same unit. A deload week, the red-flag state and a first
+ * session come first, as they do for every back-off.
+ */
+export interface WholeKnee {
+  /** The day of the morning check that read back-off. */
+  morning: IsoDate
+  /** From Phase 2 on, the last Phase 1 load per side (wholeKnee.ts `phaseOneLoads`); empty in Phase 1 or with no Phase 1 history. */
+  phaseOneLoads: Partial<Record<SetSide, LoggedLoad>>
+}
+
+/** What leads the note of a lower-body slot the whole knee backed off. */
+export const WHOLE_KNEE_NOTE = 'Whole knee: a morning check since the last lift read back off.'
 
 /**
  * Why the slot runs the exercise it does, from its history (slotExercise.ts, PROGRAM-QUESTIONS 55).
@@ -282,8 +306,9 @@ export function prescribe(raw: PrescriptionInput): Prescription[] {
     }
     if (p.side === input.injuredSide) injuredTarget = p.repsTarget
   }
+  const knee = (p: Prescription) => (raw.wholeKnee && p.basis === 'back-off' ? `${WHOLE_KNEE_NOTE} ${p.note}` : p.note)
   const lead = raw.placement?.note
-  return lead === undefined ? out : out.map((p) => ({ ...p, note: `${lead} ${p.note}` }))
+  return out.map((p) => ({ ...p, note: lead === undefined ? knee(p) : `${lead} ${knee(p)}` }))
 }
 
 /** One side's prescription, its stage held at the last one this gym can run. */
@@ -352,15 +377,16 @@ function prescribeSideAnywhere(input: PrescriptionInput, here: Here, side: SetSi
   if (deload) return repeat('deload', `Deload week: ${sets} sets instead of ${slot.sets}, same loads and reps, no progression.`)
   if (input.redFlagActive) return repeat('suspended', 'Red-flag state: progression is suspended; repeat the last session exactly.')
 
-  switch (effectiveReading(input.readings)) {
+  // The whole knee backs the slot off whatever its own readings say (PROGRAM-QUESTIONS 6).
+  switch (input.wholeKnee ? 'back-off' : effectiveReading(input.readings)) {
     case 'none':
       return repeat('repeat', 'No reading for the last session, and unknown is not clean: repeat it exactly.')
     case 'hold':
       return repeat('repeat', 'Hold: repeat the last session’s loads and reps exactly.')
     case 'back-off':
       // Back from the easier version after two cleans on it (PROGRAM-QUESTIONS 55): the back-off that moved the slot is served.
-      if (input.placement?.returned) return repeat('repeat', 'Same loads and reps as its last session.')
-      return backOff(input, here, carried, lastLoad, lastHeight, lastStage, lastTarget, sets)
+      if (input.placement?.returned && !input.wholeKnee) return repeat('repeat', 'Same loads and reps as its last session.')
+      return backOff(input, here, carried, lastLoad, lastHeight, lastStage, lastTarget, sets, phaseOneFloor(input, side, first?.loadUnit))
     case 'clean-once':
       return { ...carried, load: lastLoad, repsTarget: lastTarget, basis: 'same', note: 'Clean once: same load, same target; clean again to progress.' }
     case 'clean-twice':
@@ -446,6 +472,8 @@ function backOff(
   lastStage: number,
   lastTarget: number,
   sets: number,
+  /** The last Phase 1 load for this side, from Phase 2 on after a morning that read back-off (PROGRAM-QUESTIONS 6). */
+  floor: number | undefined,
 ): Prescription {
   const { slot, exercise } = input
   const inc = exercise.increment
@@ -467,8 +495,9 @@ function backOff(
       return result({ heightIn: height, note: `Back off: step down ${heightInc} in. to ${height} in., same load.` })
     }
     case 'lighter-in-hands': {
-      const load = backOffLoad(lastLoad, HELD_LOAD_INCREMENT_LB)
-      return result({ load, note: `Back off: ${load} lb in the hands at the starting height.` })
+      const cut = cutLoad(lastLoad, HELD_LOAD_INCREMENT_LB, 'lb', floor)
+      const held = `Back off: ${cut.load} lb in the hands at the starting height`
+      return result({ load: cut.load, note: floor === undefined ? `${held}.` : `${held}; ${cut.why}.` })
     }
     case 'easier-version': {
       // The easier version is the next one on the slot's list that is here: never the exercise itself, never one before it.
@@ -479,10 +508,33 @@ function backOff(
       return result({ sets: fewer, note: `Back off: ${fewer} sets instead of ${sets}; ${lighter}.` })
     }
     case 'lighter-load': {
-      const load = backOffLoad(lastLoad, inc)
-      return result({ load, note: `Back off: load × 0.75, rounded down to ${load} ${exercise.loadUnit}.` })
+      const cut = cutLoad(lastLoad, inc, exercise.loadUnit, floor)
+      return result({ load: cut.load, note: `Back off: ${cut.why}.` })
     }
   }
+}
+
+/**
+ * The side's last Phase 1 load when the whole knee backed the slot off from Phase 2 on: that side's,
+ * or with none logged for it, the lightest any side logged. Only a load in the unit the last session
+ * was logged in counts.
+ */
+function phaseOneFloor(input: PrescriptionInput, side: SetSide, unit: LoadUnit | undefined): number | undefined {
+  const loads = input.wholeKnee?.phaseOneLoads
+  if (loads === undefined || unit === undefined) return undefined
+  const own = loads[side]
+  const logged: (LoggedLoad | undefined)[] = own ? [own] : Object.values(loads)
+  const fits = logged.flatMap((l) => (l !== undefined && l.loadUnit === unit ? [l.load] : []))
+  return fits.length > 0 ? Math.min(...fits) : undefined
+}
+
+/** Load × 0.75 rounded down to the increment, or the last Phase 1 load when that is lighter (PROGRAM-QUESTIONS 6), and which won, in words. */
+function cutLoad(lastLoad: number, increment: number, unit: LoadUnit, floor: number | undefined): { load: number; why: string } {
+  const cut = backOffLoad(lastLoad, increment)
+  if (floor === undefined) return { load: cut, why: `load × 0.75, rounded down to ${cut} ${unit}` }
+  if (floor < cut) return { load: floor, why: `the last Phase 1 load, ${floor} ${unit}, is lighter than load × 0.75 (${cut} ${unit}), so it wins` }
+  if (floor > cut) return { load: cut, why: `load × 0.75, rounded down to ${cut} ${unit}, is lighter than the last Phase 1 load (${floor} ${unit}), so it wins` }
+  return { load: cut, why: `load × 0.75 and the last Phase 1 load are both ${cut} ${unit}` }
 }
 
 /**

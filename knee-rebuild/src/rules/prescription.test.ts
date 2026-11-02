@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Exercise, SetLog, Slot } from '../schema/index.ts'
-import { backOffLoad, backOffMoves, backOffStep, effectiveReading, nextSubstitution, prescribe, progressionNeedsRpe, type PrescriptionInput } from './prescription.ts'
+import { backOffLoad, backOffMoves, backOffStep, effectiveReading, nextSubstitution, prescribe, progressionNeedsRpe, WHOLE_KNEE_NOTE, type PrescriptionInput } from './prescription.ts'
 
 const ex = (over: Partial<Exercise> = {}): Exercise => ({
   id: 'leg-press', name: 'Leg press', pattern: 'squat', equipment: 'seated leg press', loadType: 'stack', loadUnit: 'plate', increment: 1, loadDirection: 'up', unilateral: false, requires: [], ...over,
@@ -467,5 +467,66 @@ describe('what a back-off does, and whether it moves the slot (PROGRAM-QUESTIONS
     const p = one({ slot: nordicSlot, exercise: nordic, substitutions: [curl], readings: ['back-off'], lastSets, week: 4, placement: { note: 'Back on Nordic negatives.', returned: true } })
     expect(p).toMatchObject({ exerciseId: 'nordic-negatives', sets: 2, basis: 'deload' })
     expect(p.note).toMatch(/^Back on Nordic negatives\. Deload week/)
+  })
+})
+
+describe('the whole knee: the next lift after a morning that read back off (PROGRAM-QUESTIONS 6)', () => {
+  const knee = (phaseOneLoads: NonNullable<PrescriptionInput['wholeKnee']>['phaseOneLoads'] = {}): NonNullable<PrescriptionInput['wholeKnee']> => ({ morning: '2026-12-09', phaseOneLoads })
+  const press = ex({ loadUnit: 'lb', increment: 5 })
+  const lbSets = threeSets({ load: 100, loadUnit: 'lb' })
+
+  it('backs off whatever the readings say', () => {
+    for (const readings of [['clean', 'clean'], ['clean'], ['hold'], []] as const) {
+      expect(one({ exercise: press, readings: [...readings], lastSets: lbSets, wholeKnee: knee() }), readings.join()).toMatchObject({ load: 75, basis: 'back-off' })
+    }
+  })
+
+  it('leads the note, and only a back-off gets the lead', () => {
+    expect(one({ exercise: press, lastSets: lbSets, wholeKnee: knee() }).note).toBe(`${WHOLE_KNEE_NOTE} Back off: load × 0.75, rounded down to 75 lb.`)
+    expect(one({ exercise: press, lastSets: lbSets, wholeKnee: knee(), redFlagActive: true })).toMatchObject({ basis: 'suspended', note: 'Red-flag state: progression is suspended; repeat the last session exactly.' })
+    expect(one({ exercise: press, lastSets: [], wholeKnee: knee() }).basis).toBe('first')
+  })
+
+  it('a Phase 1 load in another unit is not a floor', () => {
+    expect(one({ exercise: press, lastSets: lbSets, wholeKnee: knee({ both: { load: 7, loadUnit: 'plate' } }) })).toMatchObject({ load: 75 })
+  })
+
+  it('reads the side’s own Phase 1 load, or the lightest side when that side has none', () => {
+    const rdl = ex({ id: 'single-leg-rdl', pattern: 'hinge', loadType: 'dumbbell-single', loadUnit: 'lb', increment: 5, unilateral: true })
+    const s = slot({ exerciseId: 'single-leg-rdl', unilateral: true })
+    const sided = [...threeSets({ side: 'right', load: 40, loadUnit: 'lb' }), ...threeSets({ side: 'left', load: 40, loadUnit: 'lb' })]
+    const [right, left] = prescribe(input({ slot: s, exercise: rdl, lastSets: sided, wholeKnee: knee({ right: { load: 20, loadUnit: 'lb' }, left: { load: 35, loadUnit: 'lb' } }) }))
+    expect(right).toMatchObject({ side: 'right', load: 20 })
+    expect(left).toMatchObject({ side: 'left', load: 30 })
+    const [fromBoth] = prescribe(input({ slot: s, exercise: rdl, lastSets: sided, wholeKnee: knee({ both: { load: 25, loadUnit: 'lb' } }) }))
+    expect(fromBoth).toMatchObject({ side: 'right', load: 25 })
+  })
+
+  it('a step at its starting height takes the floor on the dumbbells in the hands', () => {
+    const stepUp = ex({ id: 'step-up', pattern: 'single-leg', loadType: 'step-height', loadUnit: 'in', increment: 2, heightIncrementIn: 2, holdsLoad: 'dumbbell-each', unilateral: true })
+    const s = slot({ exerciseId: 'step-up', repsMin: 10, repsMax: 10, progressionRule: 'height-then-load', heightIn: 6, heightMaxIn: 16, loadBeforeHeightLb: 20 })
+    const atStart = threeSets({ load: 20, loadUnit: 'lb', reps: 10, heightIn: 6 })
+    expect(one({ slot: s, exercise: stepUp, lastSets: atStart, wholeKnee: knee({ both: { load: 10, loadUnit: 'lb' } }) })).toMatchObject({
+      load: 10, heightIn: 6, note: `${WHOLE_KNEE_NOTE} Back off: 10 lb in the hands at the starting height; the last Phase 1 load, 10 lb, is lighter than load × 0.75 (15 lb), so it wins.`,
+    })
+    // Above the starting height the back-off steps down first; the load stays.
+    expect(one({ slot: s, exercise: stepUp, lastSets: threeSets({ load: 20, loadUnit: 'lb', reps: 10, heightIn: 10 }), wholeKnee: knee({ both: { load: 10, loadUnit: 'lb' } }) })).toMatchObject({ load: 20, heightIn: 8 })
+  })
+
+  it('bodyweight work goes to its easier version, led by the morning', () => {
+    const nordic = ex({ id: 'nordic-negatives', pattern: 'hamstring', loadType: 'bodyweight', loadUnit: 'none', increment: 0 })
+    const curl = ex({ id: 'single-leg-seated-leg-curl', name: 'Single-leg seated leg curl', pattern: 'hamstring', loadUnit: 'lb' })
+    const s = slot({ exerciseId: 'nordic-negatives', repsMin: 3, repsMax: 5, progressionRule: 'fixed', substitutionIds: ['single-leg-seated-leg-curl'] })
+    expect(one({ slot: s, exercise: nordic, substitutions: [curl], lastSets: threeSets({ load: 0, loadUnit: 'none', reps: 4 }), wholeKnee: knee() })).toMatchObject({
+      exerciseId: 'single-leg-seated-leg-curl', basis: 'back-off', note: `${WHOLE_KNEE_NOTE} Back off: the easier version, Single-leg seated leg curl.`,
+    })
+  })
+
+  it('wins over a return from the easier version for that session', () => {
+    const nordic = ex({ id: 'nordic-negatives', pattern: 'hamstring', loadType: 'bodyweight', loadUnit: 'none', increment: 0 })
+    const curl = ex({ id: 'single-leg-seated-leg-curl', name: 'Single-leg seated leg curl', pattern: 'hamstring', loadUnit: 'lb' })
+    const s = slot({ exerciseId: 'nordic-negatives', repsMin: 3, repsMax: 5, progressionRule: 'fixed', substitutionIds: ['single-leg-seated-leg-curl'] })
+    const p = one({ slot: s, exercise: nordic, substitutions: [curl], readings: ['back-off'], lastSets: threeSets({ load: 0, loadUnit: 'none', reps: 4 }), placement: { note: 'Back on Nordics.', returned: true }, wholeKnee: knee() })
+    expect(p).toMatchObject({ exerciseId: 'single-leg-seated-leg-curl', basis: 'back-off', note: `Back on Nordics. ${WHOLE_KNEE_NOTE} Back off: the easier version, Single-leg seated leg curl.` })
   })
 })
