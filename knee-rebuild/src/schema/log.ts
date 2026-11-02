@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { Day, Effort, IsoDate, IsoDateTime, LoadUnit, Pain, ReadingResult, Rpe, RunType, SetSide, Side, StopReason, WorkoutStatus } from './enums.ts'
-import { EquipmentId } from './program.ts'
+import { EquipmentId, Slot } from './program.ts'
 
 const id = z.string().min(1)
 
@@ -202,3 +202,33 @@ export const SessionMove = z.strictObject({
   dayB: Day,
 })
 export type SessionMove = z.infer<typeof SessionMove>
+
+/** A cue written on the Program screen runs 1 to this many characters once trimmed (M6). */
+export const CUE_MAX = 200
+
+/** One cue as Shawn wrote it: one line of plain text, 1 to 200 characters once trimmed, showing something. */
+export const Cue = z
+  .string()
+  .trim()
+  .min(1)
+  .max(CUE_MAX)
+  .refine((text) => !/\p{Cc}/u.test(text), 'a cue is one line of plain text')
+  .refine(showsText, 'a cue shows a letter, digit or symbol')
+export type Cue = z.infer<typeof Cue>
+
+/**
+ * A slot's edits from the Program screen (M6, Dexie version 4): its cues and its substitutions as
+ * Shawn rewrote them, laid over program.md's slot (`applyOverrides`), never written into it. An
+ * absent field is program.md's own; "Back to program.md's" deletes the row. Whether the
+ * substitutions are exercises from the catalog, and never the slot's own, is checked against the
+ * seed (`overrideProblems`, src/rules/overrides.ts) before the row is written.
+ */
+export const ProgramOverride = z
+  .strictObject({
+    slotId: Slot.shape.id,
+    cues: z.array(Cue).optional(),
+    substitutionIds: Slot.shape.substitutionIds.refine(uniqueIds, 'substitutions list each exercise once').optional(),
+    editedOn: IsoDate,
+  })
+  .refine((o) => o.cues !== undefined || o.substitutionIds !== undefined, { message: 'an override edits the cues, the substitutions, or both' })
+export type ProgramOverride = z.infer<typeof ProgramOverride>
