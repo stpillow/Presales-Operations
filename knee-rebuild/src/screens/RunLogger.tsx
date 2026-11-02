@@ -1,16 +1,18 @@
 import { useId, useState, type ReactNode } from 'react'
 import { navigate } from '../app/router.ts'
-import { PROGRAM } from '../app/session.ts'
+import { PROGRAM, availableAt } from '../app/session.ts'
 import { useToday } from '../app/today.ts'
 import { Button } from '../components/Button.tsx'
 import { PAIN_SCALE, ScalePicker } from '../components/ScalePicker.tsx'
 import { Screen } from '../components/Screen.tsx'
 import { Stepper } from '../components/Stepper.tsx'
 import { Tap } from '../components/Tap.tsx'
-import { useHistory, useSettings } from '../db/hooks.ts'
+import { useActiveLocation, useHistory, useLocations, useSettings } from '../db/hooks.ts'
 import { addRun, deleteRun, type History } from '../db/repo.ts'
-import type { IsoDate, Run, RunType, Settings } from '../schema/index.ts'
-import { runLabel } from './Today.helpers.ts'
+import { runSwapGym } from '../rules/gymDay.ts'
+import { listedLocations } from '../rules/locations.ts'
+import type { IsoDate, Location, Run, RunType, Settings } from '../schema/index.ts'
+import { noSwapSuggestedWords, runLabel } from './Today.helpers.ts'
 import {
   EFFORTS,
   MILES_MAX,
@@ -18,7 +20,6 @@ import {
   MINUTES_MAX,
   MINUTES_STEP,
   RUN_TYPES,
-  SWAP_TYPES,
   dateLostWords,
   dayChoiceWords,
   dayChoicesNote,
@@ -26,6 +27,7 @@ import {
   errorWords,
   isSwapType,
   leadWords,
+  loggedDate,
   loggedWords,
   loggerView,
   newRunId,
@@ -33,13 +35,17 @@ import {
   openForm,
   reasonSentence,
   resolveForm,
+  rowerCue,
+  rowerCueFor,
   runPlanWords,
   runRow,
   saveWords,
   stravaProblem,
   suggestionHead,
+  swapGymNote,
   takeSwapWords,
   toRun,
+  typeDetail,
   weekLine,
   type LoggerView,
   type RunForm,
@@ -51,6 +57,8 @@ const HEADING = 'font-sans text-h3 font-medium text-on-dark'
 
 type FormView = Extract<LoggerView, { kind: 'form' }>
 
+const ROWER_CUE = rowerCue(PROGRAM.running.rules)
+
 /**
  * One run, one hand, under ten seconds: the type preselected from the day's session, the engine's
  * suggestion in words (a swap is offered, never switched to), miles, minutes, effort, max pain, the
@@ -61,32 +69,42 @@ export function RunLogger() {
   const today = useToday()
   const settings = useSettings()
   const history = useHistory()
+  // A swap logged for today is at the gym Today plans for; one for an earlier day, at the gym picked or preset for that day (M4b).
+  const activeLocation = useActiveLocation()
+  const locations = useLocations()
 
-  if (settings === undefined || history === undefined) {
+  if (settings === undefined || history === undefined || activeLocation === undefined || locations === undefined || (settings !== null && activeLocation === null)) {
     return (
       <Screen title={TITLE} lead="Opening storage…">
         <p className="text-body text-on-dark-dim">This week’s runs and the mileage plan load from the phone.</p>
       </Screen>
     )
   }
-  if (settings === null) {
+  if (settings === null || activeLocation === null) {
     return (
       <Screen title={TITLE} lead="No settings yet.">
         <p className="text-body text-on-dark-dim">Open the app from Today once so it can seed its settings, then come back.</p>
       </Screen>
     )
   }
-  return <Logger today={today} settings={settings} history={history} />
+  return <Logger today={today} settings={settings} history={history} active={activeLocation} locations={locations} />
 }
 
-function Logger({ today, settings, history }: { today: IsoDate; settings: Settings; history: History }) {
+function Logger({ today, settings, history, active, locations }: { today: IsoDate; settings: Settings; history: History; active: Location; locations: Location[] }) {
   // The date is pinned when the logger opens: useToday() moves at midnight, and the form must not move with it.
   const [form, setForm] = useState<RunForm>(() => openForm(today))
   const [saved, setSaved] = useState<Run | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const view = loggerView({ today, picked: { date: form.date, type: form.type }, settings, history, program: PROGRAM })
+  // A swap is judged and stored at the gym it was done at: today's at the active gym; an earlier day's
+  // at the gym picked for it, else that day's lift's gym, else the active one (runSwapGym).
+  const listed = listedLocations(locations)
+  const date = loggedDate(today, settings.startDate, form.date)
+  const gymId = runSwapGym({ date, today, activeId: active.id, listed, workouts: history.workouts, picked: form.gymPick })
+  const location = listed.find((l) => l.id === gymId) ?? active
+  const gym = { name: location.name, available: availableAt({ location, kit: settings.kit }) }
+  const view = loggerView({ today, picked: { date: form.date, type: form.type }, settings, history, program: PROGRAM, gym })
   if (view.kind === 'before-start') {
     return (
       <Screen title={TITLE} lead={view.line}>
@@ -134,7 +152,9 @@ function Logger({ today, settings, history }: { today: IsoDate; settings: Settin
   }
 
   const resolved = resolveForm(form, view)
-  const draft = toRun(resolved, newRunId(resolved.date, history.runs.map((r) => r.id)))
+  // program.md's rower cue, verbatim, when the rower swap is the morning's call here or the type picked (design section 7).
+  const cue = rowerCueFor(view, ROWER_CUE)
+  const draft = toRun(resolved, newRunId(resolved.date, history.runs.map((r) => r.id)), location.id)
   const set = (patch: Partial<RunForm>) => setForm((f) => ({ ...f, ...patch }))
 
   async function save() {
@@ -172,12 +192,24 @@ function Logger({ today, settings, history }: { today: IsoDate; settings: Settin
         </Section>
       ) : null}
 
+      {view.date !== today && listed.length > 1 ? (
+        <Section label="Gym for a swap">
+          <div role="radiogroup" aria-label="Gym for a swap" className="flex flex-col gap-2">
+            {listed.map((l) => (
+              <Choice key={l.id} label={l.name} selected={l.id === location.id} onSelect={() => set({ gymPick: { date: view.date, locationId: l.id } })} />
+            ))}
+          </div>
+          <Note>{swapGymNote(view.date, location.name)}</Note>
+        </Section>
+      ) : null}
+
       <Section label="Type">
         <div role="radiogroup" aria-label="Type" className="flex flex-col gap-2">
           {RUN_TYPES.map((type) => (
-            <Choice key={type} label={runLabel(type)} detail={type === view.preselected ? 'scheduled' : undefined} selected={view.type === type} onSelect={() => set({ type })} />
+            <Choice key={type} label={runLabel(type)} detail={typeDetail(type, view)} selected={view.type === type} onSelect={() => set({ type })} />
           ))}
         </div>
+        {cue ? <p className="text-body text-on-dark-dim">{cue}</p> : null}
       </Section>
 
       <SuggestionBlock view={view} today={today} onTake={(type) => set({ type })} />
@@ -249,7 +281,7 @@ function Note({ children }: { children: ReactNode }) {
 
 /** One of several choices: the chosen one says so with a mark and a word, never by color alone. */
 function Choice({ label, selected, onSelect, detail, compact = false }: { label: string; selected: boolean; onSelect: () => void; detail?: string | undefined; compact?: boolean }) {
-  const mark = <span className="font-mono text-small uppercase tracking-[0.22em]">{selected ? (compact ? '✓' : '✓ Chosen') : '○'}</span>
+  const mark = <span className="shrink-0 whitespace-nowrap font-mono text-small uppercase tracking-[0.22em]">{selected ? (compact ? '✓' : '✓ Chosen') : '○'}</span>
   return (
     <button
       type="button"
@@ -267,7 +299,8 @@ function Choice({ label, selected, onSelect, detail, compact = false }: { label:
         </>
       ) : (
         <>
-          <span>
+          {/* A swap's detail names the gym ("Not at …"), up to 60 characters in one word: it wraps inside the row. */}
+          <span className="min-w-0 wrap-anywhere">
             {label}
             {detail ? <span className="text-small text-on-dark-muted"> · {detail}</span> : null}
           </span>
@@ -295,7 +328,11 @@ function StopBlock({ headline, items }: { headline: string; items: string[] }) {
   )
 }
 
-/** suggestRun's miles and reasons in words; a suggested swap is one tap away and never taken for you. */
+/**
+ * suggestRun's miles and reasons in words; a suggested swap is one tap away and never taken for you.
+ * A hold or back-off morning names the first swap at the gym; with neither machine there nothing is
+ * suggested, the block says so, and every type still logs (Shawn's Nov 1 answer 7).
+ */
 function SuggestionBlock({ view, today, onTake }: { view: FormView; today: IsoDate; onTake: (type: RunType) => void }) {
   const { suggestion } = view
   if (!suggestion) {
@@ -306,12 +343,15 @@ function SuggestionBlock({ view, today, onTake }: { view: FormView; today: IsoDa
     )
   }
   const swapTaken = isSwapType(view.type)
+  const { swapCall } = view
+  const neitherHere = swapCall?.kind === 'neither'
   return (
     <Section label="Suggested">
-      <p className="text-lead text-on-dark">{suggestionHead(suggestion)}</p>
+      <p className="text-lead text-on-dark wrap-anywhere">{suggestionHead(suggestion, view)}</p>
+      {neitherHere ? <p className="text-body text-on-dark">{noSwapSuggestedWords(view.morning)} Every type still logs.</p> : null}
       {suggestion.swapSuggested ? <p className="text-body text-on-dark-dim">If you run it anyway: {runPlanWords(suggestion)}.</p> : null}
       {suggestion.miles === null ? <p className="text-body text-on-dark-dim">No miles are suggested: {view.summary.target.reason}.</p> : null}
-      {suggestion.reasons.length > 0 ? (
+      {!neitherHere && suggestion.reasons.length > 0 ? (
         <ul className="flex flex-col gap-1">
           {suggestion.reasons.map((reason) => (
             <li key={reason} className="text-body text-on-dark-dim">
@@ -320,17 +360,15 @@ function SuggestionBlock({ view, today, onTake }: { view: FormView; today: IsoDa
           ))}
         </ul>
       ) : null}
-      {suggestion.swapSuggested ? (
+      {swapCall?.kind === 'take' ? (
         swapTaken ? (
           <p className="text-body text-on-dark">Swap taken. It counts as the session and adds no miles.</p>
         ) : (
           <div className="flex flex-col gap-2">
             <p className="text-body text-on-dark">{runLabel(view.type ?? suggestion.type)} stays chosen unless you take a swap.</p>
-            {SWAP_TYPES.map((type) => (
-              <Button key={type} wide onClick={() => onTake(type)}>
-                {takeSwapWords(type)}
-              </Button>
-            ))}
+            <Button wide onClick={() => onTake(swapCall.type)}>
+              {takeSwapWords(swapCall.type)}
+            </Button>
           </div>
         )
       ) : null}

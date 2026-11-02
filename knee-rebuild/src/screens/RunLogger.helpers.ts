@@ -1,5 +1,7 @@
 import type { History } from '../db/repo.ts'
 import { addDays, dateOf, dayOf, daysBetween, scheduledSession, weekOf } from '../rules/calendar.ts'
+import { runSwapsHere, type Available, type RunSwapHere } from '../rules/equipment.ts'
+import { swapCallAt, type SwapCall } from '../rules/gymDay.ts'
 import { attachChecks, runReading, subjectReadings } from '../rules/history.ts'
 import { isSwap } from '../rules/mileage.ts'
 import { morningCheckApplies, morningReading } from '../rules/reading.ts'
@@ -7,7 +9,7 @@ import { progressionSuspended, stopMessage } from '../rules/redFlags.ts'
 import { phaseWeekOf } from '../rules/session.ts'
 import { runTypeFor, runsInWeek, suggestRun, weekMilesSummary, type RunSuggestion, type WeekMiles } from '../rules/weekPlan.ts'
 import { Effort, Run, RunType, type Day, type DaySession, type IsoDate, type MorningCheck, type Program, type ReadingResult, type Settings } from '../schema/index.ts'
-import { dateWords, runLabel, sessionLabel, shortDateWords } from './Today.helpers.ts'
+import { dateWords, noSwapMachineWords, runLabel, sessionLabel, shortDateWords } from './Today.helpers.ts'
 
 /**
  * Pure helpers for the Run logger: which dates a run can be logged for, the view the screen renders,
@@ -21,8 +23,6 @@ export type ProgramLike = Pick<Program, 'weeklyTemplate' | 'weeklyTemplateRows' 
 
 /** The five types, in the order the screen offers them. */
 export const RUN_TYPES: readonly RunType[] = RunType.options
-/** The two swaps the suggestion can offer, elliptical first as the weekly template's Wednesday note has it. */
-export const SWAP_TYPES: readonly RunType[] = ['elliptical-swap', 'rower-swap']
 export const EFFORTS: readonly Effort[] = Effort.options
 
 export const MILES_STEP = 0.25
@@ -65,6 +65,19 @@ export function dayChoicesNote(today: IsoDate, startDate: IsoDate): string {
     : 'Earlier days of this program week can be logged; later ones cannot.'
 }
 
+/**
+ * The date the logger logs for: the one picked (pinned when the logger opened) while it is still a
+ * choice, else today. The view's `date`, and the date a swap's gym is read for (`runSwapGym`).
+ */
+export function loggedDate(today: IsoDate, startDate: IsoDate, picked: IsoDate | null): IsoDate {
+  return picked !== null && dateChoices(today, startDate).includes(picked) ? picked : today
+}
+
+/** Under the gym choice on an earlier day's log: where the swap is stored, and that another gym is a tap away. */
+export function swapGymNote(date: IsoDate, gymName: string): string {
+  return `A swap stores the gym it was done at: ${dateWords(date).split(',')[0] ?? 'that day'}’s is preset to ${gymName}. Tap another if it was elsewhere.`
+}
+
 /** That date's morning reading, from the check logged that morning, or null when none was. */
 export function morningFor(date: IsoDate, checks: readonly MorningCheck[]): ReadingResult | null {
   const check = checks.find((c) => c.date === date)
@@ -98,6 +111,18 @@ export type LoggerView =
        */
       suggestion: RunSuggestion | null
       stop: { headline: string; items: string[] } | null
+      /** That date's morning reading, from the check logged that morning; null when none was. */
+      morning: ReadingResult | null
+      /** The gym a swap is logged at, by name: the active one, or for an earlier day the one `runSwapGym` gives. */
+      gym: string
+      /** Both swaps in program.md's order, each here or not at that gym; both stay loggable (design section 7). */
+      swaps: RunSwapHere[]
+      /**
+       * What a hold or back-off morning's swap call comes to at the gym: `take` names the first swap
+       * here, elliptical then rower; `neither` means nothing is suggested and he picks (Shawn's
+       * Nov 1 answer 7). Null when the engine calls for no swap.
+       */
+      swapCall: SwapCall | null
       summary: WeekMiles
       /** This program week's runs, by date. */
       weekRuns: Run[]
@@ -110,13 +135,15 @@ export function loggerView(input: {
   settings: Settings
   history: HistoryLike
   program: ProgramLike
+  /** The gym a swap is logged at (`runSwapGym`): its name and what is there (`availableAt`). */
+  gym: { name: string; available: Available }
 }): LoggerView {
-  const { today, picked, settings, history, program } = input
+  const { today, picked, settings, history, program, gym } = input
   const dates = dateChoices(today, settings.startDate)
   if (dates.length === 0) return { kind: 'before-start', line: `Week 1 starts ${shortDateWords(settings.startDate)}` }
 
   const dateLost = picked.date !== null && !dates.includes(picked.date) ? picked.date : null
-  const date = picked.date !== null && dateLost === null ? picked.date : today
+  const date = loggedDate(today, settings.startDate, picked.date)
   const { week, session } = scheduledSession(date, settings.startDate, program.weeklyTemplate, history.sessionMoves)
   const scheduled: DaySession = session ?? 'off'
   const preselected = runTypeFor(scheduled)
@@ -128,6 +155,7 @@ export function loggerView(input: {
   const weekRuns = runsInWeek(history.runs, settings.startDate, week).sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
 
   const stop = stopMessage(settings.redFlag, program.redFlags)
+  const morning = morningFor(date, history.morningChecks)
   const suggestion = progressionSuspended(settings.redFlag)
     ? null
     : suggestRun({
@@ -137,7 +165,7 @@ export function loggerView(input: {
         milesSoFar: summary.miles,
         currentPhase: settings.currentPhase,
         phaseWeek: phaseWeekOf(Math.max(week, settings.phaseEnteredWeek), settings.phaseEnteredWeek),
-        morning: morningFor(date, history.morningChecks),
+        morning,
       })
 
   return {
@@ -152,6 +180,10 @@ export function loggerView(input: {
     type,
     suggestion,
     stop,
+    morning,
+    gym: gym.name,
+    swaps: runSwapsHere(gym.available),
+    swapCall: swapCallAt(suggestion, gym.available),
     summary,
     weekRuns,
   }
@@ -187,11 +219,50 @@ export function runPlanWords(suggestion: RunSuggestion): string {
 }
 
 /**
- * The head of the suggestion block: the swap when the engine calls for one (as Today says it), else
- * the run and its miles. The run's plan is still shown under a swap head, for a run done anyway.
+ * The head of the suggestion block: when the engine calls for a swap, the first one here
+ * ("Elliptical swap", else "Rower swap"), or with neither here "No elliptical or rower at
+ * Marriott Downtown"; else the run and its miles. The run's plan is still shown under a swap
+ * head, for a run done anyway.
  */
-export function suggestionHead(suggestion: RunSuggestion): string {
-  return suggestion.swapSuggested ? 'An elliptical or rower swap' : runPlanWords(suggestion)
+export function suggestionHead(suggestion: RunSuggestion, at: { swapCall: SwapCall | null; gym: string }): string {
+  if (!suggestion.swapSuggested || at.swapCall === null) return runPlanWords(suggestion)
+  return at.swapCall.kind === 'take' ? runLabel(at.swapCall.type) : noSwapMachineWords(at.gym)
+}
+
+/** A swap choice's detail: "Here", or "Not at Marriott Downtown"; it logs either way. */
+export function swapHereWords(here: boolean, gymName: string): string {
+  return here ? 'Here' : `Not at ${gymName}`
+}
+
+/** The detail on a type choice: "scheduled" on the day's run, and on each swap whether its machine is at the gym. */
+export function typeDetail(type: RunType, view: { preselected: RunType | null; swaps: readonly RunSwapHere[]; gym: string }): string | undefined {
+  const swap = view.swaps.find((s) => s.type === type)
+  if (swap) return swapHereWords(swap.here, view.gym)
+  return type === view.preselected ? 'scheduled' : undefined
+}
+
+const ROWER_CUE_START = 'On the rower'
+
+/**
+ * program.md's rower cue, verbatim (design section 7): the sentence of its running rules that starts
+ * "On the rower" ("On the rower, strap in, drive with the legs only through the pain-free range, and
+ * keep the stroke rate around 22–24."). Null if the rules ever stop carrying one.
+ */
+export function rowerCue(rules: readonly string[]): string | null {
+  for (const rule of rules) {
+    const at = rule.indexOf(ROWER_CUE_START)
+    if (at < 0) continue
+    const rest = rule.slice(at)
+    const end = rest.search(/[.!?](\s|$)/)
+    return end < 0 ? rest : rest.slice(0, end + 1)
+  }
+  return null
+}
+
+/** The rower cue when the rower swap is the morning's call at this gym or the type picked; null otherwise. */
+export function rowerCueFor(view: { type: RunType | null; swapCall: SwapCall | null }, cue: string | null): string | null {
+  const rower = view.type === 'rower-swap' || (view.swapCall?.kind === 'take' && view.swapCall.type === 'rower-swap')
+  return rower ? cue : null
 }
 
 /** The engine's reasons are lowercase fragments; on screen each is a sentence. */
@@ -255,10 +326,12 @@ export interface RunForm {
   tempo: boolean | null
   stravaUrl: string
   notes: string
+  /** The gym picked for a swap logged for an earlier day, and that day; null follows `runSwapGym`'s preset. */
+  gymPick: { date: IsoDate; locationId: string } | null
 }
 
 export function emptyForm(): RunForm {
-  return { date: null, type: null, miles: null, minutes: 0, effort: 'easy', maxPain: null, strides: null, tempo: null, stravaUrl: '', notes: '' }
+  return { date: null, type: null, miles: null, minutes: 0, effort: 'easy', maxPain: null, strides: null, tempo: null, stravaUrl: '', notes: '', gymPick: null }
 }
 
 /**
@@ -315,8 +388,13 @@ export function stravaProblem(text: string): string | null {
 
 export type RunDraft = { ok: true; run: Run } | { ok: false; blocker: string }
 
-/** The Run that Save logs, or the words on the disabled Save button saying what is missing. */
-export function toRun(form: ResolvedForm, id: string): RunDraft {
+/**
+ * The Run that Save logs, or the words on the disabled Save button saying what is missing. A swap
+ * (elliptical or rower) is done at a gym, so it stores `locationId`, the gym it was done at
+ * (`runSwapGym`: the active one for today, the one picked or preset for an earlier day); a run
+ * outside stores none.
+ */
+export function toRun(form: ResolvedForm, id: string, locationId: string): RunDraft {
   const { type, maxPain } = form
   if (form.dateLost !== null) return { ok: false, blocker: 'Pick the day first' }
   if (type === null && maxPain === null) return { ok: false, blocker: 'Pick the type and rate max pain first' }
@@ -341,6 +419,7 @@ export function toRun(form: ResolvedForm, id: string): RunDraft {
       tempo: form.swap ? false : form.tempo,
       ...(link.length > 0 ? { stravaUrl: link } : {}),
       ...(notes.length > 0 ? { notes } : {}),
+      ...(form.swap ? { locationId } : {}),
     },
   }
 }

@@ -70,6 +70,19 @@ describe('workoutReading and runReading', () => {
   })
 })
 
+describe('a rack-capped workout in subjectReadings', () => {
+  it('is marked when any of its sets was rack-capped, and reads the knee as before', () => {
+    const capped = workout('w1', '2026-11-03')
+    const plain = workout('w2', '2026-11-05')
+    const sets = [set('w1', 'leg-press', 1, 2), { ...set('w1', 'db-rdl', 1, 2), rackCapped: true }, set('w2', 'leg-press', 1, 2), { ...set('w2', 'db-rdl', 1, 2), rackCapped: false }]
+    const checks = [check('2026-11-04'), check('2026-11-06')]
+    expect(subjectReadings(attachChecks([capped, plain], sets, checks), [], checks)).toEqual([
+      { kind: 'workout', id: 'w1', date: '2026-11-03', result: 'clean', rackCapped: true },
+      { kind: 'workout', id: 'w2', date: '2026-11-05', result: 'clean' },
+    ])
+  })
+})
+
 describe('recordsBefore and lastSetsBySide', () => {
   const side = (workoutId: string, s: SetLog['side'], n: number, reps: number): SetLog => ({ id: `${workoutId}-${s}-${n}`, workoutId, slotId: 'x', exerciseId: 'cable-hip-abduction', setNumber: n, side: s, load: 4, loadUnit: 'plate', reps, painDuring: 1, stopped: false })
   const w1 = workout('w1', '2026-11-07')

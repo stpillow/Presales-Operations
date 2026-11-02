@@ -99,11 +99,19 @@ export interface SubjectReading {
   id: string
   date: IsoDate
   result: ReadingResult
+  /** A workout with any rack-capped set (gymLoads.ts); the gates' clean weeks leave its clean out. Absent otherwise. */
+  rackCapped?: true
 }
 
-/** Every finished workout's and every run's reading, dated, for the gates and the Week screen. */
+/** Every finished workout's and every run's reading, dated, for the gates and the Week screen. A workout's reading reads the knee, rack-capped or not. */
 export function subjectReadings(records: readonly WorkoutRecord[], runs: readonly Run[], checks: readonly MorningCheck[], injuredSide?: Side): SubjectReading[] {
-  const workouts = records.filter(finished).map((r) => ({ kind: 'workout' as const, id: r.workout.id, date: r.workout.date, result: workoutReading(r, injuredSide).result }))
+  const workouts = records.filter(finished).map((r): SubjectReading => ({
+    kind: 'workout',
+    id: r.workout.id,
+    date: r.workout.date,
+    result: workoutReading(r, injuredSide).result,
+    ...(r.sets.some((s) => s.rackCapped === true) ? { rackCapped: true as const } : {}),
+  }))
   const runReadings = runs.map((run) => ({ kind: 'run' as const, id: run.id, date: run.date, result: runReading(run, checks).result }))
   return [...workouts, ...runReadings].sort((a, b) => a.date.localeCompare(b.date))
 }

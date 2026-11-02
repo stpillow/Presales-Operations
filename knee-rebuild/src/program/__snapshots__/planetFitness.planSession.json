@@ -1,0 +1,2123 @@
+[
+  {
+    "templateId": "p1-a",
+    "week": 1,
+    "slots": [
+      {
+        "slotId": "p1a-1",
+        "exerciseId": "leg-press",
+        "substitutionIds": [
+          "leg-press-45",
+          "smith-box-squat",
+          "goblet-squat-bench"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "leg-press",
+            "side": "both",
+            "sets": 3,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": null,
+            "repsTarget": 10,
+            "basis": "first",
+            "note": "First time: pick a load that lands at RPE 6 and start at 10 reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p1a-2",
+        "exerciseId": "seated-leg-curl",
+        "substitutionIds": [
+          "lying-leg-curl",
+          "stability-ball-leg-curl"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "seated-leg-curl",
+            "side": "both",
+            "sets": 3,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": null,
+            "repsTarget": 12,
+            "basis": "first",
+            "note": "First time: pick a load that lands at RPE 7 and start at 12 reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p1a-3",
+        "exerciseId": "db-bench-press",
+        "substitutionIds": [
+          "chest-press-machine",
+          "smith-bench-press"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "db-bench-press",
+            "side": "both",
+            "sets": 3,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": null,
+            "repsTarget": 8,
+            "basis": "first",
+            "note": "First time: pick a load that lands at RPE 8 and start at 8 reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p1a-4",
+        "exerciseId": "lat-pulldown",
+        "substitutionIds": [
+          "assisted-pull-up",
+          "single-arm-cable-pulldown"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "lat-pulldown",
+            "side": "both",
+            "sets": 3,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": null,
+            "repsTarget": 10,
+            "basis": "first",
+            "note": "First time: pick a load that lands at RPE 8 and start at 10 reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p1a-5",
+        "exerciseId": "hip-abductor-machine",
+        "substitutionIds": [
+          "cable-hip-abduction",
+          "lateral-band-walk",
+          "copenhagen-plank-short"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "hip-abductor-machine",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": null,
+            "repsTarget": 15,
+            "basis": "first",
+            "note": "First time: pick a load that lands at RPE 7 and start at 15 reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p1a-6",
+        "exerciseId": "standing-calf-raise",
+        "substitutionIds": [
+          "seated-calf-raise",
+          "single-leg-calf-raise-step"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "standing-calf-raise",
+            "side": "both",
+            "sets": 3,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": null,
+            "repsTarget": 12,
+            "basis": "first",
+            "note": "First time: pick a load and start at 12 reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p1a-7",
+        "exerciseId": "single-leg-balance",
+        "substitutionIds": [],
+        "prescriptions": [
+          {
+            "exerciseId": "single-leg-balance",
+            "side": "right",
+            "sets": 3,
+            "loadUnit": "s",
+            "repUnit": "seconds",
+            "stage": 0,
+            "load": 0,
+            "repsTarget": 30,
+            "basis": "first",
+            "note": "First time: start at 30 seconds."
+          }
+        ]
+      },
+      {
+        "slotId": "p1a-8",
+        "exerciseId": "dead-bug",
+        "substitutionIds": [],
+        "prescriptions": [
+          {
+            "exerciseId": "dead-bug",
+            "side": "both",
+            "sets": 3,
+            "loadUnit": "none",
+            "repUnit": "reps",
+            "load": 0,
+            "repsTarget": 8,
+            "basis": "first",
+            "note": "First time: start at 8 reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p1a-9",
+        "exerciseId": "elliptical-easy",
+        "substitutionIds": [],
+        "prescriptions": [
+          {
+            "exerciseId": "elliptical-easy",
+            "side": "both",
+            "sets": 1,
+            "loadUnit": "s",
+            "repUnit": "minutes",
+            "load": 0,
+            "repsTarget": 10,
+            "basis": "first",
+            "note": "First time: start at 10 minutes."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "templateId": "p1-b",
+    "week": 1,
+    "slots": [
+      {
+        "slotId": "p1b-1",
+        "exerciseId": "smith-box-squat",
+        "substitutionIds": [
+          "goblet-squat-bench",
+          "bulgarian-split-squat"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "smith-box-squat",
+            "side": "both",
+            "sets": 3,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": null,
+            "repsTarget": 8,
+            "basis": "first",
+            "note": "First time: pick a load that lands at RPE 6 and start at 8 reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p1b-2",
+        "exerciseId": "smith-hip-thrust",
+        "substitutionIds": [
+          "db-glute-bridge",
+          "db-hip-thrust"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "smith-hip-thrust",
+            "side": "both",
+            "sets": 3,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": null,
+            "repsTarget": 12,
+            "basis": "first",
+            "note": "First time: pick a load that lands at RPE 7 and start at 12 reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p1b-3",
+        "exerciseId": "seated-cable-row",
+        "substitutionIds": [
+          "chest-supported-db-row",
+          "single-arm-cable-row"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "seated-cable-row",
+            "side": "both",
+            "sets": 3,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": null,
+            "repsTarget": 10,
+            "basis": "first",
+            "note": "First time: pick a load that lands at RPE 8 and start at 10 reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p1b-4",
+        "exerciseId": "seated-db-shoulder-press",
+        "substitutionIds": [],
+        "prescriptions": [
+          {
+            "exerciseId": "seated-db-shoulder-press",
+            "side": "both",
+            "sets": 3,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": null,
+            "repsTarget": 8,
+            "basis": "first",
+            "note": "First time: pick a load that lands at RPE 8 and start at 8 reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p1b-5",
+        "exerciseId": "hip-adductor-machine",
+        "substitutionIds": [
+          "cable-hip-adduction",
+          "lateral-band-walk",
+          "copenhagen-plank-short"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "hip-adductor-machine",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": null,
+            "repsTarget": 15,
+            "basis": "first",
+            "note": "First time: pick a load that lands at RPE 7 and start at 15 reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p1b-6",
+        "exerciseId": "seated-calf-raise",
+        "substitutionIds": [
+          "standing-calf-raise",
+          "single-leg-calf-raise-step"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "seated-calf-raise",
+            "side": "both",
+            "sets": 3,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": null,
+            "repsTarget": 15,
+            "basis": "first",
+            "note": "First time: pick a load and start at 15 reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p1b-7",
+        "exerciseId": "side-plank",
+        "substitutionIds": [],
+        "prescriptions": [
+          {
+            "exerciseId": "side-plank",
+            "side": "both",
+            "sets": 3,
+            "loadUnit": "s",
+            "repUnit": "seconds",
+            "load": 0,
+            "repsTarget": 30,
+            "basis": "first",
+            "note": "First time: start at 30 seconds."
+          }
+        ]
+      },
+      {
+        "slotId": "p1b-8",
+        "exerciseId": "pallof-press",
+        "substitutionIds": [],
+        "prescriptions": [
+          {
+            "exerciseId": "pallof-press",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": null,
+            "repsTarget": 10,
+            "basis": "first",
+            "note": "First time: pick a load and start at 10 reps."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "templateId": "p1-c",
+    "week": 1,
+    "slots": [
+      {
+        "slotId": "p1c-1",
+        "exerciseId": "step-up",
+        "substitutionIds": [
+          "step-up-stair",
+          "split-squat"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "step-up",
+            "side": "right",
+            "sets": 3,
+            "loadUnit": "in",
+            "repUnit": "reps",
+            "heightIn": 6,
+            "load": 0,
+            "repsTarget": 10,
+            "basis": "first",
+            "note": "First time: start at 10 reps."
+          },
+          {
+            "exerciseId": "step-up",
+            "side": "left",
+            "sets": 3,
+            "loadUnit": "in",
+            "repUnit": "reps",
+            "heightIn": 6,
+            "load": 0,
+            "repsTarget": 10,
+            "basis": "first",
+            "note": "First time: start at 10 reps.",
+            "budgetFromInjured": true
+          }
+        ]
+      },
+      {
+        "slotId": "p1c-2",
+        "exerciseId": "db-rdl",
+        "substitutionIds": [
+          "single-leg-rdl",
+          "smith-rdl"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "db-rdl",
+            "side": "both",
+            "sets": 3,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": null,
+            "repsTarget": 10,
+            "basis": "first",
+            "note": "First time: pick a load that lands at RPE 7 and start at 10 reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p1c-3",
+        "exerciseId": "assisted-pull-up",
+        "substitutionIds": [
+          "lat-pulldown",
+          "single-arm-cable-pulldown"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "assisted-pull-up",
+            "side": "both",
+            "sets": 3,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": null,
+            "repsTarget": 6,
+            "basis": "first",
+            "note": "First time: pick a load that lands at RPE 8 and start at 6 reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p1c-4",
+        "exerciseId": "incline-db-press",
+        "substitutionIds": [
+          "chest-press-machine",
+          "smith-bench-press"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "incline-db-press",
+            "side": "both",
+            "sets": 3,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": null,
+            "repsTarget": 8,
+            "basis": "first",
+            "note": "First time: pick a load that lands at RPE 8 and start at 8 reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p1c-5",
+        "exerciseId": "leg-extension",
+        "substitutionIds": [
+          "wall-sit"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "leg-extension",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "rangeStopDeg": 45,
+            "load": null,
+            "repsTarget": 15,
+            "basis": "first",
+            "note": "First time: pick a load that lands at RPE 6 and start at 15 reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p1c-6",
+        "exerciseId": "back-extension-45",
+        "substitutionIds": [],
+        "prescriptions": [
+          {
+            "exerciseId": "back-extension-45",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": null,
+            "repsTarget": 12,
+            "basis": "first",
+            "note": "First time: pick a load and start at 12 reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p1c-7",
+        "exerciseId": "farmers-carry",
+        "substitutionIds": [
+          "suitcase-carry"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "farmers-carry",
+            "side": "both",
+            "sets": 3,
+            "loadUnit": "lb",
+            "repUnit": "yards",
+            "load": null,
+            "repsTarget": 40,
+            "basis": "first",
+            "note": "First time: pick a load and start at 40 yards."
+          }
+        ]
+      },
+      {
+        "slotId": "p1c-8",
+        "exerciseId": "cable-hip-abduction",
+        "substitutionIds": [
+          "lateral-band-walk",
+          "hip-abductor-machine",
+          "copenhagen-plank-short"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "cable-hip-abduction",
+            "side": "right",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": null,
+            "repsTarget": 12,
+            "basis": "first",
+            "note": "First time: pick a load and start at 12 reps."
+          },
+          {
+            "exerciseId": "cable-hip-abduction",
+            "side": "left",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": null,
+            "repsTarget": 12,
+            "basis": "first",
+            "note": "First time: pick a load and start at 12 reps.",
+            "budgetFromInjured": true
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "templateId": "p2-a",
+    "week": 4,
+    "slots": [
+      {
+        "slotId": "p2a-1",
+        "exerciseId": "single-leg-leg-press",
+        "substitutionIds": [
+          "leg-press-45",
+          "smith-box-squat",
+          "goblet-squat-bench"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "single-leg-leg-press",
+            "side": "right",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 10,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          },
+          {
+            "exerciseId": "single-leg-leg-press",
+            "side": "left",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 10,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps.",
+            "budgetFromInjured": true
+          }
+        ]
+      },
+      {
+        "slotId": "p2a-2",
+        "exerciseId": "single-leg-seated-leg-curl",
+        "substitutionIds": [
+          "lying-leg-curl",
+          "stability-ball-leg-curl"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "single-leg-seated-leg-curl",
+            "side": "right",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 10,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          },
+          {
+            "exerciseId": "single-leg-seated-leg-curl",
+            "side": "left",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 10,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps.",
+            "budgetFromInjured": true
+          }
+        ]
+      },
+      {
+        "slotId": "p2a-3",
+        "exerciseId": "db-bench-press",
+        "substitutionIds": [
+          "chest-press-machine",
+          "smith-bench-press"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "db-bench-press",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 8,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p2a-4",
+        "exerciseId": "lat-pulldown",
+        "substitutionIds": [
+          "assisted-pull-up",
+          "single-arm-cable-pulldown"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "lat-pulldown",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 10,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p2a-5",
+        "exerciseId": "hip-abductor-machine",
+        "substitutionIds": [
+          "cable-hip-abduction",
+          "lateral-band-walk",
+          "copenhagen-plank-short"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "hip-abductor-machine",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 15,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p2a-6",
+        "exerciseId": "single-leg-calf-raise-step",
+        "substitutionIds": [
+          "seated-calf-raise",
+          "standing-calf-raise"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "single-leg-calf-raise-step",
+            "side": "right",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 12,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          },
+          {
+            "exerciseId": "single-leg-calf-raise-step",
+            "side": "left",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 12,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps.",
+            "budgetFromInjured": true
+          }
+        ]
+      },
+      {
+        "slotId": "p2a-7",
+        "exerciseId": "balance-mat-bosu",
+        "substitutionIds": [
+          "single-leg-balance"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "balance-mat-bosu",
+            "side": "right",
+            "sets": 2,
+            "loadUnit": "s",
+            "repUnit": "seconds",
+            "stage": 0,
+            "load": 0,
+            "repsTarget": 30,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p2a-8",
+        "exerciseId": "dead-bug",
+        "substitutionIds": [],
+        "prescriptions": [
+          {
+            "exerciseId": "dead-bug",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "none",
+            "repUnit": "reps",
+            "load": 0,
+            "repsTarget": 8,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p2a-9",
+        "exerciseId": "elliptical-easy",
+        "substitutionIds": [],
+        "prescriptions": [
+          {
+            "exerciseId": "elliptical-easy",
+            "side": "both",
+            "sets": 1,
+            "loadUnit": "s",
+            "repUnit": "minutes",
+            "load": 0,
+            "repsTarget": 10,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 1 sets, perfect reps."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "templateId": "p2-b",
+    "week": 4,
+    "slots": [
+      {
+        "slotId": "p2b-1",
+        "exerciseId": "bulgarian-split-squat",
+        "substitutionIds": [
+          "smith-box-squat",
+          "goblet-squat-bench"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "bulgarian-split-squat",
+            "side": "right",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 8,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          },
+          {
+            "exerciseId": "bulgarian-split-squat",
+            "side": "left",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 8,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps.",
+            "budgetFromInjured": true
+          }
+        ]
+      },
+      {
+        "slotId": "p2b-2",
+        "exerciseId": "single-leg-hip-thrust",
+        "substitutionIds": [
+          "smith-hip-thrust",
+          "db-hip-thrust"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "single-leg-hip-thrust",
+            "side": "right",
+            "sets": 2,
+            "loadUnit": "none",
+            "repUnit": "reps",
+            "load": 0,
+            "repsTarget": 10,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          },
+          {
+            "exerciseId": "single-leg-hip-thrust",
+            "side": "left",
+            "sets": 2,
+            "loadUnit": "none",
+            "repUnit": "reps",
+            "load": 0,
+            "repsTarget": 10,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps.",
+            "budgetFromInjured": true
+          }
+        ]
+      },
+      {
+        "slotId": "p2b-3",
+        "exerciseId": "seated-cable-row",
+        "substitutionIds": [
+          "chest-supported-db-row",
+          "single-arm-cable-row"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "seated-cable-row",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 10,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p2b-4",
+        "exerciseId": "seated-db-shoulder-press",
+        "substitutionIds": [],
+        "prescriptions": [
+          {
+            "exerciseId": "seated-db-shoulder-press",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 8,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p2b-5",
+        "exerciseId": "copenhagen-plank-short",
+        "substitutionIds": [
+          "hip-adductor-machine",
+          "cable-hip-adduction"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "copenhagen-plank-short",
+            "side": "right",
+            "sets": 2,
+            "loadUnit": "s",
+            "repUnit": "seconds",
+            "load": 0,
+            "repsTarget": 15,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          },
+          {
+            "exerciseId": "copenhagen-plank-short",
+            "side": "left",
+            "sets": 2,
+            "loadUnit": "s",
+            "repUnit": "seconds",
+            "load": 0,
+            "repsTarget": 15,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps.",
+            "budgetFromInjured": true
+          }
+        ]
+      },
+      {
+        "slotId": "p2b-6",
+        "exerciseId": "lateral-step-down",
+        "substitutionIds": [
+          "step-up-stair"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "lateral-step-down",
+            "side": "right",
+            "sets": 2,
+            "loadUnit": "in",
+            "repUnit": "reps",
+            "heightIn": 6,
+            "load": 0,
+            "repsTarget": 8,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          },
+          {
+            "exerciseId": "lateral-step-down",
+            "side": "left",
+            "sets": 2,
+            "loadUnit": "in",
+            "repUnit": "reps",
+            "heightIn": 6,
+            "load": 0,
+            "repsTarget": 8,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps.",
+            "budgetFromInjured": true
+          }
+        ]
+      },
+      {
+        "slotId": "p2b-7",
+        "exerciseId": "side-plank",
+        "substitutionIds": [],
+        "prescriptions": [
+          {
+            "exerciseId": "side-plank",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "s",
+            "repUnit": "seconds",
+            "load": 0,
+            "repsTarget": 30,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p2b-8",
+        "exerciseId": "pallof-press",
+        "substitutionIds": [],
+        "prescriptions": [
+          {
+            "exerciseId": "pallof-press",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 10,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "templateId": "p2-c",
+    "week": 4,
+    "slots": [
+      {
+        "slotId": "p2c-1",
+        "exerciseId": "step-up",
+        "substitutionIds": [
+          "step-up-stair",
+          "split-squat"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "step-up",
+            "side": "right",
+            "sets": 2,
+            "loadUnit": "in",
+            "repUnit": "reps",
+            "heightIn": 12,
+            "load": 0,
+            "repsTarget": 8,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          },
+          {
+            "exerciseId": "step-up",
+            "side": "left",
+            "sets": 2,
+            "loadUnit": "in",
+            "repUnit": "reps",
+            "heightIn": 12,
+            "load": 0,
+            "repsTarget": 8,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps.",
+            "budgetFromInjured": true
+          }
+        ]
+      },
+      {
+        "slotId": "p2c-2",
+        "exerciseId": "single-leg-rdl",
+        "substitutionIds": [
+          "db-rdl",
+          "smith-rdl"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "single-leg-rdl",
+            "side": "right",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 8,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          },
+          {
+            "exerciseId": "single-leg-rdl",
+            "side": "left",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 8,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps.",
+            "budgetFromInjured": true
+          }
+        ]
+      },
+      {
+        "slotId": "p2c-3",
+        "exerciseId": "assisted-pull-up",
+        "substitutionIds": [
+          "lat-pulldown",
+          "single-arm-cable-pulldown"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "assisted-pull-up",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": null,
+            "repsTarget": 6,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p2c-4",
+        "exerciseId": "incline-db-press",
+        "substitutionIds": [
+          "chest-press-machine",
+          "smith-bench-press"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "incline-db-press",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 8,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p2c-5",
+        "exerciseId": "leg-extension",
+        "substitutionIds": [
+          "wall-sit"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "leg-extension",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "rangeStopDeg": 30,
+            "load": 5,
+            "repsTarget": 12,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p2c-6",
+        "exerciseId": "reverse-lunge",
+        "substitutionIds": [
+          "split-squat",
+          "goblet-squat-bench"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "reverse-lunge",
+            "side": "right",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 8,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          },
+          {
+            "exerciseId": "reverse-lunge",
+            "side": "left",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 8,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps.",
+            "budgetFromInjured": true
+          }
+        ]
+      },
+      {
+        "slotId": "p2c-7",
+        "exerciseId": "farmers-carry",
+        "substitutionIds": [
+          "suitcase-carry"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "farmers-carry",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "yards",
+            "load": 5,
+            "repsTarget": 40,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p2c-8a",
+        "exerciseId": "lateral-band-walk",
+        "substitutionIds": [
+          "cable-hip-abduction"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "lateral-band-walk",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "none",
+            "repUnit": "steps",
+            "load": 0,
+            "repsTarget": 12,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p2c-8b",
+        "exerciseId": "cable-hip-abduction",
+        "substitutionIds": [
+          "lateral-band-walk",
+          "hip-abductor-machine",
+          "copenhagen-plank-short"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "cable-hip-abduction",
+            "side": "right",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 12,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          },
+          {
+            "exerciseId": "cable-hip-abduction",
+            "side": "left",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 12,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps.",
+            "budgetFromInjured": true
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "templateId": "p3-a",
+    "week": 8,
+    "slots": [
+      {
+        "slotId": "p3a-plyo-1",
+        "exerciseId": "pogo-hops",
+        "substitutionIds": [],
+        "prescriptions": [
+          {
+            "exerciseId": "pogo-hops",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "s",
+            "repUnit": "seconds",
+            "load": 0,
+            "repsTarget": 15,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p3a-plyo-2",
+        "exerciseId": "step-off-landing",
+        "substitutionIds": [],
+        "prescriptions": [
+          {
+            "exerciseId": "step-off-landing",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "none",
+            "repUnit": "reps",
+            "load": 0,
+            "repsTarget": 5,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p3a-plyo-3",
+        "exerciseId": "lateral-line-hops",
+        "substitutionIds": [],
+        "prescriptions": [
+          {
+            "exerciseId": "lateral-line-hops",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "s",
+            "repUnit": "seconds",
+            "load": 0,
+            "repsTarget": 10,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p3a-1",
+        "exerciseId": "leg-press",
+        "substitutionIds": [
+          "leg-press-45",
+          "smith-box-squat",
+          "goblet-squat-bench"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "leg-press",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 6,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p3a-1b",
+        "exerciseId": "single-leg-leg-press",
+        "substitutionIds": [
+          "leg-press-45",
+          "bulgarian-split-squat"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "single-leg-leg-press",
+            "side": "right",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 8,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          },
+          {
+            "exerciseId": "single-leg-leg-press",
+            "side": "left",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 8,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps.",
+            "budgetFromInjured": true
+          }
+        ]
+      },
+      {
+        "slotId": "p3a-2",
+        "exerciseId": "nordic-negatives",
+        "substitutionIds": [
+          "single-leg-seated-leg-curl",
+          "seated-leg-curl",
+          "lying-leg-curl"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "nordic-negatives",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "none",
+            "repUnit": "reps",
+            "load": 0,
+            "repsTarget": 3,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p3a-3",
+        "exerciseId": "db-bench-press",
+        "substitutionIds": [
+          "chest-press-machine",
+          "smith-bench-press"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "db-bench-press",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 8,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p3a-4",
+        "exerciseId": "lat-pulldown",
+        "substitutionIds": [
+          "assisted-pull-up",
+          "single-arm-cable-pulldown"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "lat-pulldown",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 10,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p3a-5",
+        "exerciseId": "hip-abductor-machine",
+        "substitutionIds": [
+          "cable-hip-abduction",
+          "lateral-band-walk",
+          "copenhagen-plank-short"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "hip-abductor-machine",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 15,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p3a-6",
+        "exerciseId": "single-leg-calf-raise-step",
+        "substitutionIds": [
+          "seated-calf-raise",
+          "standing-calf-raise"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "single-leg-calf-raise-step",
+            "side": "right",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 12,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          },
+          {
+            "exerciseId": "single-leg-calf-raise-step",
+            "side": "left",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 12,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps.",
+            "budgetFromInjured": true
+          }
+        ]
+      },
+      {
+        "slotId": "p3a-7",
+        "exerciseId": "balance-mat-bosu",
+        "substitutionIds": [
+          "single-leg-balance"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "balance-mat-bosu",
+            "side": "right",
+            "sets": 2,
+            "loadUnit": "s",
+            "repUnit": "seconds",
+            "stage": 0,
+            "load": 0,
+            "repsTarget": 30,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p3a-8",
+        "exerciseId": "dead-bug",
+        "substitutionIds": [],
+        "prescriptions": [
+          {
+            "exerciseId": "dead-bug",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "none",
+            "repUnit": "reps",
+            "load": 0,
+            "repsTarget": 8,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p3a-9",
+        "exerciseId": "elliptical-easy",
+        "substitutionIds": [],
+        "prescriptions": [
+          {
+            "exerciseId": "elliptical-easy",
+            "side": "both",
+            "sets": 1,
+            "loadUnit": "s",
+            "repUnit": "minutes",
+            "load": 0,
+            "repsTarget": 10,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 1 sets, perfect reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p3a-upper4",
+        "exerciseId": "face-pull",
+        "substitutionIds": [
+          "rear-delt-machine"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "face-pull",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 10,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "templateId": "p3-b",
+    "week": 8,
+    "slots": [
+      {
+        "slotId": "p3b-1",
+        "exerciseId": "bulgarian-split-squat",
+        "substitutionIds": [
+          "smith-box-squat",
+          "goblet-squat-bench"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "bulgarian-split-squat",
+            "side": "right",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 6,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          },
+          {
+            "exerciseId": "bulgarian-split-squat",
+            "side": "left",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 6,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps.",
+            "budgetFromInjured": true
+          }
+        ]
+      },
+      {
+        "slotId": "p3b-2",
+        "exerciseId": "smith-hip-thrust",
+        "substitutionIds": [
+          "db-hip-thrust",
+          "db-glute-bridge"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "smith-hip-thrust",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 10,
+            "repsTarget": 8,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p3b-2b",
+        "exerciseId": "lateral-lunge",
+        "substitutionIds": [
+          "reverse-lunge",
+          "split-squat"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "lateral-lunge",
+            "side": "right",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 8,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          },
+          {
+            "exerciseId": "lateral-lunge",
+            "side": "left",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 8,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps.",
+            "budgetFromInjured": true
+          }
+        ]
+      },
+      {
+        "slotId": "p3b-3",
+        "exerciseId": "seated-cable-row",
+        "substitutionIds": [
+          "chest-supported-db-row",
+          "single-arm-cable-row"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "seated-cable-row",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 10,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p3b-4",
+        "exerciseId": "seated-db-shoulder-press",
+        "substitutionIds": [],
+        "prescriptions": [
+          {
+            "exerciseId": "seated-db-shoulder-press",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 8,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p3b-5",
+        "exerciseId": "copenhagen-plank-long",
+        "substitutionIds": [
+          "copenhagen-plank-short",
+          "hip-adductor-machine"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "copenhagen-plank-long",
+            "side": "right",
+            "sets": 2,
+            "loadUnit": "s",
+            "repUnit": "seconds",
+            "load": 0,
+            "repsTarget": 15,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          },
+          {
+            "exerciseId": "copenhagen-plank-long",
+            "side": "left",
+            "sets": 2,
+            "loadUnit": "s",
+            "repUnit": "seconds",
+            "load": 0,
+            "repsTarget": 15,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps.",
+            "budgetFromInjured": true
+          }
+        ]
+      },
+      {
+        "slotId": "p3b-6",
+        "exerciseId": "lateral-step-down",
+        "substitutionIds": [
+          "step-up-stair"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "lateral-step-down",
+            "side": "right",
+            "sets": 2,
+            "loadUnit": "in",
+            "repUnit": "reps",
+            "heightIn": 6,
+            "load": 0,
+            "repsTarget": 8,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          },
+          {
+            "exerciseId": "lateral-step-down",
+            "side": "left",
+            "sets": 2,
+            "loadUnit": "in",
+            "repUnit": "reps",
+            "heightIn": 6,
+            "load": 0,
+            "repsTarget": 8,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps.",
+            "budgetFromInjured": true
+          }
+        ]
+      },
+      {
+        "slotId": "p3b-7",
+        "exerciseId": "side-plank",
+        "substitutionIds": [],
+        "prescriptions": [
+          {
+            "exerciseId": "side-plank",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "s",
+            "repUnit": "seconds",
+            "load": 0,
+            "repsTarget": 30,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p3b-8",
+        "exerciseId": "pallof-press",
+        "substitutionIds": [],
+        "prescriptions": [
+          {
+            "exerciseId": "pallof-press",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 10,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p3b-upper4",
+        "exerciseId": "face-pull",
+        "substitutionIds": [
+          "rear-delt-machine"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "face-pull",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 10,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "templateId": "p3-c",
+    "week": 8,
+    "slots": [
+      {
+        "slotId": "p3c-plyo-1",
+        "exerciseId": "pogo-hops",
+        "substitutionIds": [],
+        "prescriptions": [
+          {
+            "exerciseId": "pogo-hops",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "s",
+            "repUnit": "seconds",
+            "load": 0,
+            "repsTarget": 15,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p3c-plyo-2",
+        "exerciseId": "step-off-landing",
+        "substitutionIds": [],
+        "prescriptions": [
+          {
+            "exerciseId": "step-off-landing",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "none",
+            "repUnit": "reps",
+            "load": 0,
+            "repsTarget": 5,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p3c-plyo-3",
+        "exerciseId": "lateral-line-hops",
+        "substitutionIds": [],
+        "prescriptions": [
+          {
+            "exerciseId": "lateral-line-hops",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "s",
+            "repUnit": "seconds",
+            "load": 0,
+            "repsTarget": 10,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p3c-1",
+        "exerciseId": "step-up",
+        "substitutionIds": [
+          "step-up-stair",
+          "split-squat"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "step-up",
+            "side": "right",
+            "sets": 2,
+            "loadUnit": "in",
+            "repUnit": "reps",
+            "heightIn": 16,
+            "load": 0,
+            "repsTarget": 8,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          },
+          {
+            "exerciseId": "step-up",
+            "side": "left",
+            "sets": 2,
+            "loadUnit": "in",
+            "repUnit": "reps",
+            "heightIn": 16,
+            "load": 0,
+            "repsTarget": 8,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps.",
+            "budgetFromInjured": true
+          }
+        ]
+      },
+      {
+        "slotId": "p3c-2",
+        "exerciseId": "single-leg-rdl",
+        "substitutionIds": [
+          "db-rdl",
+          "smith-rdl"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "single-leg-rdl",
+            "side": "right",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 6,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          },
+          {
+            "exerciseId": "single-leg-rdl",
+            "side": "left",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 6,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps.",
+            "budgetFromInjured": true
+          }
+        ]
+      },
+      {
+        "slotId": "p3c-3",
+        "exerciseId": "assisted-pull-up",
+        "substitutionIds": [
+          "lat-pulldown",
+          "single-arm-cable-pulldown"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "assisted-pull-up",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": null,
+            "repsTarget": 6,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p3c-4",
+        "exerciseId": "incline-db-press",
+        "substitutionIds": [
+          "chest-press-machine",
+          "smith-bench-press"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "incline-db-press",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 8,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p3c-5",
+        "exerciseId": "leg-extension",
+        "substitutionIds": [
+          "wall-sit"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "leg-extension",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "rangeStopDeg": 30,
+            "load": 5,
+            "repsTarget": 12,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p3c-6",
+        "exerciseId": "walking-lunge",
+        "substitutionIds": [
+          "reverse-lunge",
+          "split-squat"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "walking-lunge",
+            "side": "right",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 8,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          },
+          {
+            "exerciseId": "walking-lunge",
+            "side": "left",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 8,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps.",
+            "budgetFromInjured": true
+          }
+        ]
+      },
+      {
+        "slotId": "p3c-7",
+        "exerciseId": "farmers-carry",
+        "substitutionIds": [
+          "suitcase-carry"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "farmers-carry",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "yards",
+            "load": 5,
+            "repsTarget": 40,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p3c-8a",
+        "exerciseId": "lateral-band-walk",
+        "substitutionIds": [
+          "cable-hip-abduction"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "lateral-band-walk",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "none",
+            "repUnit": "steps",
+            "load": 0,
+            "repsTarget": 12,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          }
+        ]
+      },
+      {
+        "slotId": "p3c-8b",
+        "exerciseId": "cable-hip-abduction",
+        "substitutionIds": [
+          "lateral-band-walk",
+          "hip-abductor-machine",
+          "copenhagen-plank-short"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "cable-hip-abduction",
+            "side": "right",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 12,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          },
+          {
+            "exerciseId": "cable-hip-abduction",
+            "side": "left",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 12,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps.",
+            "budgetFromInjured": true
+          }
+        ]
+      },
+      {
+        "slotId": "p3c-upper4",
+        "exerciseId": "face-pull",
+        "substitutionIds": [
+          "rear-delt-machine"
+        ],
+        "prescriptions": [
+          {
+            "exerciseId": "face-pull",
+            "side": "both",
+            "sets": 2,
+            "loadUnit": "lb",
+            "repUnit": "reps",
+            "load": 5,
+            "repsTarget": 10,
+            "basis": "first",
+            "note": "First time in a deload week: the lightest version, 2 sets, perfect reps."
+          }
+        ]
+      }
+    ]
+  }
+]

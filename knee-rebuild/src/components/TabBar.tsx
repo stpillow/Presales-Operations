@@ -1,6 +1,7 @@
 import { navigate, type Route } from '../app/router.ts'
+import { activeTab, type TabName } from './TabBar.helpers.ts'
 
-const TABS: { name: Route['name']; label: string }[] = [
+const TABS: { name: TabName; label: string }[] = [
   { name: 'today', label: 'Today' },
   { name: 'week', label: 'Week' },
   { name: 'progress', label: 'Progress' },
@@ -8,11 +9,9 @@ const TABS: { name: Route['name']; label: string }[] = [
   { name: 'more', label: 'More' },
 ]
 
-const MORE: Route['name'][] = ['more', 'morning', 'run', 'program', 'settings']
-
 /** Bottom tabs, words only, 44 px, with the active tab underlined (shape, not color). */
 export function TabBar({ route }: { route: Route }) {
-  const active = (name: Route['name']) => route.name === name || (name === 'today' && route.name === 'session') || (name === 'more' && MORE.includes(route.name))
+  const active = (name: TabName) => activeTab(route) === name
   return (
     <nav aria-label="Sections" className="fixed inset-x-0 bottom-0 border-t border-on-dark-faint bg-navy pb-[env(safe-area-inset-bottom)]">
       <ul className="mx-auto flex max-w-[36rem]">

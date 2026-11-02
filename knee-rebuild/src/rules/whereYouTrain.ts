@@ -1,0 +1,219 @@
+import { showsText, withoutInvisible, type Equipment, type EquipmentId, type Location, type Program, type SessionTemplate } from '../schema/index.ts'
+import {
+  DUMBBELLS,
+  availableEquipment,
+  locationCoverage,
+  matchTyped,
+  normalizeTyped,
+  type Available,
+  type ChecklistGroup,
+  type CoverageMove,
+  type ExerciseLookup,
+} from './equipment.ts'
+import { withPresent } from './locations.ts'
+
+/*
+ * The decisions behind Where you train and the location editor (M4b, design sections 5 and 6):
+ * what a gym lacks of the checklist, which substitution-table row speaks for an item, what the
+ * editor's "Not here" writes, what typed equipment comes to, and whether a name is taken. Pure:
+ * the screens ask these and write the answer through src/db/repo.ts.
+ */
+
+/**
+ * What a gym lacks of the editor's checklist (`equipmentChecklist`: the items the program uses,
+ * less dumbbells and the bag), in the list's order. Where you train counts them: "3 not here".
+ */
+export function checklistNotHere(checklist: readonly ChecklistGroup[], available: Available): EquipmentId[] {
+  return checklist.flatMap((group) => group.items.map((entry) => entry.item.id)).filter((id) => !available.has(id))
+}
+
+export type SubstitutionRow = Program['substitutionTable'][number]
+
+/**
+ * Substitution-table rows whose "Taken or missing" names list items in words other than the list's
+ * names and aliases. program.md's bare "leg press" is both presses (PROGRAM-QUESTIONS 65), "Hip
+ * abductor or adductor machine" is both hip machines, and "Medicine ball (Phase 3)" is the medicine
+ * ball. "Dumbbell bench" names the dumbbell bench press, an exercise, so no item takes that row: a
+ * flat bench also seats the Bulgarians and the hip thrusts, which a chest press doesn't stand in for.
+ */
+const ROW_ITEMS: Readonly<Record<string, readonly EquipmentId[]>> = {
+  'Leg press': ['seated-leg-press', 'leg-press-45'],
+  'Hip abductor or adductor machine': ['hip-abductor-machine', 'hip-adductor-machine'],
+  'Medicine ball (Phase 3)': ['medicine-ball'],
+}
+
+/** The items a substitution-table row speaks for: the pinned readings above, otherwise the item whose name or alias the row's words are (`normalizeTyped`). */
+export function rowItems(row: Pick<SubstitutionRow, 'takenOrMissing'>, vocabulary: readonly Pick<Equipment, 'id' | 'name' | 'aliases'>[]): EquipmentId[] {
+  const pinned = ROW_ITEMS[row.takenOrMissing]
+  if (pinned) return [...pinned]
+  const words = normalizeTyped(row.takenOrMissing)
+  return vocabulary.filter((item) => [item.name, ...item.aliases].some((name) => normalizeTyped(name) === words)).map((item) => item.id)
+}
+
+/** The editor's "If not here: …": the substitution table's row for an item, or null where the table gives none. */
+export function ifNotHere(
+  itemId: EquipmentId,
+  vocabulary: readonly Pick<Equipment, 'id' | 'name' | 'aliases'>[],
+  table: readonly SubstitutionRow[],
+): SubstitutionRow | null {
+  return table.find((row) => rowItems(row, vocabulary).includes(itemId)) ?? null
+}
+
+/** "New on the program's list": an item the list added after this gym's list was made (design section 2). */
+export function newOnList(item: Pick<Equipment, 'addedIn'>, location: Pick<Location, 'listVersion'>): boolean {
+  return item.addedIn > location.listVersion
+}
+
+/**
+ * What the editor's "Not here" writes. `unlist` takes the item off the gym's list (`setPresent`).
+ * At a gym started from Planet Fitness's list, an item the program's list added after the gym's
+ * was made counts as here whatever the gym's list says (`availableEquipment`), so taking it off
+ * would change nothing: it is marked off instead (`markOff`), which beats the list (PROGRAM-QUESTIONS 75).
+ */
+export function notHereWrite(
+  location: Location,
+  itemId: EquipmentId,
+  vocabulary: readonly Pick<Equipment, 'id' | 'addedIn'>[],
+  planetFitness: readonly EquipmentId[],
+): 'unlist' | 'mark-off' {
+  return availableEquipment(withPresent(location, itemId, false), vocabulary, planetFitness, []).has(itemId) ? 'mark-off' : 'unlist'
+}
+
+export type TypedOutcome =
+  /** Nothing typed. */
+  | { kind: 'empty' }
+  /** An item a session uses, not here yet: "Matches Bosu or balance pad. Mark it here?", marked only on that tap. */
+  | { kind: 'mark'; id: EquipmentId }
+  /** Already here: nothing to write. */
+  | { kind: 'already'; id: EquipmentId }
+  /** Carried to every gym (`Settings.kit`): "In your bag" says whether he has it, never a gym's list (PROGRAM-QUESTIONS 75). */
+  | { kind: 'bag'; id: EquipmentId }
+  /** Dumbbells: the gym's dumbbell max says whether it has them, whatever its list says. */
+  | { kind: 'rack' }
+  /** On the program's list, but nothing the program does uses it: kept on the gym's list for the next program update (design section 6). */
+  | { kind: 'unused'; id: EquipmentId }
+  /** Near misses (`matchTyped`): a tap on one, or "Neither: keep as typed". Nothing is marked without that tap. */
+  | { kind: 'choose'; ids: EquipmentId[] }
+  /** Nothing on the list: kept as typed (the gym's extras) for the next program.md update. */
+  | { kind: 'keep' }
+
+/**
+ * What an item named in "Something else here?" comes to, typed exactly or picked from the near
+ * misses: the bag and the rack first (neither is a gym's list), then here already, then whether
+ * the program uses it (`usedEquipment`).
+ */
+export function itemOutcome(
+  id: EquipmentId,
+  vocabulary: readonly Pick<Equipment, 'id' | 'carried'>[],
+  used: ReadonlySet<EquipmentId>,
+  available: Available,
+): Exclude<TypedOutcome, { kind: 'empty' | 'choose' | 'keep' }> {
+  if (vocabulary.find((item) => item.id === id)?.carried) return { kind: 'bag', id }
+  if (id === DUMBBELLS) return { kind: 'rack' }
+  if (available.has(id)) return { kind: 'already', id }
+  return used.has(id) ? { kind: 'mark', id } : { kind: 'unused', id }
+}
+
+/**
+ * What typed equipment comes to (design section 6): `matchTyped` against what is here (so an item
+ * marked off reads as not here, and marking it clears the mark), then `itemOutcome` for an exact
+ * name or alias. Near misses are offered, never marked; text that matches nothing is kept.
+ */
+export function typedOutcome(
+  text: string,
+  vocabulary: readonly Pick<Equipment, 'id' | 'name' | 'aliases' | 'carried'>[],
+  used: ReadonlySet<EquipmentId>,
+  available: Available,
+): TypedOutcome {
+  const match = matchTyped(text, vocabulary, [...available])
+  switch (match.kind) {
+    case 'empty':
+      return { kind: 'empty' }
+    case 'unknown':
+      return { kind: 'keep' }
+    case 'suggest':
+      return { kind: 'choose', ids: match.ids }
+    case 'known':
+    case 'already':
+      return itemOutcome(match.id, vocabulary, used, available)
+  }
+}
+
+/**
+ * A name as Today's Change tells names apart: case, accents, punctuation, spacing and invisible
+ * characters aside. Unlike typed equipment (`normalizeTyped`), emoji and other symbols stay, since
+ * "Hotel 🏨" and "Hotel 🏋️" read as two names on screen.
+ */
+function nameKey(name: string): string {
+  return withoutInvisible(name)
+    .normalize('NFKD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\p{S}]+/gu, ' ')
+    .trim()
+}
+
+/** A name as it shows: invisible characters out, trimmed, in one Unicode form. */
+const shown = (name: string) => withoutInvisible(name).normalize('NFC').trim()
+
+/**
+ * Whether a typed name shows on Today's Change and Where you train: a letter, digit, punctuation
+ * mark or symbol once zero-width spaces, fillers and the like are out (`showsText`, which the
+ * schema also holds a name to). "\u200B" alone would be a blank row.
+ */
+export function nameShows(name: string): boolean {
+  return showsText(name)
+}
+
+/**
+ * Another gym the lists offer already goes by this name (`nameKey`: case, accents, punctuation and
+ * invisible characters aside), so Today's Change couldn't tell the two apart. A name of punctuation
+ * alone matches only the same punctuation, as shown: "!!!" and "???" are two names. Archived gyms
+ * have left the lists, so their names are free again; `exceptId` is the gym being renamed.
+ */
+export function nameTaken(locations: readonly Pick<Location, 'id' | 'name' | 'archived'>[], name: string, exceptId: string | null): boolean {
+  return nameTakenBy(locations, name, exceptId) !== null
+}
+
+/** The gym that already goes by this name (`nameTaken`), as stored, so a refusal can name it; null when the name is free. */
+export function nameTakenBy<L extends Pick<Location, 'id' | 'name' | 'archived'>>(locations: readonly L[], name: string, exceptId: string | null): L | null {
+  const wanted = nameKey(name)
+  const same = (other: string) => (wanted === '' ? nameKey(other) === '' && shown(other) === shown(name) : nameKey(other) === wanted)
+  return locations.find((l) => !l.archived && l.id !== exceptId && same(l.name)) ?? null
+}
+
+export interface PhaseMove extends CoverageMove {
+  /** The week of the phase a later block starts in (snap-downs, plyo blocks); null for a slot that runs this week. */
+  fromPhaseWeek: number | null
+}
+
+export interface PhaseCoverage {
+  templateId: string
+  moves: PhaseMove[]
+}
+
+/**
+ * "What this changes" (design section 5, the brief's "for the current phase"): `locationCoverage`
+ * for the rest of the phase, not just this week, since a gym is set up ahead of the weeks it is used.
+ * This week's moves come first, in session order; then each banded slot that starts later in the
+ * phase, from the week it starts. A banded slot whose weeks have passed is left out: it doesn't run
+ * again in this phase.
+ */
+export function phaseCoverage(templates: readonly SessionTemplate[], phaseWeek: number, byId: ExerciseLookup, available: Available): PhaseCoverage[] {
+  const laterStarts = templates.flatMap((t) => t.slots.flatMap((slot) => (slot.phaseWeeks && slot.phaseWeeks[0] > phaseWeek ? [slot.phaseWeeks[0]] : [])))
+  const weeks = [phaseWeek, ...[...new Set(laterStarts)].sort((a, b) => a - b)]
+  return templates.map((template) => {
+    const seen = new Set<string>()
+    const moves: PhaseMove[] = []
+    for (const week of weeks) {
+      for (const coverage of locationCoverage([template], week, byId, available)) {
+        for (const move of coverage.moves) {
+          if (seen.has(move.slotId)) continue
+          seen.add(move.slotId)
+          moves.push({ ...move, fromPhaseWeek: week === phaseWeek ? null : week })
+        }
+      }
+    }
+    return { templateId: template.id, moves }
+  })
+}

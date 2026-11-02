@@ -2,8 +2,8 @@
 
 The status page. Ticked when done, not when started. Questions about the program live in [PROGRAM-QUESTIONS.md](PROGRAM-QUESTIONS.md); the questions for Shawn before M1 are at the bottom.
 
-**Now:** M4 (running) reviewed and merging; M4b (where you train) seed and engine rules built on a staging branch with Shawn's answers; then M5, M6.
-**Last updated:** Oct 31, 2026
+**Now:** M4b (where you train) reviewed and merging; M5 (gates and progress) built and verified on a staging branch, merging next; then M6.
+**Last updated:** Nov 2, 2026
 
 ## Milestones
 
@@ -72,13 +72,15 @@ Done when three logged runs show against the week's target and a hold reading ca
 Done when Shawn can type a gym's name, mark what it has or lacks, add equipment it has that isn't on the list, switch to it on Today, and get a Session A that uses only what's there, with each change said in words.
 
 - [x] Design: `docs/locations-equipment-design.md` (11 open questions sent to Shawn; building on the defaults)
-- [ ] Equipment requirements per catalog exercise, transcribed from program.md's equipment and substitution tables
-- [ ] Locations: typed name, equipment present or missing, typed extras, dumbbell max per location; Dexie v3 with `dumbbellMax` migrated into a "Planet Fitness" location
-- [ ] Rule in `src/rules/` (tested): the first available of the slot's exercise and its substitutions, in the program's order, at the active location
-- [ ] Engine and runner: prescriptions for the available exercise, with "Not at <gym>: using <exercise>" in words; Swap still overrides
-- [ ] Screens: add and edit locations, add typed equipment, switch the active location from Today
-- [ ] Typed equipment no exercise uses is kept and listed for the next program.md update; the app never invents an exercise for it
-- [ ] Run swaps (elliptical, rower) respect what the location has
+- [x] Equipment requirements per catalog exercise, transcribed from program.md's equipment and substitution tables
+- [x] Locations: typed name, equipment present or missing, typed extras, dumbbell max per location; Dexie v3 with `dumbbellMax` migrated into a "Planet Fitness" location
+- [x] Rule in `src/rules/` (tested): the first available of the slot's exercise and its substitutions, in the program's order, at the active location
+- [x] Engine and runner: prescriptions for the available exercise, with "Not at <gym>: using <exercise>" in words; Swap still overrides
+- [x] Screens: add and edit locations, add typed equipment, switch the active location from Today
+- [x] Typed equipment no exercise uses is kept and listed for the next program.md update; the app never invents an exercise for it
+- [x] Run swaps (elliptical, rower) respect what the location has
+- [x] Adversarial review: 20 findings, 19 survived three skeptics, all fixed and re-verified (`docs/review-plan.md` 61 to 79; PROGRAM-QUESTIONS 88 to 107); the brief's browser drive passed 93 of 93 checks at 390 and 375 px
+- [ ] Shawn: a session at a second gym on the phone
 
 ### M5 · Gates and progress
 Done when gate 1 evaluates from logged data alone and the hop-test symmetry matches the worked example.

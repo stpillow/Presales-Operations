@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { navigate } from '../app/router.ts'
 import { PROGRAM } from '../app/session.ts'
 import { useToday } from '../app/today.ts'
 import { Button } from '../components/Button.tsx'
@@ -9,10 +10,7 @@ import { useSettings } from '../db/hooks.ts'
 import { defaultSettings, ensureSettings, resetAll, saveSettings, saveSettingsAndMoves } from '../db/repo.ts'
 import type { IsoDate, Settings as SettingsRecord } from '../schema/index.ts'
 import {
-  DUMBBELL_MAX,
-  DUMBBELL_MIN,
-  DUMBBELL_PRESETS,
-  DUMBBELL_STEP,
+  DUMBBELLS_LINE,
   REST_MAX,
   REST_MIN,
   REST_STEP,
@@ -37,18 +35,19 @@ const ERASED = 'Everything on this phone was erased. Settings are back to their 
 const FLASH_MS = 1500
 
 /** Which part of the screen a save, a Saved word or a problem belongs to. */
-type Field = 'injuredSide' | 'startDate' | 'dumbbellMax' | 'restTimerSeconds' | 'painPerSet' | 'redFlag' | 'reset'
+type Field = 'injuredSide' | 'startDate' | 'restTimerSeconds' | 'painPerSet' | 'redFlag' | 'reset'
 type Problem = { field: Field; text: string } | null
 type ResetStep = 'idle' | 'confirm' | 'erasing'
 
 /**
- * Resetting storage empties the settings row for a moment, and the app shell swaps this screen out
- * until the row is seeded again. What the reset came to waits here for the next mount to say it.
+ * Resetting storage seeds the settings row and the home gym again in the same transaction, but if
+ * the app shell swaps this screen out meanwhile, what the reset came to waits here for the next
+ * mount to say it.
  */
 let pendingNotice: string | null = null
 
 /**
- * The knobs the engine reads: injured side, start date, dumbbell max, rest timer, pain logging,
+ * The knobs the engine reads: injured side, start date, rest timer, pain logging,
  * plus the red-flag state and a reset. Every change saves at once through the repo and says so.
  * Nothing here decides anything about the knee; Monday-ness and the red-flag rule come from src/rules.
  */
@@ -156,7 +155,7 @@ function SettingsForm({ stored }: { stored: SettingsRecord }) {
     pending.current += 1
     pendingNotice = ERASED
     try {
-      await resetAll()
+      await resetAll(defaultSettings(PROGRAM), PROGRAM, today)
     } catch (e) {
       pending.current -= 1
       pendingNotice = null
@@ -227,30 +226,12 @@ function SettingsForm({ stored }: { stored: SettingsRecord }) {
         onSave={(date) => void saveStartDate(date)}
       />
 
-      <Section label="Dumbbell max" saved={savedField === 'dumbbellMax'} problem={problemFor('dumbbellMax')}>
-        <div role="radiogroup" aria-label="Dumbbell presets" className="grid grid-cols-3 gap-2">
-          {DUMBBELL_PRESETS.map((lb) => (
-            <Choice
-              key={lb}
-              compact
-              label={`${lb} lb`}
-              selected={draft.dumbbellMax === lb}
-              onSelect={() => {
-                if (draft.dumbbellMax !== lb) void save({ dumbbellMax: lb }, 'dumbbellMax')
-              }}
-            />
-          ))}
-        </div>
-        <Stepper
-          label="Heaviest dumbbell"
-          unit="lb"
-          value={draft.dumbbellMax}
-          step={DUMBBELL_STEP}
-          min={DUMBBELL_MIN}
-          max={DUMBBELL_MAX}
-          onChange={(v) => void save({ dumbbellMax: v }, 'dumbbellMax')}
-        />
-        <Note>Past this, the engine caps the load or swaps to the next substitution.</Note>
+      {/* Each gym's rack is its own from M4b; Settings' dumbbell max is frozen (the home gym was first written from it). */}
+      <Section label="Dumbbells" saved={false} problem={null}>
+        <p className="text-body text-on-dark-dim">{DUMBBELLS_LINE}</p>
+        <Button wide onClick={() => navigate({ name: 'locations' })}>
+          Where you train
+        </Button>
       </Section>
 
       <Section label="Rest timer" saved={savedField === 'restTimerSeconds'} problem={problemFor('restTimerSeconds')}>

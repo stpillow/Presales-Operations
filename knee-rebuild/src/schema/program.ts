@@ -15,6 +15,42 @@ import {
 
 const kebab = z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'expected a kebab-case id')
 
+/** An item on the program's equipment list: a key into `Program.equipment`. */
+export const EquipmentId = kebab
+export type EquipmentId = z.infer<typeof EquipmentId>
+
+/**
+ * One item program.md names as equipment (M4b). The list is the vocabulary a gym is described in:
+ * `Location.present` and `Settings.kit` hold these ids, and exercises require them.
+ */
+export const Equipment = z.strictObject({
+  id: EquipmentId,
+  name: z.string().min(1),
+  /**
+   * The first program.md "Program slot" row that lists it, verbatim ("Squat pattern"); for an item no row lists,
+   * the row of what it is used for (the weight plate under "Hinge pattern"); "Bring" for the carried items.
+   */
+  group: z.string().min(1),
+  /** A phrase copied verbatim from docs/program.md that names the item; a seed test checks it is there. */
+  source: z.string().min(1),
+  /** Other names a typed entry may use ("Bosu ball"). Unique across the list, names included. */
+  aliases: z.array(z.string().min(1)),
+  /** Shawn brings it to every gym (the ankle strap and the mini band); it lives in Settings.kit, not in a gym's list. */
+  carried: z.boolean(),
+  /** program.md hedges it: "if your club has one". */
+  hedged: z.boolean(),
+  /** The equipment list version the item first appeared in. */
+  addedIn: z.number().int().positive(),
+})
+export type Equipment = z.infer<typeof Equipment>
+
+/**
+ * What an exercise needs: one item, or any one of several where program.md itself says "or"
+ * ("on the leg press or Smith", "a folded mat or bosu").
+ */
+export const Requirement = z.union([EquipmentId, z.strictObject({ anyOf: z.array(EquipmentId).min(2) })])
+export type Requirement = z.infer<typeof Requirement>
+
 /** One movement in the catalog. Loads are logged in `loadUnit`; `increment` is the smallest step. */
 export const Exercise = z.strictObject({
   id: kebab,
@@ -37,7 +73,17 @@ export const Exercise = z.strictObject({
   holdsLoad: LoadType.optional(),
   /** Ordered stages for the `stage` progression rule. */
   stages: z.array(z.string().min(1)).min(2).optional(),
+  /**
+   * The equipment the exercise needs; every entry must hold. Empty means floor and space only.
+   * Dumbbells are listed only where they are the movement, not where they only add load (M4b).
+   */
+  requires: z.array(Requirement),
+  /** Per stage, what that stage needs on top of `requires` (the folded mat, the bosu). Parallels `stages`. */
+  stageRequires: z.array(z.array(Requirement)).optional(),
   notes: z.string().optional(),
+}).refine((e) => e.stageRequires === undefined || e.stageRequires.length === (e.stages?.length ?? -1), {
+  message: 'stageRequires needs one entry per stage, and stages to go with it',
+  path: ['stageRequires'],
 })
 export type Exercise = z.infer<typeof Exercise>
 
@@ -237,6 +283,16 @@ export const Program = z.strictObject({
   gates: z.array(Gate).length(3),
   mileagePlan: z.array(MileageWeek).length(12),
   exercises: z.array(Exercise).min(1),
+  /** The equipment vocabulary (M4b): everything program.md names as equipment, and nothing it doesn't. */
+  equipment: z.array(Equipment).min(1),
+  /**
+   * What a gym started from "Planet Fitness's list" has: program.md's Planet Fitness, with Shawn's
+   * Nov 1 answers about his club. Carried items are not here (they live in Settings.kit), and
+   * neither are dumbbells (a gym's dumbbell max says whether it has them).
+   */
+  planetFitness: z.array(EquipmentId),
+  /** Bumped when program.md adds items, so a gym's list can tell what is new since it was made. */
+  equipmentListVersion: z.number().int().positive(),
   redFlags: z.array(RedFlag).min(1),
   redFlagsIntro: z.string().min(1),
   notFlags: z.string().min(1),

@@ -2482,6 +2482,9 @@
       "name": "Leg press, both legs",
       "pattern": "squat",
       "equipment": "Seated leg press",
+      "requires": [
+        "seated-leg-press"
+      ],
       "loadType": "stack",
       "loadUnit": "lb",
       "increment": 5,
@@ -2492,6 +2495,9 @@
       "name": "45° leg press",
       "pattern": "squat",
       "equipment": "45° plate-loaded leg press",
+      "requires": [
+        "leg-press-45"
+      ],
       "loadType": "plates",
       "loadUnit": "lb",
       "increment": 10,
@@ -2502,6 +2508,9 @@
       "name": "Single-leg leg press",
       "pattern": "single-leg",
       "equipment": "Seated leg press, one leg at a time",
+      "requires": [
+        "seated-leg-press"
+      ],
       "loadType": "stack",
       "loadUnit": "lb",
       "increment": 5,
@@ -2512,6 +2521,10 @@
       "name": "Smith machine box squat",
       "pattern": "squat",
       "equipment": "Smith machine, bench",
+      "requires": [
+        "smith-machine",
+        "flat-bench"
+      ],
       "loadType": "smith-plates",
       "loadUnit": "lb",
       "increment": 10,
@@ -2522,6 +2535,10 @@
       "name": "Goblet squat to a bench",
       "pattern": "squat",
       "equipment": "Dumbbell, bench",
+      "requires": [
+        "dumbbells",
+        "flat-bench"
+      ],
       "loadType": "dumbbell-single",
       "loadUnit": "lb",
       "increment": 5,
@@ -2532,6 +2549,9 @@
       "name": "Leg extension",
       "pattern": "quad",
       "equipment": "Leg extension machine",
+      "requires": [
+        "leg-extension-machine"
+      ],
       "loadType": "stack",
       "loadUnit": "lb",
       "increment": 5,
@@ -2542,6 +2562,7 @@
       "name": "Wall sit",
       "pattern": "quad",
       "equipment": "Wall",
+      "requires": [],
       "loadType": "time",
       "loadUnit": "s",
       "increment": 5,
@@ -2552,6 +2573,9 @@
       "name": "Dumbbell Romanian deadlift",
       "pattern": "hinge",
       "equipment": "Dumbbells",
+      "requires": [
+        "dumbbells"
+      ],
       "loadType": "dumbbell-each",
       "loadUnit": "lb",
       "increment": 5,
@@ -2562,6 +2586,9 @@
       "name": "Smith machine RDL",
       "pattern": "hinge",
       "equipment": "Smith machine",
+      "requires": [
+        "smith-machine"
+      ],
       "loadType": "smith-plates",
       "loadUnit": "lb",
       "increment": 10,
@@ -2572,6 +2599,9 @@
       "name": "Single-leg RDL",
       "pattern": "hinge",
       "equipment": "One dumbbell, opposite hand",
+      "requires": [
+        "dumbbells"
+      ],
       "loadType": "dumbbell-single",
       "loadUnit": "lb",
       "increment": 5,
@@ -2582,6 +2612,9 @@
       "name": "45° back extension",
       "pattern": "hinge",
       "equipment": "45° back extension bench; a plate once 12 is easy",
+      "requires": [
+        "back-extension-bench"
+      ],
       "loadType": "dumbbell-single",
       "loadUnit": "lb",
       "increment": 5,
@@ -2592,6 +2625,10 @@
       "name": "Smith machine hip thrust",
       "pattern": "hip",
       "equipment": "Smith machine, bench, folded mat",
+      "requires": [
+        "smith-machine",
+        "flat-bench"
+      ],
       "loadType": "smith-plates",
       "loadUnit": "lb",
       "increment": 10,
@@ -2602,6 +2639,9 @@
       "name": "Dumbbell glute bridge",
       "pattern": "hip",
       "equipment": "One dumbbell, floor",
+      "requires": [
+        "dumbbells"
+      ],
       "loadType": "dumbbell-single",
       "loadUnit": "lb",
       "increment": 5,
@@ -2612,6 +2652,10 @@
       "name": "Dumbbell hip thrust, shoulders on a bench",
       "pattern": "hip",
       "equipment": "One dumbbell, bench",
+      "requires": [
+        "dumbbells",
+        "flat-bench"
+      ],
       "loadType": "dumbbell-single",
       "loadUnit": "lb",
       "increment": 5,
@@ -2622,6 +2666,9 @@
       "name": "Single-leg hip thrust, shoulders on the bench",
       "pattern": "hip",
       "equipment": "Bench",
+      "requires": [
+        "flat-bench"
+      ],
       "loadType": "bodyweight",
       "loadUnit": "none",
       "increment": 0,
@@ -2632,6 +2679,9 @@
       "name": "Hip abductor machine",
       "pattern": "hip",
       "equipment": "Hip abductor machine",
+      "requires": [
+        "hip-abductor-machine"
+      ],
       "loadType": "stack",
       "loadUnit": "lb",
       "increment": 5,
@@ -2642,6 +2692,9 @@
       "name": "Hip adductor machine",
       "pattern": "hip",
       "equipment": "Hip adductor machine",
+      "requires": [
+        "hip-adductor-machine"
+      ],
       "loadType": "stack",
       "loadUnit": "lb",
       "increment": 5,
@@ -2652,6 +2705,10 @@
       "name": "Cable hip abduction, ankle strap",
       "pattern": "hip",
       "equipment": "Cable station, ankle strap",
+      "requires": [
+        "cable-station",
+        "ankle-strap"
+      ],
       "loadType": "stack",
       "loadUnit": "lb",
       "increment": 5,
@@ -2663,6 +2720,10 @@
       "name": "Cable hip adduction, ankle strap",
       "pattern": "hip",
       "equipment": "Cable station, ankle strap",
+      "requires": [
+        "cable-station",
+        "ankle-strap"
+      ],
       "loadType": "stack",
       "loadUnit": "lb",
       "increment": 5,
@@ -2673,6 +2734,9 @@
       "name": "Lateral band walk",
       "pattern": "hip",
       "equipment": "Mini loop band",
+      "requires": [
+        "mini-band"
+      ],
       "loadType": "band",
       "loadUnit": "none",
       "increment": 0,
@@ -2683,6 +2747,9 @@
       "name": "Copenhagen plank, short lever",
       "pattern": "hip",
       "equipment": "Bench",
+      "requires": [
+        "flat-bench"
+      ],
       "loadType": "time",
       "loadUnit": "s",
       "increment": 5,
@@ -2694,6 +2761,9 @@
       "name": "Copenhagen plank, long lever",
       "pattern": "hip",
       "equipment": "Bench",
+      "requires": [
+        "flat-bench"
+      ],
       "loadType": "time",
       "loadUnit": "s",
       "increment": 5,
@@ -2705,6 +2775,9 @@
       "name": "Seated leg curl",
       "pattern": "hamstring",
       "equipment": "Seated leg curl machine",
+      "requires": [
+        "seated-leg-curl"
+      ],
       "loadType": "stack",
       "loadUnit": "lb",
       "increment": 5,
@@ -2715,6 +2788,9 @@
       "name": "Single-leg seated leg curl",
       "pattern": "hamstring",
       "equipment": "Seated leg curl machine, one leg",
+      "requires": [
+        "seated-leg-curl"
+      ],
       "loadType": "stack",
       "loadUnit": "lb",
       "increment": 5,
@@ -2725,6 +2801,9 @@
       "name": "Lying leg curl",
       "pattern": "hamstring",
       "equipment": "Lying leg curl machine",
+      "requires": [
+        "lying-leg-curl"
+      ],
       "loadType": "stack",
       "loadUnit": "lb",
       "increment": 5,
@@ -2735,6 +2814,9 @@
       "name": "Stability-ball leg curl",
       "pattern": "hamstring",
       "equipment": "Stability ball",
+      "requires": [
+        "stability-ball"
+      ],
       "loadType": "bodyweight",
       "loadUnit": "none",
       "increment": 0,
@@ -2745,6 +2827,15 @@
       "name": "Nordic hamstring negatives",
       "pattern": "hamstring",
       "equipment": "Lat pulldown thigh pad at its lowest notch, mat",
+      "requires": [
+        "mats",
+        {
+          "anyOf": [
+            "lat-pulldown",
+            "back-extension-bench"
+          ]
+        }
+      ],
       "loadType": "bodyweight",
       "loadUnit": "none",
       "increment": 0,
@@ -2756,6 +2847,9 @@
       "name": "Step-up",
       "pattern": "single-leg",
       "equipment": "Step platforms (stackable risers), dumbbells",
+      "requires": [
+        "step-platforms"
+      ],
       "loadType": "step-height",
       "loadUnit": "in",
       "increment": 2,
@@ -2768,6 +2862,9 @@
       "name": "Step-up on the lowest stair in the club",
       "pattern": "single-leg",
       "equipment": "The lowest stair in the club",
+      "requires": [
+        "stair"
+      ],
       "loadType": "step-height",
       "loadUnit": "in",
       "increment": 2,
@@ -2780,6 +2877,7 @@
       "name": "Split squat",
       "pattern": "single-leg",
       "equipment": "Dumbbells",
+      "requires": [],
       "loadType": "dumbbell-each",
       "loadUnit": "lb",
       "increment": 5,
@@ -2790,6 +2888,9 @@
       "name": "Bulgarian split squat",
       "pattern": "single-leg",
       "equipment": "Flat bench, dumbbells",
+      "requires": [
+        "flat-bench"
+      ],
       "loadType": "dumbbell-each",
       "loadUnit": "lb",
       "increment": 5,
@@ -2800,6 +2901,9 @@
       "name": "Lateral step-down",
       "pattern": "single-leg",
       "equipment": "6–8 in. step",
+      "requires": [
+        "step-platforms"
+      ],
       "loadType": "step-height",
       "loadUnit": "in",
       "increment": 2,
@@ -2811,6 +2915,9 @@
       "name": "Reverse lunge with dumbbells",
       "pattern": "single-leg",
       "equipment": "Dumbbells",
+      "requires": [
+        "dumbbells"
+      ],
       "loadType": "dumbbell-each",
       "loadUnit": "lb",
       "increment": 5,
@@ -2821,6 +2928,9 @@
       "name": "Walking lunge with dumbbells",
       "pattern": "single-leg",
       "equipment": "Dumbbells",
+      "requires": [
+        "dumbbells"
+      ],
       "loadType": "dumbbell-each",
       "loadUnit": "lb",
       "increment": 5,
@@ -2831,6 +2941,9 @@
       "name": "Lateral lunge with a dumbbell",
       "pattern": "single-leg",
       "equipment": "One dumbbell",
+      "requires": [
+        "dumbbells"
+      ],
       "loadType": "dumbbell-single",
       "loadUnit": "lb",
       "increment": 5,
@@ -2841,6 +2954,15 @@
       "name": "Standing calf raise on the leg press or Smith",
       "pattern": "calf",
       "equipment": "Leg press or Smith machine",
+      "requires": [
+        {
+          "anyOf": [
+            "seated-leg-press",
+            "leg-press-45",
+            "smith-machine"
+          ]
+        }
+      ],
       "loadType": "stack",
       "loadUnit": "lb",
       "increment": 5,
@@ -2851,6 +2973,9 @@
       "name": "Seated calf raise",
       "pattern": "calf",
       "equipment": "Seated calf machine",
+      "requires": [
+        "seated-calf-machine"
+      ],
       "loadType": "stack",
       "loadUnit": "lb",
       "increment": 5,
@@ -2861,6 +2986,14 @@
       "name": "Single-leg calf raise on a step",
       "pattern": "calf",
       "equipment": "Step, rail for balance; a dumbbell from Phase 3",
+      "requires": [
+        {
+          "anyOf": [
+            "step-platforms",
+            "stair"
+          ]
+        }
+      ],
       "loadType": "dumbbell-single",
       "loadUnit": "lb",
       "increment": 5,
@@ -2871,6 +3004,7 @@
       "name": "Single-leg balance",
       "pattern": "balance",
       "equipment": "Floor, then a folded mat",
+      "requires": [],
       "loadType": "time",
       "loadUnit": "s",
       "increment": 5,
@@ -2879,6 +3013,13 @@
         "eyes open",
         "eyes closed",
         "on a folded mat"
+      ],
+      "stageRequires": [
+        [],
+        [],
+        [
+          "mats"
+        ]
       ]
     },
     {
@@ -2886,6 +3027,14 @@
       "name": "Balance on a folded mat or bosu",
       "pattern": "balance",
       "equipment": "Folded mat or bosu",
+      "requires": [
+        {
+          "anyOf": [
+            "mats",
+            "bosu"
+          ]
+        }
+      ],
       "loadType": "time",
       "loadUnit": "s",
       "increment": 5,
@@ -2897,6 +3046,26 @@
         "bosu",
         "bosu, slow head turns",
         "bosu, eyes closed"
+      ],
+      "stageRequires": [
+        [
+          "mats"
+        ],
+        [
+          "mats"
+        ],
+        [
+          "mats"
+        ],
+        [
+          "bosu"
+        ],
+        [
+          "bosu"
+        ],
+        [
+          "bosu"
+        ]
       ]
     },
     {
@@ -2904,6 +3073,10 @@
       "name": "Dumbbell bench press",
       "pattern": "push",
       "equipment": "Dumbbells, flat bench",
+      "requires": [
+        "dumbbells",
+        "flat-bench"
+      ],
       "loadType": "dumbbell-each",
       "loadUnit": "lb",
       "increment": 5,
@@ -2914,6 +3087,10 @@
       "name": "Incline dumbbell press",
       "pattern": "push",
       "equipment": "Dumbbells, incline bench",
+      "requires": [
+        "dumbbells",
+        "adjustable-bench"
+      ],
       "loadType": "dumbbell-each",
       "loadUnit": "lb",
       "increment": 5,
@@ -2924,6 +3101,9 @@
       "name": "Chest press machine",
       "pattern": "push",
       "equipment": "Chest press machine",
+      "requires": [
+        "chest-press-machine"
+      ],
       "loadType": "stack",
       "loadUnit": "lb",
       "increment": 5,
@@ -2934,6 +3114,10 @@
       "name": "Smith bench press",
       "pattern": "push",
       "equipment": "Smith machine, bench",
+      "requires": [
+        "smith-machine",
+        "flat-bench"
+      ],
       "loadType": "smith-plates",
       "loadUnit": "lb",
       "increment": 10,
@@ -2944,6 +3128,10 @@
       "name": "Seated dumbbell shoulder press",
       "pattern": "push",
       "equipment": "Dumbbells, bench",
+      "requires": [
+        "dumbbells",
+        "flat-bench"
+      ],
       "loadType": "dumbbell-each",
       "loadUnit": "lb",
       "increment": 5,
@@ -2954,6 +3142,9 @@
       "name": "Lat pulldown",
       "pattern": "pull",
       "equipment": "Lat pulldown",
+      "requires": [
+        "lat-pulldown"
+      ],
       "loadType": "stack",
       "loadUnit": "lb",
       "increment": 5,
@@ -2964,6 +3155,9 @@
       "name": "Assisted pull-up",
       "pattern": "pull",
       "equipment": "Assisted pull-up machine",
+      "requires": [
+        "assisted-pull-up"
+      ],
       "loadType": "stack",
       "loadUnit": "lb",
       "increment": 5,
@@ -2976,6 +3170,9 @@
       "name": "Single-arm cable pulldown",
       "pattern": "pull",
       "equipment": "Cable station",
+      "requires": [
+        "cable-station"
+      ],
       "loadType": "stack",
       "loadUnit": "lb",
       "increment": 5,
@@ -2986,6 +3183,9 @@
       "name": "Seated cable row",
       "pattern": "pull",
       "equipment": "Seated row",
+      "requires": [
+        "seated-row"
+      ],
       "loadType": "stack",
       "loadUnit": "lb",
       "increment": 5,
@@ -2996,6 +3196,10 @@
       "name": "Chest-supported dumbbell row",
       "pattern": "pull",
       "equipment": "Dumbbells, incline bench",
+      "requires": [
+        "dumbbells",
+        "adjustable-bench"
+      ],
       "loadType": "dumbbell-each",
       "loadUnit": "lb",
       "increment": 5,
@@ -3006,6 +3210,9 @@
       "name": "Single-arm cable row",
       "pattern": "pull",
       "equipment": "Cable station",
+      "requires": [
+        "cable-station"
+      ],
       "loadType": "stack",
       "loadUnit": "lb",
       "increment": 5,
@@ -3016,6 +3223,9 @@
       "name": "Face pull",
       "pattern": "pull",
       "equipment": "Cable crossover, rope",
+      "requires": [
+        "cable-station"
+      ],
       "loadType": "stack",
       "loadUnit": "lb",
       "increment": 5,
@@ -3026,6 +3236,9 @@
       "name": "Rear-delt machine",
       "pattern": "pull",
       "equipment": "Rear-delt machine",
+      "requires": [
+        "rear-delt-machine"
+      ],
       "loadType": "stack",
       "loadUnit": "lb",
       "increment": 5,
@@ -3036,6 +3249,7 @@
       "name": "Dead bug",
       "pattern": "core",
       "equipment": "Mat",
+      "requires": [],
       "loadType": "bodyweight",
       "loadUnit": "none",
       "increment": 0,
@@ -3046,6 +3260,7 @@
       "name": "Side plank",
       "pattern": "core",
       "equipment": "Mat",
+      "requires": [],
       "loadType": "time",
       "loadUnit": "s",
       "increment": 5,
@@ -3056,6 +3271,9 @@
       "name": "Pallof press, standing",
       "pattern": "core",
       "equipment": "Cable station",
+      "requires": [
+        "cable-station"
+      ],
       "loadType": "stack",
       "loadUnit": "lb",
       "increment": 5,
@@ -3066,6 +3284,9 @@
       "name": "Farmer's carry",
       "pattern": "carry",
       "equipment": "Dumbbells",
+      "requires": [
+        "dumbbells"
+      ],
       "loadType": "dumbbell-each",
       "loadUnit": "lb",
       "increment": 5,
@@ -3076,6 +3297,9 @@
       "name": "Suitcase carry",
       "pattern": "carry",
       "equipment": "One dumbbell",
+      "requires": [
+        "dumbbells"
+      ],
       "loadType": "dumbbell-single",
       "loadUnit": "lb",
       "increment": 5,
@@ -3086,6 +3310,9 @@
       "name": "Elliptical, easy",
       "pattern": "cardio",
       "equipment": "Elliptical",
+      "requires": [
+        "elliptical"
+      ],
       "loadType": "time",
       "loadUnit": "s",
       "increment": 60,
@@ -3096,6 +3323,7 @@
       "name": "Snap-down",
       "pattern": "plyo",
       "equipment": "Open floor",
+      "requires": [],
       "loadType": "bodyweight",
       "loadUnit": "none",
       "increment": 0,
@@ -3106,6 +3334,7 @@
       "name": "Pogo hops on both feet with stiff ankles",
       "pattern": "plyo",
       "equipment": "Open floor",
+      "requires": [],
       "loadType": "time",
       "loadUnit": "s",
       "increment": 5,
@@ -3116,6 +3345,9 @@
       "name": "Step-off landing from a 6–8 in. step, stuck for 2 s",
       "pattern": "plyo",
       "equipment": "6–8 in. step",
+      "requires": [
+        "step-platforms"
+      ],
       "loadType": "bodyweight",
       "loadUnit": "none",
       "increment": 0,
@@ -3126,6 +3358,7 @@
       "name": "Lateral line hops on both feet",
       "pattern": "plyo",
       "equipment": "Floor tape",
+      "requires": [],
       "loadType": "time",
       "loadUnit": "s",
       "increment": 5,
@@ -3136,6 +3369,7 @@
       "name": "Single-leg pogos",
       "pattern": "plyo",
       "equipment": "Open floor",
+      "requires": [],
       "loadType": "time",
       "loadUnit": "s",
       "increment": 5,
@@ -3146,6 +3380,9 @@
       "name": "Jump onto the circuit step and step down",
       "pattern": "plyo",
       "equipment": "Circuit step",
+      "requires": [
+        "step-platforms"
+      ],
       "loadType": "bodyweight",
       "loadUnit": "none",
       "increment": 0,
@@ -3157,6 +3394,7 @@
       "name": "Skater bounds with a stuck landing",
       "pattern": "plyo",
       "equipment": "Open floor",
+      "requires": [],
       "loadType": "bodyweight",
       "loadUnit": "none",
       "increment": 0,
@@ -3167,6 +3405,7 @@
       "name": "Single-leg forward hop and stick at about 70%",
       "pattern": "plyo",
       "equipment": "Open floor",
+      "requires": [],
       "loadType": "bodyweight",
       "loadUnit": "none",
       "increment": 0,
@@ -3177,6 +3416,7 @@
       "name": "Repeat hops, 3 in a row, both feet",
       "pattern": "plyo",
       "equipment": "Open floor",
+      "requires": [],
       "loadType": "bodyweight",
       "loadUnit": "none",
       "increment": 0,
@@ -3187,6 +3427,7 @@
       "name": "Repeat hops, 3 in a row, single leg",
       "pattern": "plyo",
       "equipment": "Open floor",
+      "requires": [],
       "loadType": "bodyweight",
       "loadUnit": "none",
       "increment": 0,
@@ -3197,6 +3438,7 @@
       "name": "Continuous skater bounds",
       "pattern": "plyo",
       "equipment": "Open floor",
+      "requires": [],
       "loadType": "bodyweight",
       "loadUnit": "none",
       "increment": 0,
@@ -3207,12 +3449,532 @@
       "name": "45° change-of-direction at a jog",
       "pattern": "plyo",
       "equipment": "An open patch of floor",
+      "requires": [],
       "loadType": "bodyweight",
       "loadUnit": "none",
       "increment": 0,
       "unilateral": false
     }
   ],
+  "equipment": [
+    {
+      "id": "smith-machine",
+      "name": "Smith machine",
+      "group": "Squat pattern",
+      "source": "Smith machine",
+      "aliases": [
+        "smith"
+      ],
+      "carried": false,
+      "hedged": false,
+      "addedIn": 1
+    },
+    {
+      "id": "seated-leg-press",
+      "name": "Seated leg press",
+      "group": "Squat pattern",
+      "source": "Leg press: on the seated machine",
+      "aliases": [
+        "seated leg press machine"
+      ],
+      "carried": false,
+      "hedged": false,
+      "addedIn": 1
+    },
+    {
+      "id": "leg-press-45",
+      "name": "45° leg press",
+      "group": "Squat pattern",
+      "source": "leg press",
+      "aliases": [
+        "45 leg press",
+        "45 degree leg press",
+        "plate-loaded leg press"
+      ],
+      "carried": false,
+      "hedged": false,
+      "addedIn": 1
+    },
+    {
+      "id": "dumbbells",
+      "name": "Dumbbells",
+      "group": "Squat pattern",
+      "source": "dumbbells for goblet and split squats",
+      "aliases": [
+        "dumbbell"
+      ],
+      "carried": false,
+      "hedged": false,
+      "addedIn": 1
+    },
+    {
+      "id": "leg-extension-machine",
+      "name": "Leg extension machine",
+      "group": "Squat pattern",
+      "source": "Leg extension",
+      "aliases": [
+        "leg extension"
+      ],
+      "carried": false,
+      "hedged": false,
+      "addedIn": 1
+    },
+    {
+      "id": "back-extension-bench",
+      "name": "45° back extension bench",
+      "group": "Hinge pattern",
+      "source": "45° back extension bench",
+      "aliases": [
+        "back extension bench",
+        "back extension",
+        "hyperextension bench",
+        "roman chair"
+      ],
+      "carried": false,
+      "hedged": false,
+      "addedIn": 1
+    },
+    {
+      "id": "weight-plate",
+      "name": "Weight plate",
+      "group": "Hinge pattern",
+      "source": "hold a plate",
+      "aliases": [
+        "plate",
+        "plates",
+        "weight plates"
+      ],
+      "carried": false,
+      "hedged": false,
+      "addedIn": 1
+    },
+    {
+      "id": "step-platforms",
+      "name": "Step platforms",
+      "group": "Single-leg",
+      "source": "Step platforms from the 30-minute circuit (stackable risers)",
+      "aliases": [
+        "step platform",
+        "stackable risers",
+        "risers",
+        "circuit step",
+        "aerobic step",
+        "step"
+      ],
+      "carried": false,
+      "hedged": false,
+      "addedIn": 1
+    },
+    {
+      "id": "flat-bench",
+      "name": "Flat bench",
+      "group": "Single-leg",
+      "source": "a flat bench for Bulgarians",
+      "aliases": [
+        "bench",
+        "weight bench"
+      ],
+      "carried": false,
+      "hedged": false,
+      "addedIn": 1
+    },
+    {
+      "id": "stair",
+      "name": "Stair",
+      "group": "Single-leg",
+      "source": "The lowest stair in the club",
+      "aliases": [
+        "stairs",
+        "lowest stair",
+        "staircase"
+      ],
+      "carried": false,
+      "hedged": false,
+      "addedIn": 1
+    },
+    {
+      "id": "seated-leg-curl",
+      "name": "Seated leg curl",
+      "group": "Hamstrings",
+      "source": "Seated leg curl",
+      "aliases": [
+        "seated leg curl machine"
+      ],
+      "carried": false,
+      "hedged": false,
+      "addedIn": 1
+    },
+    {
+      "id": "lying-leg-curl",
+      "name": "Lying leg curl",
+      "group": "Hamstrings",
+      "source": "Lying leg curl",
+      "aliases": [
+        "lying leg curl machine",
+        "prone leg curl"
+      ],
+      "carried": false,
+      "hedged": false,
+      "addedIn": 1
+    },
+    {
+      "id": "stability-ball",
+      "name": "Stability ball",
+      "group": "Hamstrings",
+      "source": "stability-ball leg curl",
+      "aliases": [
+        "swiss ball",
+        "exercise ball"
+      ],
+      "carried": false,
+      "hedged": false,
+      "addedIn": 1
+    },
+    {
+      "id": "hip-abductor-machine",
+      "name": "Hip abductor machine",
+      "group": "Hips",
+      "source": "Hip abductor machine",
+      "aliases": [
+        "abductor machine",
+        "abductor"
+      ],
+      "carried": false,
+      "hedged": false,
+      "addedIn": 1
+    },
+    {
+      "id": "hip-adductor-machine",
+      "name": "Hip adductor machine",
+      "group": "Hips",
+      "source": "Hip adductor machine",
+      "aliases": [
+        "adductor machine",
+        "adductor"
+      ],
+      "carried": false,
+      "hedged": false,
+      "addedIn": 1
+    },
+    {
+      "id": "cable-station",
+      "name": "Cable station",
+      "group": "Hips",
+      "source": "a cable station",
+      "aliases": [
+        "cable machine",
+        "cable column",
+        "cable",
+        "cables"
+      ],
+      "carried": false,
+      "hedged": false,
+      "addedIn": 1
+    },
+    {
+      "id": "seated-calf-machine",
+      "name": "Seated calf machine",
+      "group": "Calves",
+      "source": "Seated calf machine",
+      "aliases": [
+        "calf machine",
+        "seated calf raise machine"
+      ],
+      "carried": false,
+      "hedged": false,
+      "addedIn": 1
+    },
+    {
+      "id": "mats",
+      "name": "Mats",
+      "group": "Balance and plyos",
+      "source": "Mats",
+      "aliases": [
+        "mat",
+        "exercise mat",
+        "folded mat"
+      ],
+      "carried": false,
+      "hedged": false,
+      "addedIn": 1
+    },
+    {
+      "id": "bosu",
+      "name": "Bosu or balance pad",
+      "group": "Balance and plyos",
+      "source": "a bosu or balance pad if your club has one",
+      "aliases": [
+        "bosu",
+        "bosu ball",
+        "balance pad"
+      ],
+      "carried": false,
+      "hedged": true,
+      "addedIn": 1
+    },
+    {
+      "id": "floor-tape",
+      "name": "Floor tape",
+      "group": "Balance and plyos",
+      "source": "floor tape for hop tests",
+      "aliases": [
+        "tape"
+      ],
+      "carried": false,
+      "hedged": false,
+      "addedIn": 1
+    },
+    {
+      "id": "tape-measure",
+      "name": "Tape measure",
+      "group": "Balance and plyos",
+      "source": "a tape measure",
+      "aliases": [
+        "measuring tape"
+      ],
+      "carried": false,
+      "hedged": false,
+      "addedIn": 1
+    },
+    {
+      "id": "medicine-ball",
+      "name": "Medicine ball",
+      "group": "Balance and plyos",
+      "source": "Medicine ball",
+      "aliases": [
+        "med ball"
+      ],
+      "carried": false,
+      "hedged": false,
+      "addedIn": 1
+    },
+    {
+      "id": "cable-crossover",
+      "name": "Cable crossover",
+      "group": "Upper body",
+      "source": "cable crossover",
+      "aliases": [
+        "cable crossover machine"
+      ],
+      "carried": false,
+      "hedged": false,
+      "addedIn": 1
+    },
+    {
+      "id": "lat-pulldown",
+      "name": "Lat pulldown",
+      "group": "Upper body",
+      "source": "lat pulldown",
+      "aliases": [
+        "lat pulldown machine",
+        "pulldown"
+      ],
+      "carried": false,
+      "hedged": false,
+      "addedIn": 1
+    },
+    {
+      "id": "seated-row",
+      "name": "Seated row",
+      "group": "Upper body",
+      "source": "seated row",
+      "aliases": [
+        "seated row machine",
+        "seated cable row"
+      ],
+      "carried": false,
+      "hedged": false,
+      "addedIn": 1
+    },
+    {
+      "id": "chest-press-machine",
+      "name": "Chest press machine",
+      "group": "Upper body",
+      "source": "Chest press machine",
+      "aliases": [
+        "chest press"
+      ],
+      "carried": false,
+      "hedged": false,
+      "addedIn": 1
+    },
+    {
+      "id": "shoulder-press-machine",
+      "name": "Shoulder press machine",
+      "group": "Upper body",
+      "source": "chest and shoulder press machines",
+      "aliases": [
+        "shoulder press"
+      ],
+      "carried": false,
+      "hedged": false,
+      "addedIn": 1
+    },
+    {
+      "id": "assisted-pull-up",
+      "name": "Assisted pull-up/dip machine",
+      "group": "Upper body",
+      "source": "assisted pull-up/dip",
+      "aliases": [
+        "assisted pull-up",
+        "assisted pull-up machine",
+        "assisted dip",
+        "assisted pullup"
+      ],
+      "carried": false,
+      "hedged": false,
+      "addedIn": 1
+    },
+    {
+      "id": "rear-delt-machine",
+      "name": "Rear-delt machine",
+      "group": "Upper body",
+      "source": "the rear-delt machine",
+      "aliases": [
+        "rear delt machine",
+        "reverse fly machine"
+      ],
+      "carried": false,
+      "hedged": false,
+      "addedIn": 1
+    },
+    {
+      "id": "adjustable-bench",
+      "name": "Adjustable bench",
+      "group": "Upper body",
+      "source": "Incline dumbbell press",
+      "aliases": [
+        "incline bench",
+        "adjustable incline bench",
+        "incline weight bench"
+      ],
+      "carried": false,
+      "hedged": false,
+      "addedIn": 1
+    },
+    {
+      "id": "upright-bike",
+      "name": "Upright bike",
+      "group": "Cardio",
+      "source": "Upright bike for warm-ups",
+      "aliases": [
+        "bike",
+        "exercise bike",
+        "stationary bike"
+      ],
+      "carried": false,
+      "hedged": false,
+      "addedIn": 1
+    },
+    {
+      "id": "treadmill",
+      "name": "Treadmill",
+      "group": "Cardio",
+      "source": "treadmill",
+      "aliases": [],
+      "carried": false,
+      "hedged": false,
+      "addedIn": 1
+    },
+    {
+      "id": "elliptical",
+      "name": "Elliptical",
+      "group": "Cardio",
+      "source": "elliptical",
+      "aliases": [
+        "elliptical trainer",
+        "cross trainer"
+      ],
+      "carried": false,
+      "hedged": false,
+      "addedIn": 1
+    },
+    {
+      "id": "rower",
+      "name": "Rower",
+      "group": "Cardio",
+      "source": "rower",
+      "aliases": [
+        "erg",
+        "rowing ergometer"
+      ],
+      "carried": false,
+      "hedged": false,
+      "addedIn": 1
+    },
+    {
+      "id": "stair-climber",
+      "name": "Stair climber",
+      "group": "Cardio",
+      "source": "stair climber",
+      "aliases": [
+        "stair stepper"
+      ],
+      "carried": false,
+      "hedged": false,
+      "addedIn": 1
+    },
+    {
+      "id": "ankle-strap",
+      "name": "Cable ankle strap",
+      "group": "Bring",
+      "source": "a cable ankle strap",
+      "aliases": [
+        "ankle strap",
+        "ankle cuff"
+      ],
+      "carried": true,
+      "hedged": false,
+      "addedIn": 1
+    },
+    {
+      "id": "mini-band",
+      "name": "Mini loop band",
+      "group": "Bring",
+      "source": "a mini loop band",
+      "aliases": [
+        "mini band",
+        "loop band",
+        "band"
+      ],
+      "carried": true,
+      "hedged": false,
+      "addedIn": 1
+    }
+  ],
+  "planetFitness": [
+    "smith-machine",
+    "seated-leg-press",
+    "leg-extension-machine",
+    "back-extension-bench",
+    "weight-plate",
+    "step-platforms",
+    "flat-bench",
+    "stair",
+    "seated-leg-curl",
+    "stability-ball",
+    "hip-abductor-machine",
+    "hip-adductor-machine",
+    "cable-station",
+    "seated-calf-machine",
+    "mats",
+    "bosu",
+    "floor-tape",
+    "cable-crossover",
+    "lat-pulldown",
+    "seated-row",
+    "chest-press-machine",
+    "shoulder-press-machine",
+    "assisted-pull-up",
+    "rear-delt-machine",
+    "adjustable-bench",
+    "upright-bike",
+    "treadmill",
+    "elliptical",
+    "rower",
+    "stair-climber"
+  ],
+  "equipmentListVersion": 1,
   "redFlagsIntro": "Any of these means the session is over and the next call is to the ortho or PT, not a Hold and another try on Thursday.",
   "redFlags": [
     {

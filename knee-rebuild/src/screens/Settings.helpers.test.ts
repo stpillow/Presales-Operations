@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { SessionMove, Settings } from '../schema/index.ts'
 import {
-  DUMBBELL_PRESETS,
-  DUMBBELL_STEP,
+  DUMBBELLS_LINE,
   REST_MIN,
   REST_STEP,
   SIDES,
@@ -33,6 +32,8 @@ const settings = (over: Partial<Settings> = {}): Settings => ({
   currentPhase: 1,
   phaseEnteredWeek: 1,
   redFlag: { active: false, items: [] },
+  activeLocationId: 'planet-fitness',
+  kit: ['ankle-strap', 'mini-band'],
   ...over,
 })
 
@@ -60,11 +61,15 @@ describe('sides and limits', () => {
     expect(sideWords('left')).toBe('Left knee')
     expect(sideWords('right')).toBe('Right knee')
   })
-  it('keeps the rack presets and the step sizes from the brief', () => {
-    expect(DUMBBELL_PRESETS).toEqual([60, 75, 80])
-    expect(DUMBBELL_STEP).toBe(5)
+  it('keeps the rest step sizes from the brief', () => {
     expect(REST_STEP).toBe(15)
     expect(REST_MIN).toBe(15)
+  })
+})
+
+describe('dumbbells (M4b)', () => {
+  it("points at Where you train, where each gym's rack is set", () => {
+    expect(DUMBBELLS_LINE).toBe('Dumbbells are set per gym in Where you train.')
   })
 })
 
