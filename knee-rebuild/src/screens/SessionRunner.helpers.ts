@@ -580,10 +580,25 @@ export function offerNotes(offer: SwapOffer | null, available: Available, items:
   }
 }
 
-/** The line after a mark is saved: "Marked here at Hotel gym: step platforms." */
-export function markedWords(here: boolean, id: EquipmentId, gymName: string, items: readonly ItemLike[]): string {
+/**
+ * The line after a mark is saved: "Marked here at Hotel gym: step platforms." A mark-off points to
+ * where it is cleared: Today's "It's back" when the session's gym is the one Today plans at
+ * (`todayPlansHere`), since Today shows only that gym's mark-offs; Where you train otherwise.
+ */
+export function markedWords(here: boolean, id: EquipmentId, gymName: string, items: readonly ItemLike[], todayPlansHere: boolean): string {
   const name = itemInSentence(itemOf(id, items).name)
-  return here ? `Marked here at ${gymName}: ${name}.` : `Marked not here at ${gymName}: ${name}. Today offers "It's back" when it is.`
+  if (here) return `Marked here at ${gymName}: ${name}.`
+  return todayPlansHere ? `Marked not here at ${gymName}: ${name}. Today offers "It's back" when it is.` : `Marked not here at ${gymName}: ${name}. Where you train clears it when it is back.`
+}
+
+/** Under the gym line when the session runs at a gym Today doesn't plan at: the runner's Change moves only the session. */
+export function todayGymWords(activeName: string): string {
+  return `Today plans at ${activeName}; a Change here moves only this session.`
+}
+
+/** The tap that makes the session's gym the one Today plans at too. */
+export function useHereTooLabel(gymName: string): string {
+  return `Use ${gymName} on Today too`
 }
 
 /** The Done bar's line on a slot with nothing here, before Do it anyway. */

@@ -16,6 +16,7 @@ export function GymLine({
   locked,
   busy,
   error,
+  elsewhere = null,
   onPick,
 }: {
   location: Location
@@ -25,6 +26,8 @@ export function GymLine({
   busy: boolean
   /** A change that wasn't saved, in a sentence, or null. */
   error: string | null
+  /** When Today plans at another gym than the session's: the words, and the tap that moves Today here too. */
+  elsewhere?: { words: string; label: string; onUse: () => void } | null
   onPick: (locationId: string) => void
 }) {
   const [open, setOpen] = useState(false)
@@ -70,6 +73,14 @@ export function GymLine({
         </ul>
       ) : null}
       {showList ? <p className="text-small text-on-dark-dim">The session plans at the gym picked here, until the first set is logged.</p> : null}
+      {elsewhere ? (
+        <div className="flex flex-col items-start gap-1">
+          <p className="text-small text-on-dark-dim wrap-anywhere">{elsewhere.words}</p>
+          <Button variant="quiet" className="wrap-anywhere text-left" disabled={busy} onClick={elsewhere.onUse}>
+            {elsewhere.label}
+          </Button>
+        </div>
+      ) : null}
       {error ? (
         <p role="alert" className="text-body text-on-dark wrap-anywhere">
           {error}

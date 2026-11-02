@@ -54,6 +54,8 @@ import {
   swapPick,
   swapsFromSets,
   swapValue,
+  todayGymWords,
+  useHereTooLabel,
   warmUpWords,
   withoutEnginePicks,
 } from './SessionRunner.helpers.ts'
@@ -386,9 +388,15 @@ describe('the gym in words (M4b, design section 4)', () => {
     expect(offerNotes(null, pf, items)).toEqual({ lines: [], marks: [] })
   })
 
-  it('says a mark was saved, and where', () => {
-    expect(markedWords(true, 'step-platforms', hotel, items)).toBe('Marked here at Hotel gym: step platforms.')
-    expect(markedWords(false, 'smith-machine', hotel, items)).toBe('Marked not here at Hotel gym: Smith machine. Today offers "It\'s back" when it is.')
+  it('says a mark was saved, and where: Today offers "It’s back" only for the gym it plans at (M4b review)', () => {
+    expect(markedWords(true, 'step-platforms', hotel, items, true)).toBe('Marked here at Hotel gym: step platforms.')
+    expect(markedWords(false, 'smith-machine', hotel, items, true)).toBe('Marked not here at Hotel gym: Smith machine. Today offers "It\'s back" when it is.')
+    // The runner's Change moved only this session: Today still plans at Planet Fitness and shows its mark-offs, not this gym's.
+    expect(markedWords(false, 'cable-station', 'Marriott Downtown', items, false)).toBe('Marked not here at Marriott Downtown: cable station. Where you train clears it when it is back.')
+  })
+  it('says where Today plans when the session runs at another gym', () => {
+    expect(todayGymWords('Planet Fitness')).toBe('Today plans at Planet Fitness; a Change here moves only this session.')
+    expect(useHereTooLabel('Marriott Downtown')).toBe('Use Marriott Downtown on Today too')
   })
 
   it('the Done bar on a slot with nothing here, and the end of the session with such slots left', () => {

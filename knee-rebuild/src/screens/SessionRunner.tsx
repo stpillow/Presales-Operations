@@ -6,7 +6,7 @@ import { Button } from '../components/Button.tsx'
 import { RestTimer } from '../components/RestTimer.tsx'
 import { Screen } from '../components/Screen.tsx'
 import { useHistory, useLocation, useLocations, useSetsFor, useSettings, useWorkout } from '../db/hooks.ts'
-import { deleteSet, deleteWorkout, markOff, setDumbbellMax, setPresent, setWorkoutLocation, SWAP_KEY_PREFIX, updateWorkout, upsertSet, type History } from '../db/repo.ts'
+import { deleteSet, deleteWorkout, markOff, setActiveLocation, setDumbbellMax, setPresent, setWorkoutLocation, SWAP_KEY_PREFIX, updateWorkout, upsertSet, type History } from '../db/repo.ts'
 import { exerciseById } from '../program/program.ts'
 import { effectiveSlot } from '../rules/effectiveSlot.ts'
 import { WARM_UP_BIKE } from '../rules/equipment.ts'
@@ -52,6 +52,8 @@ import {
   swapPick,
   swapsFromSets,
   templateForWorkout,
+  todayGymWords,
+  useHereTooLabel,
   warmUpWords,
   withoutEnginePicks,
   type GymMark,
@@ -399,7 +401,7 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
         if (m.here) await setPresent(location.id, m.id, true)
         else await markOff(location.id, m.id, today)
       },
-      () => setMarked({ slotId, text: markedWords(m.here, m.id, location.name, ITEMS) }),
+      () => setMarked({ slotId, text: markedWords(m.here, m.id, location.name, ITEMS, location.id === settings.activeLocationId) }),
     )
   }
 
@@ -496,6 +498,12 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
   }
 
   const sessionError = error?.at === 'session' ? error.text : null
+  // The runner's Change moves only the session: when Today plans at another gym, say so, with a tap to move Today too.
+  const todayGym = locations?.find((l) => l.id === settings.activeLocationId)
+  const elsewhere =
+    todayGym && todayGym.id !== location.id
+      ? { words: todayGymWords(todayGym.name), label: useHereTooLabel(location.name), onUse: () => void write(() => setActiveLocation(location.id), undefined, 'gym') }
+      : null
 
   const notHereLine = notHereWords(location.name, notHereEntries(plans, loggedSlots, nameOf))
   const notLogged = notLoggedWords(notLoggedLabels(plans, steps, done, stopped, notHere), notHereLine !== null)
@@ -535,6 +543,7 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
         locked={gymLocked(sets.length)}
         busy={busy}
         error={error?.at === 'gym' ? error.text : null}
+        elsewhere={elsewhere}
         onPick={changeGym}
       />
       <div className="-mt-4 flex flex-wrap items-center justify-between gap-2">
