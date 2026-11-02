@@ -26,7 +26,7 @@ export function MilesChart({ view }: { view: MilesView }) {
           { kind: 'plan', name: 'Plan' },
         ]}
       />
-      <ChartFrame label={milesAria(view)} width={width} height={HEIGHT} positions={geo.centers} selected={selected} onSelect={setSelected} readout={readout} table={milesTable(view)}>
+      <ChartFrame label={milesAria(view)} width={width} height={HEIGHT} positions={geo.centers} selected={selected} initial={view.opening} onSelect={setSelected} readout={readout} table={milesTable(view)}>
         {picked ? <rect x={picked.x - geo.slot / 2} y={geo.plot.top} width={geo.slot} height={geo.plot.bottom - geo.plot.top} rx={2} className="fill-navy-lift" /> : null}
         <YAxis ticks={geo.ticks} left={geo.plot.left} right={geo.plot.right} />
         {geo.columns.map((c) => (c.path ? <path key={`col-${c.week}`} d={c.path} className="fill-on-dark-dim" /> : null))}

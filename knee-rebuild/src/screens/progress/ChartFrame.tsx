@@ -1,6 +1,6 @@
 import { useId, useLayoutEffect, useRef, useState, type Dispatch, type ReactNode, type RefObject, type SetStateAction } from 'react'
 import { Button } from '../../components/Button.tsx'
-import { nearestIndex, stepIndex, type MarkKind, type NumbersTable, type Readout } from '../Progress.helpers.ts'
+import { focusIndex, nearestIndex, stepIndex, type MarkKind, type NumbersTable, type Readout } from '../Progress.helpers.ts'
 
 /** The chart's width before it is measured: a 375 px phone less the 16 px gutters. */
 export const PHONE_WIDTH = 343
@@ -34,7 +34,8 @@ export const DATE_LABEL_DY = 21
 /**
  * A chart's frame: the readout line above it, the SVG (role img, one-sentence name), and the
  * "Show the numbers" table twin. A tap, a drag or a hover anywhere on the chart selects the nearest
- * date, never only the dot; focus selects the latest, and the arrow keys step through the dates.
+ * date, never only the dot; focus selects the date the readout opened on (`initial`, else the
+ * latest), and the arrow keys step through the dates from there.
  */
 export function ChartFrame({
   label,
@@ -42,6 +43,7 @@ export function ChartFrame({
   height,
   positions,
   selected,
+  initial,
   onSelect,
   readout,
   table,
@@ -53,6 +55,8 @@ export function ChartFrame({
   /** The x of each selectable date, in SVG pixels. */
   positions: readonly number[]
   selected: number | null
+  /** The index the readout shows with nothing picked (this week on the miles chart); the latest when absent. */
+  initial?: number
   onSelect: Dispatch<SetStateAction<number | null>>
   readout: Readout | null
   table: NumbersTable
@@ -81,9 +85,9 @@ export function ChartFrame({
         aria-describedby={readoutId}
         tabIndex={0}
         className="rounded-sm"
-        onFocus={() => onSelect((s) => s ?? (positions.length > 0 ? positions.length - 1 : null))}
+        onFocus={() => onSelect((s) => focusIndex(s, initial, positions.length))}
         onKeyDown={(e) => {
-          const next = stepIndex(selected, e.key, positions.length)
+          const next = stepIndex(selected, e.key, positions.length, initial)
           if (next === null) return
           e.preventDefault()
           onSelect(next)

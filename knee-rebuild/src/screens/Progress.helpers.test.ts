@@ -16,6 +16,7 @@ import {
   datePositions,
   exerciseView,
   fmt,
+  focusIndex,
   gatesWords,
   labelledPoints,
   leftOutLines,
@@ -176,6 +177,19 @@ describe('positions and hit testing', () => {
     expect(stepIndex(0, 'End', 4)).toBe(3)
     expect(stepIndex(1, 'Enter', 4)).toBeNull()
     expect(stepIndex(null, 'ArrowRight', 0)).toBeNull()
+  })
+
+  it('focus opens on the chart’s own opening point: this week on the miles chart, not the plan’s last week', () => {
+    // Week 3 of 12: the readout opens on index 2, and focus and the first arrow start there.
+    expect(focusIndex(null, 2, 12)).toBe(2)
+    expect(focusIndex(7, 2, 12)).toBe(7)
+    expect(focusIndex(null, 2, 0)).toBeNull()
+    expect(focusIndex(null, 40, 12)).toBe(11)
+    expect(stepIndex(null, 'ArrowRight', 12, 2)).toBe(3)
+    expect(stepIndex(null, 'ArrowLeft', 12, 2)).toBe(2)
+    // The line charts open on their latest point, as before.
+    expect(focusIndex(null, undefined, 4)).toBe(3)
+    expect(stepIndex(null, 'ArrowLeft', 4, undefined)).toBe(3)
   })
 })
 

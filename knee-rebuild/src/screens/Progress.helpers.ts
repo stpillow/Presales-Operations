@@ -158,10 +158,24 @@ export function nearestIndex(positions: readonly number[], x: number): number | 
   return best
 }
 
-/** Where a key moves the selected date: left and right one step, Home and End to either end. Null for other keys. */
-export function stepIndex(current: number | null, key: string, length: number): number | null {
+/**
+ * The date focus selects: the one already picked, else the chart's opening point (`initial`: this
+ * week on the miles chart), else the latest. Null with no dates.
+ */
+export function focusIndex(current: number | null, initial: number | undefined, length: number): number | null {
   if (length <= 0) return null
-  const from = current === null ? length - 1 : Math.min(length - 1, Math.max(0, current))
+  if (current !== null) return Math.min(length - 1, Math.max(0, current))
+  return Math.min(length - 1, Math.max(0, initial ?? length - 1))
+}
+
+/**
+ * Where a key moves the selected date: left and right one step, Home and End to either end. With
+ * nothing picked yet it steps from the chart's opening point (`initial`, else the latest). Null for
+ * other keys.
+ */
+export function stepIndex(current: number | null, key: string, length: number, initial?: number): number | null {
+  if (length <= 0) return null
+  const from = focusIndex(current, initial, length) ?? length - 1
   switch (key) {
     case 'ArrowLeft':
       return current === null ? from : Math.max(0, from - 1)
