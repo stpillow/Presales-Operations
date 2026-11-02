@@ -174,7 +174,8 @@ export function cueCountWords(text: string): string | null {
 
 /**
  * A new cue typed but not added when the editor closes (Done editing, or another slot's Edit): the
- * text is kept in the slot's new-cue field, and the slot says so under it, quoting the cue as it
+ * text is kept in the slot's new-cue field (program/drafts.ts, so the program.md view and other
+ * tabs keep it too, until the app closes), and the slot says so under it, quoting the cue as it
  * would be stored, so nothing typed goes without a word. Null when the field holds no words.
  */
 export function unaddedCueWords(text: string): string | null {

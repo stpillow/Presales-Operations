@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState, type Dispatch, type SetStateAction } from 'react'
 import { Button } from '../../components/Button.tsx'
 import { overridesBySlot } from '../../rules/overrides.ts'
 import type { IsoDate, ProgramOverride } from '../../schema/index.ts'
 import { unaddedCueWords, type PhaseScreen, type SlotRow } from '../Program.helpers.ts'
+import { keepSlotDraft, slotDraft, type SlotDraft } from './drafts.ts'
 import { HEADING, LABEL, Note, Problem } from './parts.tsx'
 import { SlotEditor } from './SlotEditor.tsx'
 
@@ -30,12 +31,23 @@ export function PhaseSessions({ screen, overrides, today }: { screen: PhaseScree
   )
 }
 
+/**
+ * One part of a slot's draft as state, read back from the drafts kept outside the card when it
+ * mounts and kept there as it changes, so the program.md view or another tab never drops it.
+ */
+function useSlotDraft<K extends keyof SlotDraft>(slotId: string, part: K): [SlotDraft[K], Dispatch<SetStateAction<SlotDraft[K]>>] {
+  const [value, setValue] = useState<SlotDraft[K]>(() => slotDraft(slotId)[part])
+  useEffect(() => keepSlotDraft(slotId, part, value), [slotId, part, value])
+  return [value, setValue]
+}
+
 function SlotCard({ row, override, today, open, onToggle }: { row: SlotRow; override: ProgramOverride | undefined; today: IsoDate; open: boolean; onToggle: () => void }) {
   // The editor's last refusal or failed save, kept under the slot once Done editing closes it (the
   // tap that closes it is often the one that left a refused field), until the editor opens again.
-  const [standing, setStanding] = useState<string | null>(null)
-  // The new-cue field's text, kept here so Done editing (or another slot's Edit) before Add cue never drops it.
-  const [newCue, setNewCue] = useState('')
+  const [standing, setStanding] = useSlotDraft(row.id, 'standing')
+  // The new-cue field's text, kept with the slot so Done editing, another slot's Edit, the program.md
+  // view or another tab before Add cue never drops it (drafts.ts).
+  const [newCue, setNewCue] = useSlotDraft(row.id, 'newCue')
   const unadded = open ? null : unaddedCueWords(newCue)
   const toggle = () => {
     if (!open) setStanding(null)

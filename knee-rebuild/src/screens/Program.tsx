@@ -10,7 +10,8 @@ import { Reference } from './program/Reference.tsx'
 /**
  * The Program screen (`#/program`, PROMPT section 5, M6 brief section 1): the current phase's three
  * sessions as they run this week, read-only until a slot's Edit opens its cues and substitutions in
- * place; and program.md as reference, with a contents list. Edits are overrides laid over
+ * place; and program.md as reference, with a contents list, This phase kept mounted behind it so an
+ * open editor survives the look. Edits are overrides laid over
  * program.md's slots (src/rules/overrides.ts); the seed is never written.
  */
 export function Program() {
@@ -42,7 +43,11 @@ export function Program() {
           <Choice key={choice.value} label={choice.label} selected={view === choice.value} onSelect={() => setView(choice.value)} />
         ))}
       </div>
-      {view === 'phase' ? <PhaseSessions screen={screen} overrides={overrides} today={today} /> : <Reference />}
+      {/* This phase stays mounted behind the reference, so an open editor and what it holds are there on the way back. */}
+      <div hidden={view !== 'phase'}>
+        <PhaseSessions screen={screen} overrides={overrides} today={today} />
+      </div>
+      {view === 'reference' ? <Reference /> : null}
     </Screen>
   )
 }
