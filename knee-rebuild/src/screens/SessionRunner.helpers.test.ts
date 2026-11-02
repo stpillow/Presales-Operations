@@ -37,6 +37,7 @@ import {
   offerNotes,
   parseStoredSlotIds,
   parseStoredSwaps,
+  holdsOffWords,
   pickNotHereWords,
   prescriptionWords,
   RACK_ASK_LB,
@@ -244,6 +245,25 @@ describe('the gym in words (M4b, design section 4)', () => {
       ['goblet-squat-bench', true, 'Here'],
     ])
     expect(choices[2]?.missing).toEqual(['smith-machine'])
+  })
+
+  it('Swap says why the exercise the plan runs is off the card, rather than a plain Here that does nothing when tapped (M4b review)', () => {
+    const own = exerciseById('db-rdl')
+    const subs = ['single-leg-rdl', 'smith-rdl'].map(exerciseById)
+    const hotelHas = new Set(['dumbbells'])
+    const past = swapChoices(own, subs, hotelHas, items, { exerciseId: 'db-rdl', why: 'rack', cardName: 'Single-leg RDL', rackLb: 25 })
+    expect(past.map((c) => c.words)).toEqual(['Here · past the 25 lb rack: the slot stays on Single-leg RDL', 'Here', 'Not here · needs Smith machine'])
+    expect(holdsOffWords('Dumbbell Romanian deadlift', 'rack', 'Single-leg RDL', 25)).toBe('Dumbbell Romanian deadlift is past this gym’s 25 lb rack, so the slot stays on Single-leg RDL.')
+    expect(holdsOffWords('Split squat', 'rack', 'Bulgarian split squat', 0)).toBe('There are no dumbbells here for Split squat, so the slot stays on Bulgarian split squat.')
+    // The Nordics backed off to the single-leg seated curl at any gym: picking them keeps the back-off.
+    const nordics = swapChoices(exerciseById('nordic-negatives'), ['single-leg-seated-leg-curl'].map(exerciseById), new Set(['mats', 'lat-pulldown', 'seated-leg-curl']), items, {
+      exerciseId: 'nordic-negatives',
+      why: 'engine',
+      cardName: 'Single-leg seated leg curl',
+      rackLb: 80,
+    })
+    expect(nordics[0]?.words).toBe('Here · backed off today: the slot stays on Single-leg seated leg curl')
+    expect(holdsOffWords('Nordic hamstring negatives', 'engine', 'Single-leg seated leg curl', 80)).toBe('Nordic hamstring negatives backed off, so the slot stays on Single-leg seated leg curl today.')
   })
 
   it('Finish lists the slots the gym changed, in words', () => {

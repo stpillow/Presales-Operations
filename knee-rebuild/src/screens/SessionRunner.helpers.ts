@@ -401,12 +401,37 @@ export interface SwapChoice {
   words: string
 }
 
-/** Swap's list: the slot's own exercise, then its substitutions, in the program's order, each here or not. All stay tappable. */
-export function swapChoices(own: Exercise, substitutions: readonly Exercise[], available: Available, items: readonly ItemLike[]): SwapChoice[] {
+/** The exercise the plan runs that is off the card (`cardHoldsOff`): which, why, what the card runs instead, and the gym's rack. */
+export interface HoldsOff {
+  exerciseId: string
+  why: 'rack' | 'engine'
+  cardName: string
+  rackLb: number
+}
+
+function holdsOffChoice(h: HoldsOff): string {
+  if (h.why === 'engine') return `Here · backed off today: the slot stays on ${h.cardName}`
+  return h.rackLb > 0 ? `Here · past the ${h.rackLb} lb rack: the slot stays on ${h.cardName}` : `Here · no dumbbells here: the slot stays on ${h.cardName}`
+}
+
+/**
+ * Swap's list: the slot's own exercise, then its substitutions, in the program's order, each here or
+ * not. All stay tappable. The exercise the plan runs but the card doesn't (`holdsOff`: past the rack,
+ * or backed off) says so, since a tap on it changes nothing.
+ */
+export function swapChoices(own: Exercise, substitutions: readonly Exercise[], available: Available, items: readonly ItemLike[], holdsOff: HoldsOff | null = null): SwapChoice[] {
   return [own, ...substitutions].map((exercise) => {
     const missing = missingHere(exercise, available)
-    return { exercise, missing, here: missing.length === 0, words: missing.length === 0 ? 'Here' : `Not here · needs ${needsWords(missing, items)}` }
+    const here = missing.length === 0
+    const words = !here ? `Not here · needs ${needsWords(missing, items)}` : holdsOff?.exerciseId === exercise.id ? holdsOffChoice(holdsOff) : 'Here'
+    return { exercise, missing, here, words }
   })
+}
+
+/** The reply to a Swap tap on the exercise the card holds off: "Dumbbell Romanian deadlift is past this gym’s 25 lb rack, so the slot stays on Single-leg RDL." */
+export function holdsOffWords(name: string, why: HoldsOff['why'], cardName: string, rackLb: number): string {
+  if (why === 'engine') return `${name} backed off, so the slot stays on ${cardName} today.`
+  return rackLb > 0 ? `${name} is past this gym’s ${rackLb} lb rack, so the slot stays on ${cardName}.` : `There are no dumbbells here for ${name}, so the slot stays on ${cardName}.`
 }
 
 export interface NotHereEntry {

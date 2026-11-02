@@ -13,7 +13,7 @@ import { WARM_UP_BIKE } from '../rules/equipment.ts'
 import { gymLocked, listedLocations, locationIdOf } from '../rules/locations.ts'
 import { loggedPain, painRewriteAllowed, type Draft } from '../rules/prefill.ts'
 import { firstOpenStepOf, nextStep, openStepForSide, restAfter, sessionSteps, type Step } from '../rules/runOrder.ts'
-import { asksForRack, notHereSlots, skipTakesBack, swapOffer, type SwapOffer } from '../rules/runnerGym.ts'
+import { asksForRack, cardHoldsOff, notHereSlots, skipTakesBack, swapOffer, type SwapOffer } from '../rules/runnerGym.ts'
 import { healthySideTargets } from '../rules/unilateral.ts'
 import type { IsoDate, Location, SessionTemplate, SetLog, SetSide, Settings, StopReason, Workout } from '../schema/index.ts'
 import { ActiveCard } from './session/ActiveCard.tsx'
@@ -27,6 +27,7 @@ import {
   buildSet,
   doneWords,
   heldBarWords,
+  holdsOffWords,
   lastRpeFor,
   loggedMaxPain,
   markedWords,
@@ -54,6 +55,7 @@ import {
   warmUpWords,
   withoutEnginePicks,
   type GymMark,
+  type HoldsOff,
 } from './SessionRunner.helpers.ts'
 import { shortDateWords } from './Today.helpers.ts'
 
@@ -355,9 +357,22 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
   }
 
   /**
+   * The exercise the plan runs without a swap when the card doesn't run it (`cardHoldsOff`: past
+   * the rack, or backed off), read off the unswapped plan, so Swap can say why a tap on it keeps the card.
+   */
+  function holdsOffFor(slotId: string): HoldsOff | null {
+    const plan = unswapped.find((p) => p.slot.id === slotId)
+    const engineId = engineBySlot.get(slotId)
+    if (!plan || !engineId) return null
+    const why = cardHoldsOff(engineId, plan.prescriptions, false)
+    return why ? { exerciseId: engineId, why, cardName: nameOf(plan.prescriptions[0]?.exerciseId ?? engineId), rackLb: location.dumbbellMaxLb } : null
+  }
+
+  /**
    * A Swap pick (`swapPick`): the swap it stores, Do it anyway when it is the gym's own pick on a
    * slot with nothing here, and otherwise what it offers to mark (`swapOffer`): what a pick that
-   * isn't here lacks, or what the exercise on the card needed that a pick that is here doesn't.
+   * isn't here lacks, or what the exercise on the card needed that a pick that is here doesn't. A
+   * pick of what the plan runs when the card holds it off answers in words: the card stays.
    */
   function swap(plan: SlotPlan, exerciseId: string | null) {
     const slotId = plan.slot.id
@@ -366,7 +381,8 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
     const next = { ...stored, [slotId]: pick.value }
     setStored(next)
     writeStored(storageKey, next)
-    setMarked(null)
+    const held = holdsOffFor(slotId)
+    setMarked(held && exerciseId === held.exerciseId ? { slotId, text: holdsOffWords(nameOf(held.exerciseId), held.why, held.cardName, held.rackLb) } : null)
     if (pick.anyway) {
       setOffer(null)
       doAnyway(slotId)
@@ -584,7 +600,7 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
             exercisePain={exercisePain(activePlan.slot.id, editing?.exerciseId ?? activePlan.prescriptions[0]?.exerciseId ?? activePlan.exercise.id)}
             onExercisePain={(v) => setExercisePain(activePlan.slot.id, editing?.exerciseId ?? activePlan.prescriptions[0]?.exerciseId ?? activePlan.exercise.id, v)}
             swapped={chosen[activePlan.slot.id] !== undefined}
-            choices={swapChoices(exerciseById(activePlan.slot.exerciseId), activePlan.substitutions, available, ITEMS)}
+            choices={swapChoices(exerciseById(activePlan.slot.exerciseId), activePlan.substitutions, available, ITEMS, holdsOffFor(activePlan.slot.id))}
             backToName={nameOf(engineBySlot.get(activePlan.slot.id) ?? activePlan.slot.exerciseId)}
             gym={gymFor(activePlan)}
             held={held}

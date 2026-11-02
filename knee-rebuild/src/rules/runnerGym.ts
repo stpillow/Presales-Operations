@@ -1,5 +1,6 @@
 import type { EquipmentId, Exercise, Requirement } from '../schema/index.ts'
 import { DUMBBELLS, missingHere, type Available, type SlotRoute } from './equipment.ts'
+import type { Prescription } from './prescription.ts'
 
 /*
  * What the Session runner does with the gym it runs at (M4b, design section 4): which slots the
@@ -73,6 +74,18 @@ export function asksForRack(exercise: Needs, available: Available, held: boolean
  */
 export function skipTakesBack(slot: RunnerSlot, runAnyway: ReadonlySet<string>, logged: ReadonlySet<string>): boolean {
   return slot.route.kind === 'none' && runAnyway.has(slot.slotId) && !logged.has(slot.slotId)
+}
+
+/**
+ * Why the exercise the plan runs without a swap (`engineId`) isn't the one on the card: `rack`, its
+ * load is past this gym's heaviest dumbbell (`rackMoved`); `engine`, the engine moved it (a back-off
+ * to the easier version). Null when the card runs it, or a swap chose. A Swap pick of `engineId`
+ * stores no swap (`swapPick`), so the card stays where it is, and Swap says why rather than a plain Here.
+ */
+export function cardHoldsOff(engineId: string, prescriptions: readonly Pick<Prescription, 'exerciseId' | 'rackMoved'>[], swapped: boolean): 'rack' | 'engine' | null {
+  const card = prescriptions[0]?.exerciseId ?? engineId
+  if (swapped || card === engineId) return null
+  return prescriptions.some((p) => p.rackMoved === true) ? 'rack' : 'engine'
 }
 
 /** The carried items the exercise lacks: not in the bag (Settings' kit), so no mark at a gym adds them. */

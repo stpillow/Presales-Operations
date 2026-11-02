@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { EquipmentId, Exercise, Requirement } from '../schema/index.ts'
-import { asksForRack, lacksDumbbells, lacksFromBag, markHereItems, markOffItems, notHereSlots, skipTakesBack, swapOffer } from './runnerGym.ts'
+import { asksForRack, cardHoldsOff, lacksDumbbells, lacksFromBag, markHereItems, markOffItems, notHereSlots, skipTakesBack, swapOffer } from './runnerGym.ts'
 
 // Inline fixtures shaped like the seed (design section 4); the ids are the seed's own.
 
@@ -62,6 +62,17 @@ describe('a slot run at a gym with no dumbbells (M4b review)', () => {
     expect(skipTakesBack(a3, new Set(), new Set())).toBe(false)
     // The rack set on the card since: the slot runs here now, and there is nothing to take back.
     expect(skipTakesBack({ slotId: 'a3', route: { kind: 'own' } }, new Set(['a3']), new Set())).toBe(false)
+  })
+})
+
+describe('cardHoldsOff: why the exercise the plan runs isn’t on the card (M4b review)', () => {
+  it('the rack moved the slot past it, or the engine moved it (a back-off to the easier version)', () => {
+    expect(cardHoldsOff('db-rdl', [{ exerciseId: 'single-leg-rdl', rackMoved: true }], false)).toBe('rack')
+    expect(cardHoldsOff('nordic-negatives', [{ exerciseId: 'single-leg-seated-leg-curl' }], false)).toBe('engine')
+  })
+  it('nothing when the card runs it, or when a swap chose what is on the card', () => {
+    expect(cardHoldsOff('db-rdl', [{ exerciseId: 'db-rdl' }], false)).toBeNull()
+    expect(cardHoldsOff('db-rdl', [{ exerciseId: 'smith-rdl', rackMoved: true }], true)).toBeNull()
   })
 })
 
