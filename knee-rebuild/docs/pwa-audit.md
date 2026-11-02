@@ -1,6 +1,6 @@
 # PWA audit (M6)
 
-Nov 2, 2026, on `claude/epic-meitner-0dmkbq` at `bf41382` (the Program screen included) plus this audit's one change to `vite.config.ts` (finding 1). Two halves, as `docs/m6-brief.md` section 4 asks: Lighthouse 11 for the PWA, performance and accessibility categories, and a manual checklist for what Lighthouse 12 dropped. The checklist is automated in `e2e/pwa.spec.ts`, so it runs again with every `npm run e2e`.
+Nov 2, 2026, on `claude/epic-meitner-0dmkbq` at `bf41382` (the Program screen included) plus this audit's two changes to `vite.config.ts` (findings 1 and 8). Two halves, as `docs/m6-brief.md` section 4 asks: Lighthouse 11 for the PWA, performance and accessibility categories, and a manual checklist for what Lighthouse 12 dropped. The checklist is automated in `e2e/pwa.spec.ts`, so it runs again with every `npm run e2e`.
 
 ## How it was run
 
@@ -22,18 +22,21 @@ Lighthouse 11.7.1, Chromium 1243 headless, mobile form factor with Lighthouse's 
 | Accessibility | 100 on every screen | Today, Week, Progress, Gates, More, Morning check, Log a run, Where you train, New location, For the next program update, Program, Settings, and the Session runner mid-session. One experimental, unweighted audit flags the runner's slot list (finding 5). |
 | Performance | 86, 86, 86 (three runs) | FCP 2.1 to 2.6 s, LCP 3.5 to 3.6 s, TBT 110 to 150 ms, CLS 0, Speed Index 2.1 to 2.6 s, 375 KiB transferred. The same runs before the Program screen landed read 87 to 89 with LCP 3.3 to 3.5 s. Findings 2 to 4. |
 
+Re-checked by a second reviewer on a fresh build after finding 8's fix: Today read PWA 100, accessibility 100, performance 85 (LCP 3.5 s); the Program screen read PWA 100, accessibility 100, performance 86 (LCP 3.7 s). The one-point drop on Today is run-to-run noise in the simulated throttle, not a change.
+
 ## Manual checklist
 
-Each row is a test in `e2e/pwa.spec.ts`. They serve `dist/` from their own small server with `vercel.json`'s headers (the content security policy included), so they can take the network away for real and change `sw.js` the way a deploy does. Every test also fails on any script error or console error, which is where a CSP refusal shows up.
+Each row is a test in `e2e/pwa.spec.ts`, run on a pinned clock (Tuesday of week 2), so the screens don't depend on the day the suite runs. They serve `dist/` from their own small server with `vercel.json`'s headers (the content security policy included), so they can take the network away for real and change `sw.js` the way a deploy does. Every test also fails on any script error or console error, which is where a CSP refusal shows up.
 
 | Item | How | Result |
 |---|---|---|
-| Manifest: name, short name, start URL and scope `/`, `standalone`, theme and background `#001A57` matching the `theme-color` meta | Read from the linked manifest | Pass |
+| Manifest: id, start URL and scope `/`, name, short name, `standalone`, theme and background `#001A57` matching the `theme-color` meta | Read from the linked manifest; the id also as Chromium parses it | Pass after finding 8's fix |
 | Chromium's own verdict | `Page.getAppManifest` errors and `Page.getInstallabilityErrors` over CDP | Pass: none of either |
 | Icons 192 and 512 (`any`) and 512 `maskable`, plus iOS's 180 px apple-touch-icon | Each decoded in the page at its stated size | Pass. By eye, the maskable icon's KR monogram sits inside the central safe circle (its corners about 127 px from the centre against a 205 px radius) on a full-bleed navy ground |
 | The precache | `sw.js` read: each file once, the page, both scripts, the stylesheet, all three font families, every icon and the manifest in it | Pass after finding 1's fix; the test fails on the old config |
 | The service worker controls the page | First visit, wait for the worker to activate, reload: `navigator.serviceWorker.controller` is `/sw.js` | Pass |
-| Every screen offline after a reload | Server stopped and the context offline; each of the 11 routes a tab or More opens, opened and reloaded, screen title shown and storage read, still controlled; then every tab in the tab bar tapped; then program.md's two charts on the Program screen decoded | Pass, no request failed |
+| Every screen offline after a reload | Server stopped and the context offline; each of the 13 routes (the 11 a tab or More opens, plus New location and the Planet Fitness editor), opened and reloaded, screen title shown and storage read, still controlled; then every tab in the tab bar tapped; then program.md's two charts on the Program screen decoded | Pass, no request failed |
+| The Session runner offline | Server stopped and the context offline on Tuesday of week 2: Start Session A, pick a load, rate pain, log set 1, reload (iOS dropping the page while the screen is locked); the runner reopens on the same `#/session/<id>` with set 2 of 3 next at the logged load | Pass, no request failed |
 | Fonts offline | `document.fonts` after the offline reloads | Pass: Fraunces Variable, IBM Plex Sans and IBM Plex Mono loaded from the cache |
 | Under the production CSP | Every check above | Pass: no console error, no refusal |
 | The update prompt | A byte-different `sw.js` served, the app reopened: "A new version is ready. It will not reload on its own." shows with Reload now; three seconds on, the same page is still there and the new worker still waits; Reload now reloads once and nothing waits after | Pass |
@@ -52,7 +55,7 @@ Each row is a test in `e2e/pwa.spec.ts`. They serve `dist/` from their own small
 | 5 | `label-content-name-mismatch` (experimental, weight 0) on the Session runner's slot list: each slot's button is named by an `aria-label` ("Slot 2: Seated leg curl") that leaves out the prescription and cue its text shows, so a voice-control "tap 3 × 12–15" would not find it | Real, low (Shawn taps) | Logged for the owner of `src/screens/session/SlotList.tsx`: start the label with the visible text, or let the text be the name and add the status as visually hidden text |
 | 6 | Lighthouse 11 is older than the Chromium it drives: its LCP-element and layout-shift-element gatherers error ("RootCauses ... frame_sequence") | Tooling | Accepted: those two are informational; every scored audit ran |
 | 7 | `uses-long-cache-ttl` finds no cached resources | Not an app issue | `vite preview` sends no cache headers. Repeat visits are served by the service worker, not the HTTP cache |
-| 8 | The manifest has no `id` | Accepted | Chromium takes `start_url` (`/`) as the app's id and reports no installability error. If `start_url` ever changes, add `id: '/'` first so the installed app keeps its identity |
+| 8 | The manifest has no `id` | Real, low | Fixed in `vite.config.ts`: `id: '/'`, which resolves to the id Chromium already took from `start_url`, so nothing installed changes and a later `start_url` can't fork the home-screen app. Test first: the manifest check asserts the id and Chromium's parsed id |
 | 9 | When a deploy shows | Behavior, as designed | The browser looks for a new `sw.js` when the app is opened (a navigation), not when it returns from the background, so on the phone a deploy's prompt appears at the next launch from the home screen, never mid-set. Part of Shawn's phone check |
 
 ## Size
