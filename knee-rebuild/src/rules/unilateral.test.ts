@@ -25,6 +25,25 @@ describe('symmetry', () => {
     expect(symmetryPercent(10, 0)).toBeNull()
     expect(meetsSymmetry(0, 0, 0.8)).toBe(false)
   })
+  it('decides on the ratio itself: just under the line fails, and the percent shown rounds down so it never reads the line (PROGRAM-QUESTIONS 110)', () => {
+    // 188 / 209 = 0.89952: rounded to the nearest it would read 90% and pass.
+    expect(symmetryPercent(188, 209)).toBe(89.9)
+    expect(meetsSymmetry(188, 209, 0.9)).toBe(false)
+    // A decimal entry: 56 / 62.25 = 0.89960.
+    expect(symmetryPercent(56, 62.25)).toBe(89.9)
+    expect(meetsSymmetry(56, 62.25, 0.9)).toBe(false)
+    // Gate 1's 80% line: 39.98 / 50 = 0.7996.
+    expect(symmetryPercent(39.98, 50)).toBe(79.9)
+    expect(meetsSymmetry(39.98, 50, 0.8)).toBe(false)
+    // Exactly on the line passes, and 2 / 3 shows 66.6%, not 66.7%.
+    expect(symmetryPercent(54, 60)).toBe(90)
+    expect(meetsSymmetry(54, 60, 0.9)).toBe(true)
+    expect(meetsSymmetry(40, 50, 0.8)).toBe(true)
+    expect(symmetryPercent(2, 3)).toBe(66.6)
+    // The worked example is unchanged.
+    expect(symmetryPercent(56, 62)).toBe(90.3)
+    expect(meetsSymmetry(56, 62, 0.9)).toBe(true)
+  })
   it('keeps the best of three trials', () => {
     expect(bestOfTrials([50, 56, 54])).toBe(56)
     expect(bestOfTrials([])).toBe(0)
