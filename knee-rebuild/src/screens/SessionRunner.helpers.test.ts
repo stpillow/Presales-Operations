@@ -6,7 +6,7 @@ import { availableEquipment } from '../rules/equipment.ts'
 import { needsLoadPick } from '../rules/prefill.ts'
 import type { SlotRoute } from '../rules/equipment.ts'
 import type { Prescription } from '../rules/prescription.ts'
-import { asksForRack, swapOffer } from '../rules/runnerGym.ts'
+import { asksForRack, notHereSlots, swapOffer } from '../rules/runnerGym.ts'
 import { DEFAULT_KIT, Settings, type Exercise, type SetLog, type Slot } from '../schema/index.ts'
 import {
   buildSet,
@@ -40,6 +40,7 @@ import {
   parseStoredSwaps,
   holdsOffWords,
   pickNotHereWords,
+  picksOnList,
   prescriptionWords,
   RACK_ASK_LB,
   rackAskWords,
@@ -49,6 +50,7 @@ import {
   setWords,
   showsLoad,
   sideLine,
+  staleStoredSwaps,
   standingMarkFor,
   swapChoices,
   swapPick,
@@ -149,6 +151,45 @@ describe('swaps', () => {
   it('a stored swap of what the plan now runs without it is no swap: a mark since made it the gym’s pick (M4b)', () => {
     const engine = new Map([['a', 'leg-press'], ['b', 'goblet-squat-bench']])
     expect(withoutEnginePicks({ a: 'leg-press', b: 'smith-box-squat', c: 'x', d: undefined }, engine)).toEqual({ a: undefined, b: 'smith-box-squat', c: 'x', d: undefined })
+  })
+  it('a swap no longer on its slot’s list is no swap: a Program edit took it off, so the engine runs the slot’s history (M6)', () => {
+    const edited = [{ slot: slot({ substitutionIds: ['leg-press-45'] }) }, { slot: slot({ id: 'p1a-2', exerciseId: 'seated-leg-curl', substitutionIds: ['lying-leg-curl'] }) }]
+    expect(picksOnList({ 'p1a-1': 'goblet-squat-bench', 'p1a-2': 'lying-leg-curl', 'p1a-3': 'x', 'p1a-4': undefined }, edited)).toEqual({
+      'p1a-1': undefined,
+      'p1a-2': 'lying-leg-curl',
+      'p1a-3': undefined,
+      'p1a-4': undefined,
+    })
+    // The slot's own exercise is on its list: Swap offers it once the engine has moved the slot.
+    expect(picksOnList({ 'p1a-1': 'leg-press' }, edited)).toEqual({ 'p1a-1': 'leg-press' })
+  })
+  it('names the stored swaps a Program edit took off their slot’s list, to forget; a stored null and a slot not planned stay', () => {
+    const edited = [{ slot: slot({ substitutionIds: ['leg-press-45'] }) }, { slot: slot({ id: 'p1a-2', exerciseId: 'seated-leg-curl', substitutionIds: [] }) }]
+    expect(staleStoredSwaps({ 'p1a-1': 'goblet-squat-bench', 'p1a-2': null, 'p1a-9': 'x' }, edited)).toEqual(['p1a-1'])
+    expect(staleStoredSwaps({ 'p1a-1': 'leg-press-45' }, edited)).toEqual([])
+  })
+  it('a slot nothing here runs is held again once a Program edit takes its swap off the list (PROGRAM-QUESTIONS 83, M6)', () => {
+    // A hotel gym started empty: nothing on Session A slot 1's list is here, so it waits for Skip, Do it anyway or Swap.
+    const hotel = { ...homeLocation(0, program.planetFitness, '2026-11-02', program.equipmentListVersion), id: 'loc-1', name: 'Hotel gym', startedFrom: 'empty' as const, present: [], dumbbellMaxLb: 0 }
+    const template = program.templates.find((t) => t.id === 'p1-a')
+    if (!template) throw new Error('no Session A')
+    const settings = Settings.parse({ injuredSide: 'right', startDate: '2026-11-02', dumbbellMax: 80, restTimerSeconds: 60, painPerSet: false })
+    const stored = { 'p1a-1': 'goblet-squat-bench' }
+    // The runner's composition (SessionRunner.tsx): engine picks, swaps, then the slots held.
+    const held = (programOverrides: { slotId: string; substitutionIds: string[]; editedOn: string }[]) => {
+      const history = { workouts: [], setLogs: [], morningChecks: [], runs: [], gateTests: [], sessionMoves: [], programOverrides }
+      const input = { template, week: 2, settings, history, gym: { location: hotel, kit: DEFAULT_KIT }, before: '2026-11-10' }
+      const unswapped = planSession(input)
+      const engine = new Map(unswapped.map((p) => [p.slot.id, p.exercise.id]))
+      const chosen = picksOnList(withoutEnginePicks(mergeSwaps(swapsFromSets(unswapped, []), stored), engine), unswapped)
+      const plans = planSession({ ...input, chosenExercise: chosen })
+      const swapped = new Set(Object.keys(chosen).filter((id) => chosen[id] !== undefined))
+      const p1 = plans.find((p) => p.slot.id === 'p1a-1')
+      return { runs: p1?.exercise.id, held: notHereSlots(plans.map((p) => ({ slotId: p.slot.id, route: p.route })), new Set(), swapped, new Set()).has('p1a-1') }
+    }
+    expect(held([])).toEqual({ runs: 'goblet-squat-bench', held: false })
+    // Goblet squat to a bench taken off p1a-1's list mid-session: the slot runs its own leg press, which isn't here, so it waits again.
+    expect(held([{ slotId: 'p1a-1', substitutionIds: ['leg-press-45', 'smith-box-squat'], editedOn: '2026-11-10' }])).toEqual({ runs: 'leg-press', held: true })
   })
   it('parses the stored Do it anyway slots defensively', () => {
     expect(parseStoredSlotIds(null)).toEqual([])

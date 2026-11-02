@@ -1,10 +1,11 @@
-import { currentTemplate } from '../app/session.ts'
+import { PROGRAM, currentTemplate } from '../app/session.ts'
 import { weekOf } from '../rules/calendar.ts'
 import { forNextProgramUpdate, type Available, type ChecklistGroup, type ChecklistItem, type CoverageMove, type ExerciseLookup, type RunSwapType } from '../rules/equipment.ts'
 import { phaseWeekOf } from '../rules/session.ts'
 import { RACK_MAX_LB, RACK_STEP_LB, rackValue } from '../rules/locations.ts'
+import { applyToTemplate, overridesBySlot } from '../rules/overrides.ts'
 import { ifNotHere, nameShows, nameTakenBy, newOnList, phaseCoverage, type SubstitutionRow, type TypedOutcome } from '../rules/whereYouTrain.ts'
-import { EXTRA_TEXT_MAX, Location, type Equipment, type EquipmentId, type Exercise, type IsoDate, type Requirement, type SessionTemplate, type Settings } from '../schema/index.ts'
+import { EXTRA_TEXT_MAX, Location, type Equipment, type EquipmentId, type Exercise, type IsoDate, type ProgramOverride, type Requirement, type SessionTemplate, type Settings } from '../schema/index.ts'
 
 /*
  * The location editor (`#/location/:id`, `#/location/new`, M4b design section 5): its choices and
@@ -66,10 +67,13 @@ export const START_CHOICES: readonly { value: Location['startedFrom']; label: st
 /** A new gym's start, preselected: Planet Fitness's list (design section 5). */
 export const DEFAULT_START: Location['startedFrom'] = 'planet-fitness'
 
-/** What a new gym starts with, said before it is made. */
+/**
+ * What a new gym starts with, said before it is made. Started from Planet Fitness's list, it gets
+ * program.md's list, not Shawn's club: the home gym's 45° leg press is its own (PROGRAM-QUESTIONS 71).
+ */
 export function startWords(startedFrom: Location['startedFrom']): string {
   return startedFrom === 'planet-fitness'
-    ? 'Everything Planet Fitness has is marked here to start; untick what this gym lacks.'
+    ? 'Everything on program.md’s Planet Fitness list is marked here to start; your own club’s extras, like its 45° leg press, aren’t copied. Untick what this gym lacks.'
     : 'Nothing is marked here to start; tick what this gym has.'
 }
 
@@ -241,6 +245,19 @@ export function coverageWeek(settings: Pick<Settings, 'startDate' | 'phaseEntere
 /** The current phase's sessions, A then B then C; none in Phase 4, whose sessions aren't written. */
 export function currentTemplates(settings: Settings): SessionTemplate[] {
   return (['A', 'B', 'C'] as const).flatMap((letter) => currentTemplate(settings, letter) ?? [])
+}
+
+/** The catalog by id, as `planSession` hands it: an edit naming an exercise the seed no longer has, or one the slot can't count or step, is dropped. */
+const KNOWN: ReadonlyMap<string, Exercise> = new Map(PROGRAM.exercises.map((e) => [e.id, e]))
+
+/**
+ * The current phase's sessions as they run: the Program screen's edits laid over program.md's
+ * lists (`applyToTemplate`, as `planSession` lays them), so "What this changes" names the stand-in
+ * the session runs, not the one program.md lists first. program.md's templates are left alone.
+ */
+export function templatesAsRun(settings: Settings, overrides: readonly ProgramOverride[]): SessionTemplate[] {
+  const bySlot = overridesBySlot(overrides)
+  return currentTemplates(settings).map((template) => applyToTemplate(template, bySlot, KNOWN))
 }
 
 type ItemLike = Pick<Equipment, 'id' | 'name' | 'carried'>

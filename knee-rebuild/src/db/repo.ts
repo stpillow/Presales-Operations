@@ -1,4 +1,4 @@
-import { db, type SettingsRow } from './db.ts'
+import { db, type ExportStampRow, type SettingsRow } from './db.ts'
 import { homeLocation } from './migrations.ts'
 import {
   activeAfterArchive,
@@ -15,16 +15,19 @@ import {
   type Extra,
   type NewLocationInput,
 } from '../rules/locations.ts'
+import { overrideProblems } from '../rules/overrides.ts'
 import {
   GateTest,
   Location,
   MorningCheck,
+  ProgramOverride,
   Run,
   SessionMove,
   SetLog,
   Settings,
   Workout,
   PLANET_FITNESS_LOCATION_ID,
+  IsoDateTime,
   type EquipmentId,
   type IsoDate,
   type Program,
@@ -37,6 +40,8 @@ import {
  */
 
 export const SETTINGS_ID = 'settings' as const
+/** The key of the export stamp's row in the settings table (`ExportStampRow`). */
+export const EXPORT_STAMP_ID = 'last-export' as const
 
 /** Settings for a fresh install: the program's own start date and injured side, Shawn's answers to section 9. */
 export function defaultSettings(program: Pick<Program, 'startDate' | 'injuredSide'>): Settings {
@@ -49,15 +54,58 @@ export function defaultSettings(program: Pick<Program, 'startDate' | 'injuredSid
   })
 }
 
-export async function getSettings(): Promise<Settings | undefined> {
+/** The settings row as stored, without its key and without the stamp; undefined before the app seeds it. Not parsed. */
+export async function getSettingsRow(): Promise<Omit<SettingsRow, 'id'> | undefined> {
   const row = await db.settings.get(SETTINGS_ID)
-  if (!row) return undefined
+  if (!row || row.id !== SETTINGS_ID) return undefined
   const { id: _id, ...rest } = row
-  return Settings.parse(rest)
+  void _id
+  return rest
 }
 
+/** The export stamp as stored: its own row, or, from an earlier M6 build, the key on the settings row. */
+async function storedStamp(row: object | undefined): Promise<string | undefined> {
+  const stamp = await db.settings.get(EXPORT_STAMP_ID)
+  if (stamp?.id === EXPORT_STAMP_ID) return stamp.at
+  const legacy: unknown = row && 'lastExportedAt' in row ? row.lastExportedAt : undefined
+  return typeof legacy === 'string' ? legacy : undefined
+}
+
+/** The settings with the export stamp read back in as `lastExportedAt` (PROGRAM-QUESTIONS 132), as stored and not parsed; undefined before the app seeds them. */
+export async function getStoredSettings(): Promise<Settings | undefined> {
+  const row = await getSettingsRow()
+  if (!row) return undefined
+  const { lastExportedAt: _legacy, ...rest } = row as Settings
+  void _legacy
+  const at = await storedStamp(row)
+  return { ...rest, ...(at !== undefined ? { lastExportedAt: at } : {}) }
+}
+
+export async function getSettings(): Promise<Settings | undefined> {
+  const stored = await getStoredSettings()
+  return stored ? Settings.parse(stored) : undefined
+}
+
+/** The row a settings value is stored as: parsed, keyed, and without `lastExportedAt`, which only `saveExportStamp` writes. */
+function settingsRow(settings: Settings): SettingsRow {
+  const { lastExportedAt: _stamp, ...row } = Settings.parse(settings)
+  void _stamp
+  return { ...row, id: SETTINGS_ID }
+}
+
+/**
+ * Saves the settings row. `lastExportedAt` is the phone's record of its last export and is never
+ * written here: a screen saving the settings it holds can't put back an older stamp, and the row
+ * stays one the build before M6 reads (PROGRAM-QUESTIONS 132). Export and import write it
+ * (`saveExportStamp`), and Reset all data clears it.
+ */
 export async function saveSettings(settings: Settings): Promise<void> {
-  const row: SettingsRow = { ...Settings.parse(settings), id: SETTINGS_ID }
+  await db.settings.put(settingsRow(settings))
+}
+
+/** Records when this phone last wrote a backup, in the stamp's own row. Inside a transaction on settings, or alone. */
+export async function saveExportStamp(at: IsoDateTime): Promise<void> {
+  const row: ExportStampRow = { id: EXPORT_STAMP_ID, at: IsoDateTime.parse(at) }
   await db.settings.put(row)
 }
 
@@ -72,9 +120,9 @@ export async function saveSettingsAndMoves<T extends { moves: readonly SessionMo
   settings: Settings,
   rebase: (stored: { startDate: IsoDate; phaseEnteredWeek: number }, moves: SessionMove[]) => T,
 ): Promise<T> {
-  const parsed: SettingsRow = { ...Settings.parse(settings), id: SETTINGS_ID }
+  const parsed = settingsRow(settings)
   return db.transaction('rw', db.settings, db.sessionMoves, async () => {
-    const stored = await db.settings.get(SETTINGS_ID)
+    const stored = await getSettingsRow()
     const result = rebase(
       { startDate: stored?.startDate ?? parsed.startDate, phaseEnteredWeek: stored?.phaseEnteredWeek ?? parsed.phaseEnteredWeek },
       await db.sessionMoves.toArray(),
@@ -312,6 +360,38 @@ export async function deleteRun(id: string): Promise<void> {
   await db.runs.delete(id)
 }
 
+/** What a Program screen edit is checked against before it is written: program.md's slots and the exercise catalog. */
+export type OverrideSeed = Pick<Program, 'templates' | 'exercises'>
+
+/** The Program screen's edits, one row per edited slot. */
+export async function getProgramOverrides(): Promise<ProgramOverride[]> {
+  return (await db.programOverrides.toArray()).map((row) => ProgramOverride.parse(row))
+}
+
+/**
+ * Stores a slot's edit from the Program screen in place of its earlier one: checked against
+ * program.md's slot (`overrideProblems`: each cue one the screen takes, substitutions from the
+ * catalog only, never the slot's own exercise, each once), then parsed. A refusal throws one
+ * sentence and writes nothing: the rule's own words first, and the schema's reason, in a sentence,
+ * for anything else, never Zod's issue list. The seed is never written; the engine lays the row
+ * over it (`applyOverrides`). Returns the row written.
+ */
+export async function saveProgramOverride(override: ProgramOverride, seed: OverrideSeed): Promise<ProgramOverride> {
+  const slot = seed.templates.flatMap((t) => t.slots).find((s) => s.id === override.slotId)
+  if (!slot) throw new Error(`No slot ${String(override.slotId)} in the program.`)
+  const [problem] = overrideProblems(slot, override, new Map(seed.exercises.map((e) => [e.id, e])))
+  if (problem) throw new Error(problem)
+  const parsed = ProgramOverride.safeParse(override)
+  if (!parsed.success) throw new Error(`That edit can’t be stored: ${parsed.error.issues[0]?.message ?? 'it is not an edit of cues or substitutions'}.`)
+  await db.programOverrides.put(parsed.data)
+  return parsed.data
+}
+
+/** "Back to program.md's": the slot's row goes, so it runs as program.md writes it. */
+export async function clearProgramOverride(slotId: string): Promise<void> {
+  await db.programOverrides.delete(slotId)
+}
+
 export interface History {
   workouts: Workout[]
   setLogs: SetLog[]
@@ -319,19 +399,25 @@ export interface History {
   runs: Run[]
   gateTests: GateTest[]
   sessionMoves: SessionMove[]
+  /**
+   * The Program screen's edits (M6), which `planSession` lays over program.md's slots. Optional so
+   * a history built by hand (a test fixture) reads as no edits: every slot as program.md writes it.
+   */
+  programOverrides?: ProgramOverride[]
 }
 
 /** Everything the engine reads, in one go. The tables are small: one person, twelve weeks. */
 export async function loadHistory(): Promise<History> {
-  const [workouts, setLogs, morningChecks, runs, gateTests, sessionMoves] = await Promise.all([
+  const [workouts, setLogs, morningChecks, runs, gateTests, sessionMoves, programOverrides] = await Promise.all([
     db.workouts.toArray(),
     db.setLogs.toArray(),
     db.morningChecks.toArray(),
     db.runs.toArray(),
     db.gateTests.toArray(),
     db.sessionMoves.toArray(),
+    db.programOverrides.toArray(),
   ])
-  return { workouts, setLogs, morningChecks, runs, gateTests, sessionMoves }
+  return { workouts, setLogs, morningChecks, runs, gateTests, sessionMoves, programOverrides }
 }
 
 /** The prefix the Session runner stores a workout's swaps under in local storage. */
@@ -340,17 +426,25 @@ export const SWAP_KEY_PREFIX = 'knee-rebuild:swaps:'
 /**
  * Wipes every table, settings and gyms included, and seeds them again through the launch path:
  * `defaults` as the settings row, then the home gym from them (ensureLocations' `homeLocation`).
- * One transaction, so a seed that fails its parse erases nothing. The Settings screen asks twice
- * before calling this.
+ * One transaction, so a seed that fails its parse erases nothing. Every table means the Program
+ * screen's edits too, and the settings table holds `defaults` alone, so the export stamp's row
+ * goes and no `lastExportedAt` survives (M6). The Settings screen asks twice before calling this.
  */
 export async function resetAll(defaults: Settings, lists: HomeLists, createdOn: IsoDate): Promise<void> {
-  const row: SettingsRow = { ...Settings.parse(defaults), id: SETTINGS_ID }
+  const row = settingsRow(defaults)
   await db.transaction('rw', db.tables, async () => {
     for (const table of db.tables) await table.clear()
     await db.settings.put(row)
     await writeHome(lists, createdOn)
   })
-  // Workout ids repeat after a reset (they are the date and template), so stale swaps would come back.
+  forgetSwaps()
+}
+
+/**
+ * Takes the Session runner's swaps and Do it anyway out of local storage, after a reset or an
+ * import: workout ids repeat (they are the date and template), so stale ones would come back.
+ */
+export function forgetSwaps(): void {
   try {
     const keys: string[] = []
     for (let i = 0; i < window.localStorage.length; i++) {

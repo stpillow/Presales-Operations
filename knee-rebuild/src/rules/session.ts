@@ -27,3 +27,16 @@ export function slotsForPhaseWeek(template: SessionTemplate, phaseWeek: number):
 export function phaseRunsExercise(templates: readonly SessionTemplate[], phase: number, exerciseId: string): boolean {
   return templates.some((t) => t.phase === phase && t.slots.some((s) => s.exerciseId === exerciseId || s.substitutionIds.includes(exerciseId)))
 }
+
+/**
+ * Whether a phase's sessions can log both sides of an exercise, as a load test's prefill needs
+ * (PROGRAM-QUESTIONS 25): some slot of the phase lists it, as its own exercise or a substitution,
+ * and is logged side by side (unilateral, not the injured side only). The runner logs a slot's
+ * sides, not the exercise's (`sidesFor` in prescription.ts), so a single-leg exercise on a
+ * both-legs slot, as a Program edit can put it, is logged once for both legs (PROGRAM-QUESTIONS 134).
+ */
+export function phaseLogsBothSides(templates: readonly SessionTemplate[], phase: number, exerciseId: string): boolean {
+  return templates.some(
+    (t) => t.phase === phase && t.slots.some((s) => s.unilateral && !s.injuredOnly && (s.exerciseId === exerciseId || s.substitutionIds.includes(exerciseId))),
+  )
+}

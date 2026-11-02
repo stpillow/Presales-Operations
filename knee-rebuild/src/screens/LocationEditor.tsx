@@ -6,12 +6,12 @@ import { Button } from '../components/Button.tsx'
 import { Screen } from '../components/Screen.tsx'
 import { Stepper } from '../components/Stepper.tsx'
 import { Tap } from '../components/Tap.tsx'
-import { useActiveLocation, useLocations, useSettings } from '../db/hooks.ts'
+import { useActiveLocation, useLocations, useProgramOverrides, useSettings } from '../db/hooks.ts'
 import { addExtra, addLocation, markOff, removeExtra, renameLocation, setActiveLocation, setDumbbellMax, setKit, setPresent } from '../db/repo.ts'
 import { equipmentChecklist, usedEquipment, type Available } from '../rules/equipment.ts'
 import { extraTooLong } from '../rules/locations.ts'
 import { itemOutcome, notHereWrite, typedOutcome, type TypedOutcome } from '../rules/whereYouTrain.ts'
-import type { EquipmentId, IsoDate, Location, Settings } from '../schema/index.ts'
+import type { EquipmentId, IsoDate, Location, ProgramOverride, Settings } from '../schema/index.ts'
 import {
   DEFAULT_START,
   KEEP_AS_TYPED,
@@ -23,7 +23,6 @@ import {
   changesView,
   checklistSections,
   coverageWeek,
-  currentTemplates,
   extraTooLongWords,
   keptRows,
   kitAfter,
@@ -40,6 +39,7 @@ import {
   removeExtraAsk,
   startWords,
   startedFromWords,
+  templatesAsRun,
   type KeptRow,
 } from './LocationEditor.helpers.ts'
 import { failedWords } from './Locations.helpers.ts'
@@ -66,8 +66,10 @@ export function LocationEditor({ locationId }: { locationId: string | null }) {
   const locations = useLocations()
   const settings = useSettings()
   const active = useActiveLocation()
+  // The Program screen's edits: "What this changes" reads the lists the sessions run.
+  const overrides = useProgramOverrides()
 
-  if (locations === undefined || settings === undefined || active === undefined) return <Opening />
+  if (locations === undefined || settings === undefined || active === undefined || overrides === undefined) return <Opening />
   if (settings === null || active === null) {
     return (
       <Screen title="Location" lead="No gyms yet.">
@@ -87,7 +89,7 @@ export function LocationEditor({ locationId }: { locationId: string | null }) {
       </Screen>
     )
   }
-  return <EditLocation key={location.id} location={location} locations={locations} settings={settings} activeId={active.id} />
+  return <EditLocation key={location.id} location={location} locations={locations} settings={settings} activeId={active.id} overrides={overrides} />
 }
 
 function Opening() {
@@ -187,7 +189,19 @@ function NewLocation({ locations }: { locations: Location[] }) {
 type Field = 'name' | 'rack' | 'kit' | 'typed' | 'kept' | 'use' | `group:${string}`
 type Problem = { field: Field; text: string } | null
 
-function EditLocation({ location, locations, settings, activeId }: { location: Location; locations: Location[]; settings: Settings; activeId: string }) {
+function EditLocation({
+  location,
+  locations,
+  settings,
+  activeId,
+  overrides,
+}: {
+  location: Location
+  locations: Location[]
+  settings: Settings
+  activeId: string
+  overrides: readonly ProgramOverride[]
+}) {
   const today = useToday()
   const [savedField, flashSaved] = useFlash()
   const [problem, setProblem] = useState<Problem>(null)
@@ -218,7 +232,7 @@ function EditLocation({ location, locations, settings, activeId }: { location: L
   const isActive = location.id === activeId
   const sections = checklistSections({ checklist: CHECKLIST, location, available, byId: BY_ID, vocabulary: PROGRAM.equipment, table: PROGRAM.substitutionTable })
   const changes = changesView({
-    templates: currentTemplates(settings),
+    templates: templatesAsRun(settings, overrides),
     phase: settings.currentPhase,
     phaseWeek: coverageWeek(settings, today),
     phaseEnteredWeek: settings.phaseEnteredWeek,

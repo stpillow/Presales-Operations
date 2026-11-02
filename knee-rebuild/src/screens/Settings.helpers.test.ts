@@ -1,7 +1,21 @@
 import { describe, expect, it } from 'vitest'
+import type { BackupSummary } from '../rules/backup.ts'
 import type { SessionMove, Settings } from '../schema/index.ts'
 import {
   DUMBBELLS_LINE,
+  IMPORT_CONFIRM,
+  PHASE_NOTE,
+  exportedOnWords,
+  holdsLine,
+  holdsWords,
+  importedWords,
+  lastExportWords,
+  lostWords,
+  migratedWords,
+  rangeWords,
+  settingsOnImportWords,
+  shareFailure,
+  shareRoute,
   REST_MIN,
   REST_STEP,
   SIDES,
@@ -11,10 +25,12 @@ import {
   deloadWeeksLine,
   droppedMovesWords,
   errorWords,
+  heldWords,
   mondaysAround,
   painWords,
   phaseWords,
   redFlagView,
+  resetWords,
   restTimerWords,
   sideWords,
   startDateChange,
@@ -179,6 +195,10 @@ describe('painWords and phaseWords', () => {
     expect(phaseWords(settings({ currentPhase: 2, phaseEnteredWeek: 5 }), phases)).toEqual({ title: 'Phase 2: Single-leg strength and balance', entered: 'Entered in week 5.' })
     expect(phaseWords(settings({ currentPhase: 4, phaseEnteredWeek: 13 }), phases).title).toBe('Phase 4')
   })
+  it('says the phase is read-only here and that the Gates screen advances it, not a milestone still to come', () => {
+    expect(PHASE_NOTE).toBe('Read-only here. The Gates screen advances the phase once every item of its gate passes and you confirm.')
+    expect(PHASE_NOTE).not.toMatch(/\bM\d/)
+  })
 })
 
 describe('redFlagView', () => {
@@ -214,6 +234,11 @@ describe('clearedSettings', () => {
       settings: { ...flagged, redFlag: { active: false, items: [], clearedOn: '2026-11-07', clearNote: 'PT saw it Nov 6: cleared to train' } },
     })
   })
+  it('keeps the last export, the gym and the bag (M6: clearing is not a reset)', () => {
+    const later = settings({ redFlag: { active: true, since: '2026-11-04', items: ['locking'] }, activeLocationId: 'loc-1', kit: ['ankle-strap'], lastExportedAt: '2026-11-05T23:00:00.000Z' })
+    const result = clearedSettings(later, 'PT saw it Nov 6', '2026-11-07')
+    expect(result).toMatchObject({ ok: true, settings: { activeLocationId: 'loc-1', kit: ['ankle-strap'], lastExportedAt: '2026-11-05T23:00:00.000Z', redFlag: { active: false } } })
+  })
 })
 
 describe('errorWords', () => {
@@ -221,5 +246,174 @@ describe('errorWords', () => {
     expect(errorWords(new Error('QuotaExceededError: storage is full'))).toBe('QuotaExceededError: storage is full')
     expect(errorWords('nope')).toBe('nope')
     expect(errorWords(new Error('  '))).toBe('no reason was given')
+  })
+})
+
+describe('resetWords', () => {
+  it('says what Reset all data came to in one sentence, for the Reset section where Yes was tapped, and whether it is a problem', () => {
+    expect(resetWords({ kind: 'erased' })).toEqual({ text: 'Everything on this phone was erased. Settings are back to their defaults.', problem: false })
+    expect(resetWords({ kind: 'not-erased', error: new Error('QuotaExceededError') })).toEqual({ text: 'Nothing was erased (QuotaExceededError); tap again to retry.', problem: true })
+    expect(resetWords({ kind: 'not-seeded', error: new Error('  ') })).toEqual({
+      text: 'Everything was erased, but the default settings did not save (no reason was given); reload the app to seed them again.',
+      problem: true,
+    })
+  })
+})
+
+describe('heldWords', () => {
+  it('says the rest of the form waits while an import or a reset writes, and why a tap then saved nothing', () => {
+    expect(heldWords('import')).toEqual({
+      note: 'Waits while the import replaces everything on this phone.',
+      refusal: 'Not saved: the import was replacing everything on this phone. Tap it again once it’s done.',
+    })
+    expect(heldWords('reset')).toEqual({
+      note: 'Waits while Reset erases everything on this phone.',
+      refusal: 'Not saved: Reset was erasing everything on this phone. Tap it again once it’s done.',
+    })
+  })
+})
+
+describe('settingsOnImportWords', () => {
+  const none = { keptRedFlag: null, changes: [] }
+
+  it('says the red flag the import keeps on, when it was set and what was flagged, and that it clears only here with a note', () => {
+    expect(settingsOnImportWords({ keptRedFlag: { active: true, since: '2026-11-05', items: ['locking'] }, changes: [] }, catalog, phases).redFlag).toBe(
+      'The red flag set Thursday Nov 5 stays on after the import: Locking or catching: a mechanical block to straightening or bending. It clears only here, with a note.',
+    )
+    // Joined with the file's own flag: each item once.
+    expect(settingsOnImportWords({ keptRedFlag: { active: true, since: '2026-11-04', items: ['locking', 'numbness'] }, changes: [] }, catalog, phases).redFlag).toBe(
+      'The red flag set Wednesday Nov 4 stays on after the import: Locking or catching: a mechanical block to straightening or bending; Numbness or tingling below the knee. It clears only here, with a note.',
+    )
+    expect(settingsOnImportWords({ keptRedFlag: { active: true, items: ['numbness'] }, changes: [] }, catalog, phases).redFlag).toBe(
+      'The red flag on this phone stays on after the import: Numbness or tingling below the knee. It clears only here, with a note.',
+    )
+  })
+
+  it('says nothing about the red flag when the file carries it as the phone has it', () => {
+    expect(settingsOnImportWords(none, catalog, phases)).toEqual({ redFlag: null, changes: [] })
+  })
+
+  it('says each setting the file changes, the phone’s value then the file’s, in words', () => {
+    const words = settingsOnImportWords(
+      {
+        keptRedFlag: null,
+        changes: [
+          { field: 'injuredSide', phone: 'right', file: 'left' },
+          { field: 'startDate', phone: '2026-11-02', file: '2026-10-26' },
+          { field: 'currentPhase', phone: 2, file: 1 },
+          { field: 'phaseEnteredWeek', phone: 4, file: 1 },
+        ],
+      },
+      catalog,
+      phases,
+    )
+    expect(words.changes).toEqual([
+      'It would change the injured side from the right knee to the left knee.',
+      'It would move the start date from Monday Nov 2 to Monday Oct 26.',
+      'It would change the phase from Phase 2 (Single-leg strength and balance) to Phase 1 (Foundation).',
+      'It would change the week the phase was entered from week 4 to week 1.',
+    ])
+  })
+
+  it('names the years of a start date only when they differ, and a phase it has no name for by its number', () => {
+    const words = settingsOnImportWords(
+      {
+        keptRedFlag: null,
+        changes: [
+          { field: 'startDate', phone: '2027-01-04', file: '2026-12-28' },
+          { field: 'currentPhase', phone: 4, file: 2 },
+        ],
+      },
+      catalog,
+      phases,
+    )
+    expect(words.changes).toEqual([
+      'It would move the start date from Monday Jan 4, 2027 to Monday Dec 28, 2026.',
+      'It would change the phase from Phase 4 to Phase 2 (Single-leg strength and balance).',
+    ])
+  })
+})
+
+describe('backup words (M6)', () => {
+  const summary = (over: Partial<BackupSummary> = {}): BackupSummary => ({
+    counts: { workouts: 24, setLogs: 312, morningChecks: 30, runs: 41, gateTests: 2, sessionMoves: 1, locations: 3, programOverrides: 0 },
+    archivedGyms: 0,
+    first: '2026-11-02',
+    last: '2026-12-20',
+    ...over,
+  })
+
+  it('says when the last export was, in New York days', () => {
+    expect(lastExportWords(undefined, '2026-11-20')).toBe('No export from this phone yet.')
+    expect(lastExportWords('2026-11-20T15:00:00.000Z', '2026-11-20')).toBe('Last export: today.')
+    // 10:30 pm on Nov 19 in New York: yesterday on the 20th, though it is the 20th in UTC.
+    expect(lastExportWords('2026-11-20T03:30:00.000Z', '2026-11-20')).toBe('Last export: yesterday.')
+    expect(lastExportWords('2026-11-11T15:00:00.000Z', '2026-11-20')).toBe('Last export: 9 days ago.')
+    expect(exportedOnWords('2026-12-22T02:00:00.000Z', '2026-12-28')).toBe('Monday Dec 21')
+  })
+
+  it('names the year a file was written in when it isn’t this year, so a file stamped 2099, or last year’s, says so', () => {
+    expect(exportedOnWords('2026-12-22T02:00:00.000Z', '2027-01-04')).toBe('Monday Dec 21, 2026')
+    expect(exportedOnWords('2099-03-02T15:00:00.000Z', '2026-11-20')).toBe('Monday Mar 2, 2099')
+    // New Year's Eve in New York is still the old year, though it is already Jan 1 in UTC.
+    expect(exportedOnWords('2027-01-01T03:00:00.000Z', '2026-12-31')).toBe('Thursday Dec 31')
+  })
+
+  it('says what a file holds as the brief has it, then the rest', () => {
+    expect(holdsWords(summary())).toEqual({
+      headline: '312 sets, 41 runs, 3 gyms, from Nov 2 to Dec 20',
+      also: 'Also 24 sessions, 30 morning checks, 2 gate tests and 1 session move.',
+    })
+    const one = summary({ counts: { workouts: 1, setLogs: 1, morningChecks: 0, runs: 1, gateTests: 0, sessionMoves: 0, locations: 2, programOverrides: 3 }, archivedGyms: 1, first: '2026-11-03', last: '2026-11-03' })
+    expect(holdsWords(one)).toEqual({ headline: '1 set, 1 run, 1 gym, on Nov 3', also: 'Also 1 session, 3 Program edits and 1 archived gym.' })
+    const empty = summary({ counts: { workouts: 0, setLogs: 0, morningChecks: 0, runs: 0, gateTests: 0, sessionMoves: 0, locations: 1, programOverrides: 0 }, first: null, last: null })
+    expect(holdsWords(empty)).toEqual({ headline: '0 sets, 0 runs, 1 gym; nothing logged yet', also: null })
+  })
+
+  it('says what a file holds as one sentence, and what an import did, by the file’s name', () => {
+    expect(holdsLine(summary())).toBe('312 sets, 41 runs, 3 gyms, from Nov 2 to Dec 20. Also 24 sessions, 30 morning checks, 2 gate tests and 1 session move.')
+    const empty = summary({ counts: { workouts: 0, setLogs: 0, morningChecks: 0, runs: 0, gateTests: 0, sessionMoves: 0, locations: 1, programOverrides: 0 }, first: null, last: null })
+    expect(holdsLine(empty)).toBe('0 sets, 0 runs, 1 gym; nothing logged yet.')
+    expect(importedWords('knee-rebuild-2026-12-20.json', summary())).toBe(
+      'Imported knee-rebuild-2026-12-20.json. This phone now holds what the file holds: 312 sets, 41 runs, 3 gyms, from Nov 2 to Dec 20. Also 24 sessions, 30 morning checks, 2 gate tests and 1 session move.',
+    )
+  })
+
+  it('names the years only when the range crosses one', () => {
+    expect(rangeWords('2026-12-28', '2027-01-03')).toBe('from Dec 28, 2026 to Jan 3, 2027')
+    expect(rangeWords('2026-11-02', '2026-11-02')).toBe('on Nov 2')
+    expect(rangeWords(null, null)).toBeNull()
+  })
+
+  it('names what an import would erase, or nothing', () => {
+    expect(lostWords([])).toBeNull()
+    expect(lostWords([{ table: 'setLogs', count: 8 }])).toBe('It would erase 8 sets on this phone that the file doesn’t have.')
+    expect(lostWords([{ table: 'workouts', count: 1 }, { table: 'setLogs', count: 8 }, { table: 'runs', count: 1 }])).toBe(
+      'It would erase 1 session, 8 sets and 1 run on this phone that the file doesn’t have.',
+    )
+    expect(IMPORT_CONFIRM).toBe('Replace everything on this phone with this file?')
+  })
+
+  it('says when a file was read forward from an older version', () => {
+    expect(migratedWords(null)).toBeNull()
+    expect(migratedWords(2)).toBe('Written by an older version of the app (schema version 2); it was read forward to this one.')
+  })
+
+  it('shares through the share sheet only where it takes a file, else offers a download link', () => {
+    const file = new File(['{}'], 'knee-rebuild-2026-12-20.json', { type: 'application/json' })
+    expect(shareRoute(undefined, file)).toBe('download')
+    expect(shareRoute({}, file)).toBe('download')
+    // An older share sheet that shares links but no files.
+    expect(shareRoute({ share: () => Promise.resolve() }, file)).toBe('download')
+    expect(shareRoute({ share: () => Promise.resolve(), canShare: () => false }, file)).toBe('download')
+    expect(shareRoute({ share: () => Promise.resolve(), canShare: () => { throw new TypeError('no') } }, file)).toBe('download')
+    expect(shareRoute({ share: () => Promise.resolve(), canShare: (data) => data.files[0] === file }, file)).toBe('share')
+  })
+
+  it('tells a closed share sheet from one that wants a fresh tap or failed', () => {
+    expect(shareFailure(new DOMException('cancelled', 'AbortError'))).toBe('closed')
+    expect(shareFailure(new DOMException('no activation', 'NotAllowedError'))).toBe('needs-tap')
+    expect(shareFailure(new DOMException('bad', 'DataError'))).toBe('failed')
+    expect(shareFailure('nope')).toBe('failed')
   })
 })

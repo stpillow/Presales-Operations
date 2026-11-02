@@ -16,6 +16,8 @@ export interface StepperProps {
    * injured" for a hop trial labelled "Trial 1"), so the field and its buttons carry it too.
    */
   context?: string
+  /** Waits, untappable and untypable; the screen says why in words beside it. */
+  disabled?: boolean
 }
 
 /**
@@ -25,7 +27,7 @@ export interface StepperProps {
  * value (4.5 over a prefilled 3 is 4.5, not 34.5); leaving it empty keeps the value. While the
  * field has focus it keeps the typed text, so "2." can become "2.5" instead of 25.
  */
-export function Stepper({ label, value, onChange, step = 1, min = 0, max = 9999, unit, decimal = false, context }: StepperProps) {
+export function Stepper({ label, value, onChange, step = 1, min = 0, max = 9999, unit, decimal = false, context, disabled = false }: StepperProps) {
   const id = useId()
   const [edit, setEdit] = useState<StepperEdit | null>(null)
   const clamp = (n: number) => Math.min(max, Math.max(min, n))
@@ -43,14 +45,15 @@ export function Stepper({ label, value, onChange, step = 1, min = 0, max = 9999,
         {unit ? <span className="text-on-dark-muted"> ({unit})</span> : null}
       </label>
       <div className="flex items-center gap-1">
-        <button type="button" aria-label={`${context ? `${context}, ` : ''}${label} down`} className="tap rounded-sm bg-navy-lift text-h3 text-on-dark" onClick={() => bump(-step)}>
+        <button type="button" aria-label={`${context ? `${context}, ` : ''}${label} down`} disabled={disabled} className="tap rounded-sm bg-navy-lift text-h3 text-on-dark disabled:opacity-50" onClick={() => bump(-step)}>
           −
         </button>
         <input
           id={id}
+          disabled={disabled}
           inputMode={decimal ? 'decimal' : 'numeric'}
           pattern={decimal ? '[0-9]*[.,]?[0-9]*' : '[0-9]*'}
-          className="tap w-16 rounded-sm bg-ink text-center font-mono text-lead text-on-dark placeholder:text-on-dark-muted"
+          className="tap w-16 rounded-sm bg-ink text-center font-mono text-lead text-on-dark placeholder:text-on-dark-muted disabled:opacity-50"
           value={field.text}
           placeholder={field.placeholder}
           onFocus={() => setEdit(beginEdit(value))}
@@ -63,7 +66,7 @@ export function Stepper({ label, value, onChange, step = 1, min = 0, max = 9999,
           }}
           onBlur={() => setEdit(null)}
         />
-        <button type="button" aria-label={`${context ? `${context}, ` : ''}${label} up`} className="tap rounded-sm bg-navy-lift text-h3 text-on-dark" onClick={() => bump(step)}>
+        <button type="button" aria-label={`${context ? `${context}, ` : ''}${label} up`} disabled={disabled} className="tap rounded-sm bg-navy-lift text-h3 text-on-dark disabled:opacity-50" onClick={() => bump(step)}>
           +
         </button>
       </div>

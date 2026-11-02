@@ -57,13 +57,15 @@ async function rawRows(): Promise<Record<string, unknown[]>> {
   return out
 }
 
-describe('a week-1 version 2 database opened at version 3', () => {
+// Opened by today's app, it goes through version 3 to version 4 (src/db/db.v4.test.ts opens a version 3 one).
+describe('a week-1 version 2 database opened at version 3 and on', () => {
   it('keeps every row exactly, adds an empty locations table, then gets the home gym at launch', async () => {
     await writeVersionTwo()
 
     await db.open()
-    expect(db.verno).toBe(3)
-    expect(db.tables.map((t) => t.name).sort()).toEqual([...Object.keys(v2Rows), 'locations'].sort())
+    expect(db.verno).toBe(4)
+    expect(db.tables.map((t) => t.name).sort()).toEqual([...Object.keys(v2Rows), 'locations', 'programOverrides'].sort())
+    expect(await db.programOverrides.count()).toBe(0)
     const sorted = (rows: unknown[]) => [...rows].sort((a, b) => String((a as { id: string }).id).localeCompare(String((b as { id: string }).id)))
     const before = await rawRows()
     for (const [name, rows] of Object.entries(v2Rows)) expect(sorted(before[name] ?? []), name).toEqual(sorted(rows))

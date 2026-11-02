@@ -9,10 +9,12 @@ import { useActiveLocation, useHistory, useLocations, useSettings } from '../db/
 import { clearMarkOff, putWorkout, reopenWorkout, setActiveLocation, type History } from '../db/repo.ts'
 import { liftGym } from '../rules/gymDay.ts'
 import type { EquipmentId, IsoDate, Location, Settings } from '../schema/index.ts'
+import { openSettingsAtExport } from './Settings.tsx'
 import {
   NEW_LOCATION_HASH,
   atGymWords,
   earlierPhaseWords,
+  exportLine,
   gymRows,
   liftChanges,
   markOffLines,
@@ -97,6 +99,7 @@ export function Today() {
       )}
       <OpenWorkoutsBlock open={view.open} active={activeLocation} locations={locations} />
       <YesterdayBlock lines={view.yesterday} />
+      <ExportLine line={exportLine(settings.lastExportedAt, today, history)} />
     </Screen>
   )
 }
@@ -497,6 +500,22 @@ function YesterdayBlock({ lines }: { lines: YesterdayLine[] }) {
           </Button>
         </>
       ) : null}
+    </section>
+  )
+}
+
+/** One quiet line once the last export is over a week old (iOS can evict the app's storage), with the way to Settings' Export section. */
+function ExportLine({ line }: { line: string | null }) {
+  if (line === null) return null
+  return (
+    <section aria-label="Backup" className={CONTROL_ROW}>
+      <span className="min-w-0 text-small text-on-dark-muted">{line}</span>
+      <span aria-hidden="true" className="shrink-0 text-small text-on-dark-muted">
+        ·
+      </span>
+      <Button variant="quiet" className="shrink-0" onClick={openSettingsAtExport}>
+        Export
+      </Button>
     </section>
   )
 }

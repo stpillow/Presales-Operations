@@ -41,12 +41,14 @@ import {
   parseStoredSlotIds,
   parseStoredSwaps,
   pickNotHereWords,
+  picksOnList,
   RACK_ASK_LB,
   rackAskWords,
   rackSetWords,
   routeLines,
   setStepKey,
   standingMarkFor,
+  staleStoredSwaps,
   stopReasonLabel,
   swapChoices,
   swapPick,
@@ -203,7 +205,16 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
   const planInput = { template, week: workout.week, settings, history, gym, before: workout.date }
   const unswapped = useMemo(() => planSession(planInput), [template, workout.week, workout.date, settings, history, gym])
   const engineBySlot = useMemo(() => new Map(unswapped.map((p) => [p.slot.id, p.exercise.id])), [unswapped])
-  const chosen = useMemo(() => withoutEnginePicks(mergeSwaps(swapsFromSets(unswapped, sets), stored), engineBySlot), [unswapped, sets, stored, engineBySlot])
+  // Only picks on their slot's list as it runs now: a Program edit mid-session can take one off, and the engine then runs the slot's history.
+  const chosen = useMemo(() => picksOnList(withoutEnginePicks(mergeSwaps(swapsFromSets(unswapped, sets), stored), engineBySlot), unswapped), [unswapped, sets, stored, engineBySlot])
+  // A stored swap taken off its slot's list is forgotten, so putting the exercise back on the list later doesn't bring the old pick back with it.
+  useEffect(() => {
+    const stale = staleStoredSwaps(stored, unswapped)
+    if (stale.length === 0) return
+    const next = Object.fromEntries(Object.entries(stored).filter(([slotId]) => !stale.includes(slotId)))
+    setStored(next)
+    writeStored(storageKey, Object.keys(next).length > 0 ? next : null)
+  }, [stored, unswapped, storageKey])
   const plans = useMemo(() => planSession({ ...planInput, chosenExercise: chosen }), [template, workout.week, workout.date, settings, history, gym, chosen])
   const steps = useMemo(
     () => sessionSteps(plans.map((p) => ({ slotId: p.slot.id, ...(p.slot.groupId ? { groupId: p.slot.groupId } : {}), optional: p.slot.optional, sides: p.prescriptions.map((x) => ({ side: x.side, sets: x.sets })) }))),

@@ -102,18 +102,26 @@ describe('wholeKneeFor: what one slot of the lift reads', () => {
   const records = attachChecks([workout('p1b', '2026-11-14', 1)], sets('p1b', 'leg-extension', 70), [])
 
   it('nothing without a morning that read back off', () => {
-    expect(wholeKneeFor({ morning: null, own: { pattern: 'quad' }, exerciseId: 'leg-extension', phase: 2, records })).toBeUndefined()
+    expect(wholeKneeFor({ morning: null, own: { pattern: 'quad' }, exercise: { id: 'leg-extension', pattern: 'quad' }, phase: 2, records })).toBeUndefined()
   })
-  it('nothing for upper-body, core, carry or cardio slots', () => {
-    expect(wholeKneeFor({ morning, own: { pattern: 'push' }, exerciseId: 'incline-db-press', phase: 2, records })).toBeUndefined()
-    expect(wholeKneeFor({ morning, own: { pattern: 'carry' }, exerciseId: 'farmers-carry', phase: 2, records })).toBeUndefined()
+  it('nothing for upper-body, core, carry or cardio slots running upper-body, core, carry or cardio work', () => {
+    expect(wholeKneeFor({ morning, own: { pattern: 'push' }, exercise: { id: 'incline-db-press', pattern: 'push' }, phase: 2, records })).toBeUndefined()
+    expect(wholeKneeFor({ morning, own: { pattern: 'carry' }, exercise: { id: 'farmers-carry', pattern: 'carry' }, phase: 2, records })).toBeUndefined()
+  })
+  it('a slot of another job running lower-body work that the Program screen added backs off too: either exercise being lower-body work is enough (PROGRAM-QUESTIONS 129)', () => {
+    const p1 = attachChecks([workout('p1b', '2026-11-14', 1)], sets('p1b', 'goblet-squat-bench', 30), [])
+    expect(wholeKneeFor({ morning, own: { pattern: 'core' }, exercise: { id: 'copenhagen-plank-short', pattern: 'hip' }, phase: 2, records })).toEqual({ morning: '2026-12-09', phaseOneLoads: {} })
+    expect(wholeKneeFor({ morning, own: { pattern: 'push' }, exercise: { id: 'goblet-squat-bench', pattern: 'squat' }, phase: 2, records: p1 })).toEqual({ morning: '2026-12-09', phaseOneLoads: { both: { load: 30, loadUnit: 'lb' } } })
+    // The other way round, a lower-body slot running something else still backs off: the slot's job is lower-body work.
+    expect(wholeKneeFor({ morning, own: { pattern: 'quad' }, exercise: { id: 'chest-press-machine', pattern: 'push' }, phase: 2, records })).toEqual({ morning: '2026-12-09', phaseOneLoads: {} })
+    expect(wholeKneeFor({ morning: null, own: { pattern: 'core' }, exercise: { id: 'copenhagen-plank-short', pattern: 'hip' }, phase: 2, records })).toBeUndefined()
   })
   it('in Phase 1, the back-off with no floor: Phase 1 loads are the loads themselves', () => {
-    expect(wholeKneeFor({ morning, own: { pattern: 'quad' }, exerciseId: 'leg-extension', phase: 1, records })).toEqual({ morning: '2026-12-09', phaseOneLoads: {} })
+    expect(wholeKneeFor({ morning, own: { pattern: 'quad' }, exercise: { id: 'leg-extension', pattern: 'quad' }, phase: 1, records })).toEqual({ morning: '2026-12-09', phaseOneLoads: {} })
   })
   it('from Phase 2 on, the last Phase 1 loads of the exercise the slot runs', () => {
-    expect(wholeKneeFor({ morning, own: { pattern: 'quad' }, exerciseId: 'leg-extension', phase: 2, records })).toEqual({ morning: '2026-12-09', phaseOneLoads: { both: { load: 70, loadUnit: 'lb' } } })
-    expect(wholeKneeFor({ morning, own: { pattern: 'quad' }, exerciseId: 'wall-sit', phase: 3, records })).toEqual({ morning: '2026-12-09', phaseOneLoads: {} })
+    expect(wholeKneeFor({ morning, own: { pattern: 'quad' }, exercise: { id: 'leg-extension', pattern: 'quad' }, phase: 2, records })).toEqual({ morning: '2026-12-09', phaseOneLoads: { both: { load: 70, loadUnit: 'lb' } } })
+    expect(wholeKneeFor({ morning, own: { pattern: 'quad' }, exercise: { id: 'wall-sit', pattern: 'quad' }, phase: 3, records })).toEqual({ morning: '2026-12-09', phaseOneLoads: {} })
   })
 })
 
@@ -133,7 +141,7 @@ describe('the next lift’s prescription after a morning that read back off', ()
       logs.push(...sets('p1', 'leg-extension', opts.phaseOne, { rangeStopDeg: 45 }))
     }
     const records: WorkoutRecord[] = attachChecks(workouts, logs, [])
-    const wholeKnee = wholeKneeFor({ morning: opts.morning === undefined ? morning : opts.morning, own: legExtension, exerciseId: 'leg-extension', phase: opts.phase ?? 2, records })
+    const wholeKnee = wholeKneeFor({ morning: opts.morning === undefined ? morning : opts.morning, own: legExtension, exercise: legExtension, phase: opts.phase ?? 2, records })
     const [p] = prescribe({
       slot, exercise: legExtension, substitutions: [], readings: ['clean'], lastSets: lastSetsBySide(records, 'leg-extension'), week: opts.week ?? 6,
       injuredSide: 'right', dumbbellMax: 80, redFlagActive: false, ...(wholeKnee ? { wholeKnee } : {}),

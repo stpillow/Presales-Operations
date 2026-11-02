@@ -3,11 +3,12 @@ import { evaluateGate, inWriteOrder, type GateContext, type GateItemResult, type
 import { attachChecks, subjectReadings, type SubjectReading, type WorkoutRecord } from '../rules/history.ts'
 import { weekOf } from '../rules/calendar.ts'
 import { locationOrHome } from '../rules/locations.ts'
+import { applyToTemplate, overridesBySlot } from '../rules/overrides.ts'
 import { advanceWaitsFor, awaitingMorningCheck, loadTestPrefill, phaseEntryWeek, type LoadTestPrefill, type LoadTestSession } from '../rules/progress.ts'
 import { progressionSuspended, stopMessage, type RedFlagState } from '../rules/redFlags.ts'
-import { phaseRunsExercise } from '../rules/session.ts'
+import { phaseLogsBothSides, phaseRunsExercise } from '../rules/session.ts'
 import { bestOfTrials, meetsSymmetry, symmetryPercent } from '../rules/unilateral.ts'
-import type { Exercise, Gate, GateItem, GateTest, IsoDate, Location, Phase, Program, Settings, Side } from '../schema/index.ts'
+import type { Exercise, Gate, GateItem, GateTest, IsoDate, Location, Phase, Program, SessionTemplate, Settings, Side } from '../schema/index.ts'
 import { dateWords, runLabel, shortDateWords, workoutLabel } from './Today.helpers.ts'
 
 /**
@@ -19,7 +20,7 @@ import { dateWords, runLabel, shortDateWords, workoutLabel } from './Today.helpe
  * composes the answers and names them. The program pieces are passed in, so tests use fixtures.
  */
 
-export type HistoryLike = Pick<History, 'workouts' | 'setLogs' | 'morningChecks' | 'runs' | 'gateTests' | 'sessionMoves'>
+export type HistoryLike = Pick<History, 'workouts' | 'setLogs' | 'morningChecks' | 'runs' | 'gateTests' | 'sessionMoves' | 'programOverrides'>
 export type ProgramLike = Pick<Program, 'gates' | 'phases' | 'exercises' | 'redFlags' | 'templates' | 'weeklyTemplate'>
 
 /** Which catalog exercises count as the single-leg calf raise for gate 2 (the M5 brief). */
@@ -375,13 +376,16 @@ function passedOverWords({ rackCapped, noLoad }: PassedOver): string | null {
  * Where a load form's numbers came from, in one sentence or three: the session, the gym when it
  * isn't the one Today plans at, and the later sessions loadTestPrefill passed over (rack-capped, or
  * no load on a side; PROGRAM-QUESTIONS 115). `notRunIn` is the phase when it runs no slot of the
- * exercise, so no session of it can prefill the test (gate 1, PROGRAM-QUESTIONS 114).
+ * exercise, so no session of it can prefill the test (gate 1, PROGRAM-QUESTIONS 114). `bothLegsIn`
+ * is the phase when it runs the exercise only on slots logged once for both legs, and nothing has
+ * prefilled it, so no session of it will (PROGRAM-QUESTIONS 134).
  */
 export function prefillWords(input: {
   exercise: Pick<Exercise, 'name' | 'loadUnit'> | null
   prefill: LoadPrefill | null
   injuredSide: Side
   notRunIn?: number | null
+  bothLegsIn?: number | null
   gymName?: string | null
   passedOver?: PassedOver
   /** The last saved test the form opened on instead (openLoadForm), when it is newer than any prefill. */
@@ -390,16 +394,22 @@ export function prefillWords(input: {
   const { exercise, prefill, injuredSide } = input
   const passedOver = input.passedOver ?? { rackCapped: 0, noLoad: 0 }
   const notRun = input.notRunIn !== undefined && input.notRunIn !== null
+  const bothLegs = !notRun && input.bothLegsIn !== undefined && input.bothLegsIn !== null
   if (input.openedOn) {
     const t = input.openedOn
     const unit = exercise && exercise.loadUnit !== 'none' ? ` ${exercise.loadUnit}` : ''
     const name = exercise ? `${exercise.name}, ` : ''
     const values = `${name}${t.valueInjured}${unit} ${SIDE_WORD[injuredSide].toLowerCase()} and ${t.valueOther}${unit} ${SIDE_WORD[otherSide(injuredSide)].toLowerCase()}`
-    const why = notRun ? `. Phase ${input.notRunIn} doesn’t run this exercise, so no session can prefill this test.` : ', newer than any session that could prefill it.'
+    const why = notRun
+      ? `. Phase ${input.notRunIn} doesn’t run this exercise, so no session can prefill this test.`
+      : bothLegs
+        ? `. Phase ${input.bothLegsIn} runs this exercise only on a slot logged for both legs at once, so no session can prefill this test.`
+        : ', newer than any session that could prefill it.'
     return `Opened on the last test, ${dateInWords(t.date)}: ${values}${why} Change either to save a new test.`
   }
   if (!exercise) return 'Nothing to prefill from: enter the values from the test.'
   if (notRun) return `Phase ${input.notRunIn} doesn’t run this exercise (${exercise.name}), so no session can prefill this test. Enter the loads from the test.`
+  if (bothLegs && !input.prefill) return `Phase ${input.bothLegsIn} runs this exercise (${exercise.name}) only on a slot logged for both legs at once, so no session can prefill this test. Enter the loads from the test.`
   if (!prefill) {
     const { rackCapped, noLoad } = passedOver
     if (rackCapped + noLoad === 0) return `Nothing to prefill: no session has logged both sides of this exercise (${exercise.name}) yet. Enter the loads from the test.`
@@ -576,6 +586,19 @@ function awayGymName(locationId: string, gyms: Gyms): string | null {
   return active && there && there.id !== active.id ? there.name : null
 }
 
+/**
+ * The templates as their sessions run: the Program screen's edits laid over program.md's lists
+ * (`applyToTemplate`, as `planSession` lays them), an exercise the catalog no longer has dropped.
+ * Whether a phase runs a test's exercise is read from these, so the prefill follows the lists the
+ * runner's routing and Swap offer.
+ */
+function templatesAsRun(program: Pick<ProgramLike, 'templates' | 'exercises'>, history: Pick<HistoryLike, 'programOverrides'>): SessionTemplate[] {
+  const bySlot = overridesBySlot(history.programOverrides ?? [])
+  // The catalog's exercises, as the runner hands them: an edit naming one the slot can't count or step is dropped here too.
+  const known = new Map(program.exercises.map((e) => [e.id, e]))
+  return program.templates.map((template) => applyToTemplate(template, bySlot, known))
+}
+
 function symmetryEntry(item: GateItem, gate: Gate, history: HistoryLike, records: readonly WorkoutRecord[], injuredSide: Side, program: ProgramLike, gyms: Gyms): SymmetryEntry {
   const key = item.testItem ?? null
   const threshold = lineOf(item)
@@ -588,8 +611,12 @@ function symmetryEntry(item: GateItem, gate: Gate, history: HistoryLike, records
   // from the latest SetLogs per side"); hop tests have no logged exercise to start from.
   const exerciseId = item.prefillExerciseId
   const exercise = exerciseId ? (program.exercises.find((e) => e.id === exerciseId) ?? null) : null
-  // A phase that runs no slot of the exercise can't produce a session to prefill from (PROGRAM-QUESTIONS 114).
-  const runs = exercise !== null && phaseRunsExercise(program.templates, gate.fromPhase, exercise.id)
+  // A phase that runs no slot of the exercise can't produce a session to prefill from (PROGRAM-QUESTIONS 114),
+  // read from the lists as edited, which is what its sessions run (PROGRAM-QUESTIONS 127); nor can one that
+  // runs it only on slots logged once for both legs, which never log a side (PROGRAM-QUESTIONS 134).
+  const asRun = templatesAsRun(program, history)
+  const runs = exercise !== null && phaseRunsExercise(asRun, gate.fromPhase, exercise.id)
+  const sided = exercise !== null && runs && phaseLogsBothSides(asRun, gate.fromPhase, exercise.id)
   const found = exercise && runs ? loadTestPrefill(records, exercise.id, injuredSide) : null
   const prefill = found?.prefill ?? null
   const unit = exercise && exercise.loadUnit !== 'none' ? exercise.loadUnit : 'lb'
@@ -610,6 +637,7 @@ function symmetryEntry(item: GateItem, gate: Gate, history: HistoryLike, records
       prefill,
       injuredSide,
       notRunIn: exercise && !runs ? gate.fromPhase : null,
+      bothLegsIn: exercise && runs && !sided && !prefill ? gate.fromPhase : null,
       gymName: prefill ? awayGymName(prefill.locationId, gyms) : null,
       ...(found ? { passedOver: found.passedOver } : {}),
     }),

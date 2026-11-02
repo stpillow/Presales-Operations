@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import type { ButtonHTMLAttributes, ReactNode, Ref } from 'react'
 
 type Variant = 'primary' | 'secondary' | 'quiet'
 
@@ -15,7 +15,7 @@ export function Button({
   className = '',
   children,
   ...rest
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; wide?: boolean; children: ReactNode }) {
+}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; wide?: boolean; children: ReactNode; ref?: Ref<HTMLButtonElement> }) {
   return (
     <button
       type="button"

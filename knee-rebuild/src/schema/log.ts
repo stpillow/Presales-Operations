@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { Day, Effort, IsoDate, IsoDateTime, LoadUnit, Pain, ReadingResult, Rpe, RunType, SetSide, Side, StopReason, WorkoutStatus } from './enums.ts'
-import { EquipmentId } from './program.ts'
+import { EquipmentId, Slot } from './program.ts'
 
 const id = z.string().min(1)
 
@@ -25,16 +25,28 @@ export function showsText(text: string): boolean {
   return /[\p{L}\p{N}\p{P}\p{S}]/u.test(withoutInvisible(text))
 }
 
+/** Whether a YYYY-MM-DD date falls on a Monday, read on whole UTC days as src/rules/calendar.ts reads dates. */
+function onMonday(date: string): boolean {
+  const [y, m, d] = date.split('-').map(Number)
+  if (y === undefined || m === undefined || d === undefined) return false
+  return new Date(Date.UTC(y, m - 1, d)).getUTCDay() === 1
+}
+
+/** The rest timer's range, in seconds: what the Settings stepper offers, and all a stored row or a backup file may hold. */
+export const REST_TIMER_MIN = 15
+export const REST_TIMER_MAX = 600
+
 /** One row, held in Dexie. Also carries the export and import controls' state. */
 export const Settings = z.strictObject({
   injuredSide: Side,
-  startDate: IsoDate,
+  /** Week 1's Monday: weeks start Monday (PROMPT rule 10), so the form takes only a Monday and an imported file is held to the same. */
+  startDate: IsoDate.refine(onMonday, 'the start date is a Monday, the day weeks start'),
   /**
    * Heaviest dumbbell on the rack. Presets 60, 75, 80. Frozen from M4b: each gym's own
    * `Location.dumbbellMaxLb` takes over, and the home gym is first written from this value.
    */
   dumbbellMax: z.number().int().positive(),
-  restTimerSeconds: z.number().int().positive(),
+  restTimerSeconds: z.number().int().min(REST_TIMER_MIN).max(REST_TIMER_MAX),
   /** Pain per set when true; once per exercise when false. */
   painPerSet: z.boolean(),
   /** The phase the app is in. Advances only when Shawn confirms a gate, never by the calendar. */
@@ -55,6 +67,12 @@ export const Settings = z.strictObject({
   activeLocationId: id.default(PLANET_FITNESS_LOCATION_ID),
   /** What Shawn carries to every gym, as equipment ids. */
   kit: z.array(EquipmentId).refine(uniqueIds, 'kit lists each item once').default(() => [...DEFAULT_KIT]),
+  /**
+   * When this phone last wrote a backup file (M6): the export's `exportedAt`, or an imported file's.
+   * Absent means never. It belongs to the phone, not to the data, so a backup file leaves it out
+   * (src/rules/backup.ts), and Reset all data clears it.
+   */
+  lastExportedAt: IsoDateTime.optional(),
 })
 export type Settings = z.infer<typeof Settings>
 
@@ -202,3 +220,33 @@ export const SessionMove = z.strictObject({
   dayB: Day,
 })
 export type SessionMove = z.infer<typeof SessionMove>
+
+/** A cue written on the Program screen runs 1 to this many characters once trimmed (M6). */
+export const CUE_MAX = 200
+
+/** One cue as Shawn wrote it: one line of plain text, 1 to 200 characters once trimmed, showing something. */
+export const Cue = z
+  .string()
+  .trim()
+  .min(1)
+  .max(CUE_MAX)
+  .refine((text) => !/\p{Cc}/u.test(text), 'a cue is one line of plain text')
+  .refine(showsText, 'a cue shows a letter, digit or symbol')
+export type Cue = z.infer<typeof Cue>
+
+/**
+ * A slot's edits from the Program screen (M6, Dexie version 4): its cues and its substitutions as
+ * Shawn rewrote them, laid over program.md's slot (`applyOverrides`), never written into it. An
+ * absent field is program.md's own; "Back to program.md's" deletes the row. Whether the
+ * substitutions are exercises from the catalog, and never the slot's own, is checked against the
+ * seed (`overrideProblems`, src/rules/overrides.ts) before the row is written.
+ */
+export const ProgramOverride = z
+  .strictObject({
+    slotId: Slot.shape.id,
+    cues: z.array(Cue).optional(),
+    substitutionIds: Slot.shape.substitutionIds.refine(uniqueIds, 'substitutions list each exercise once').optional(),
+    editedOn: IsoDate,
+  })
+  .refine((o) => o.cues !== undefined || o.substitutionIds !== undefined, { message: 'an override edits the cues, the substitutions, or both' })
+export type ProgramOverride = z.infer<typeof ProgramOverride>

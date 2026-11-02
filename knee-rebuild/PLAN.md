@@ -2,7 +2,7 @@
 
 The status page. Ticked when done, not when started. Questions about the program live in [PROGRAM-QUESTIONS.md](PROGRAM-QUESTIONS.md); the questions for Shawn before M1 are at the bottom.
 
-**Now:** M5 (gates and progress) in review: the review's surviving findings are fixed, each with a test (PROGRAM-QUESTIONS 110 to 118), and re-checked in the built app at 390 and 375 px; merging next, then M6.
+**Now:** M6 (hardening) in review: the Program screen, export, import and reset, the smoke test and the PWA audit are in, and the builders' leftovers are fixed (the gym editor and Gates read the edited lists, PROGRAM-QUESTIONS 127; an error boundary around every screen). Shawn's phone checks wait for him.
 **Last updated:** Nov 2, 2026
 
 ## Milestones
@@ -94,12 +94,13 @@ Done when gate 1 evaluates from logged data alone and the hop-test symmetry matc
 ### M6 · Hardening
 Done when export, wipe, import restores everything, and a full Session B gets logged on cellular with the screen locked between sets.
 
-- [ ] Program screen: read-only phase view, cue and substitution editor, program.md rendered as reference
-- [ ] Export JSON, import JSON, reset all data, clear the red-flag state with a note
-- [ ] Playwright smoke test for the Session runner
-- [ ] Lighthouse PWA audit
-- [ ] Offline QA at the gym: a full Session B on cellular with the screen locked between sets
-- [ ] Export, wipe, import restores everything
+- [x] Program screen: read-only phase view, cue and substitution editor, program.md rendered as reference (edits are Dexie v4 overrides laid over program.md's slots; the runner, the gym editor and Gates read them)
+- [x] Export JSON, import JSON, reset all data, clear the red-flag state with a note (strict checks before anything is touched, one transaction; PROGRAM-QUESTIONS 121 to 126)
+- [x] Playwright smoke test for the Session runner (`e2e/session.spec.ts`, `npm run e2e`)
+- [x] Lighthouse PWA audit (Lighthouse 11: PWA 100, accessibility 100 on every screen, performance 86; the manual checklist in `e2e/pwa.spec.ts`; `docs/pwa-audit.md`)
+- [ ] Shawn: offline QA at the gym, a full Session B on cellular with the screen locked between sets
+- [x] Export, wipe, import restores everything (the round-trip test in `src/db/backup.test.ts`: two exports the same bytes apart from `exportedAt`)
+- [ ] Adversarial review: the surviving findings fixed with tests first (PROGRAM-QUESTIONS 128 to 133; the screen ones also in `e2e/program.spec.ts`, `e2e/settings.spec.ts` and `e2e/app.spec.ts`, run by `npm run e2e`; npm audit's build-time advisories explained in `docs/pwa-audit.md` finding 10), re-check to come
 
 **Definition of done for v1:** Shawn runs week 1 of the program entirely from the app, on his phone, with morning check-ins deciding the loads for week 2.
 

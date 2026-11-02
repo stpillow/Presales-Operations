@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
+import { ErrorBoundary } from './components/ErrorBoundary.tsx'
 import { ProgramError } from './components/ProgramError.tsx'
 import { seedError } from './program/seed.ts'
 
@@ -16,10 +17,13 @@ if (seedError) {
     </StrictMode>,
   )
 } else {
+  // App's own boundary names the screen that threw; this one catches the app shell itself (storage, the tab bar).
   void import('./App.tsx').then(({ App }) =>
     root.render(
       <StrictMode>
-        <App />
+        <ErrorBoundary screen={null}>
+          <App />
+        </ErrorBoundary>
       </StrictMode>,
     ),
   )

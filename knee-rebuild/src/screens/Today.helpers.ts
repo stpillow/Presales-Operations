@@ -10,7 +10,9 @@ import { phaseWeekOf } from '../rules/session.ts'
 import { runsInWeek, suggestRun, targetForWeek, type RunSuggestion } from '../rules/weekPlan.ts'
 import { weekMiles } from '../rules/mileage.ts'
 import { stopMessage } from '../rules/redFlags.ts'
+import { exportNudge, loggedRange } from '../rules/backup.ts'
 import type {
+  IsoDateTime,
   Run,
   Day,
   DaySession,
@@ -563,4 +565,17 @@ export function runSuggestionAtGym(
   }
   const words = suggestionWords(suggestion)
   return call?.kind === 'take' ? { ...words, headline: `Suggested: ${swapHeadlineAt(suggestion.headline, call.type)}` } : words
+}
+
+// ---- The export reminder (M6 brief, section 2): iOS can evict a home-screen app's storage ----
+
+/**
+ * Today's one quiet line about the backup: "No export in 9 days" once the last export is more than
+ * a week old, or, never exported, once the first thing logged is (src/rules/backup.ts
+ * `exportNudge`); null otherwise, and with nothing logged.
+ */
+export function exportLine(lastExportedAt: IsoDateTime | undefined, today: IsoDate, history: Pick<History, 'workouts' | 'runs' | 'morningChecks' | 'gateTests'>): string | null {
+  const nudge = exportNudge(lastExportedAt, today, loggedRange(history).first)
+  if (!nudge) return null
+  return nudge.kind === 'since-export' ? `No export in ${nudge.days} days` : `No export yet; the logs go back ${nudge.days} days`
 }

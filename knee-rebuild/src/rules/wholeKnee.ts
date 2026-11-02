@@ -17,7 +17,7 @@ import { morningReading } from './reading.ts'
 /** program.md's lower-body work: every pattern but pressing, pulling, core, carries and cardio. */
 export const LOWER_BODY_PATTERNS: ReadonlySet<Pattern> = new Set<Pattern>(['squat', 'quad', 'hinge', 'single-leg', 'hamstring', 'hip', 'calf', 'balance', 'plyo'])
 
-/** Whether a slot's exercise is lower-body work. Asked of the slot's own exercise: its job, whatever it runs today. */
+/** Whether an exercise is lower-body work, by its pattern. A slot is lower-body work when its own exercise or the one it runs today is (`wholeKneeFor`). */
 export function isLowerBody(exercise: Pick<Exercise, 'pattern'>): boolean {
   return LOWER_BODY_PATTERNS.has(exercise.pattern)
 }
@@ -69,20 +69,22 @@ export function phaseOneLoads(records: readonly WorkoutRecord[], exerciseId: str
 
 /**
  * What `prescribe` reads for one slot of the lift: nothing without a morning that read back-off, or
- * for a slot whose own exercise isn't lower-body work; otherwise the morning, and from Phase 2 on the
- * last Phase 1 loads of the exercise the slot runs (none in Phase 1, where "Phase 1 loads" are the
- * loads themselves, so load × 0.75 stands alone).
+ * for a slot that isn't lower-body work; otherwise the morning, and from Phase 2 on the last Phase 1
+ * loads of the exercise the slot runs (none in Phase 1, where "Phase 1 loads" are the loads
+ * themselves, so load × 0.75 stands alone). A slot is lower-body work when its own exercise is (its
+ * job, whatever it runs today) or the exercise it runs today is: a lower-body exercise the Program
+ * screen added to a core or carry slot's list backs off like any other (PROGRAM-QUESTIONS 129).
  */
 export function wholeKneeFor(input: {
   morning: KneeMorning | null
   /** The slot's own exercise. */
   own: Pick<Exercise, 'pattern'>
   /** The exercise the slot runs today. */
-  exerciseId: string
+  exercise: Pick<Exercise, 'id' | 'pattern'>
   /** The phase of the lift being planned. */
   phase: number
   records: readonly WorkoutRecord[]
 }): WholeKnee | undefined {
-  if (input.morning === null || !isLowerBody(input.own)) return undefined
-  return { morning: input.morning.date, phaseOneLoads: input.phase >= 2 ? phaseOneLoads(input.records, input.exerciseId) : {} }
+  if (input.morning === null || !(isLowerBody(input.own) || isLowerBody(input.exercise))) return undefined
+  return { morning: input.morning.date, phaseOneLoads: input.phase >= 2 ? phaseOneLoads(input.records, input.exercise.id) : {} }
 }

@@ -264,6 +264,38 @@ export function withoutEnginePicks(chosen: Record<string, string | undefined>, e
   return Object.fromEntries(Object.entries(chosen).map(([slotId, id]) => [slotId, id !== undefined && id === engine.get(slotId) ? undefined : id]))
 }
 
+type PlannedSlot = { slot: Pick<Slot, 'id' | 'exerciseId' | 'substitutionIds'> }
+
+/** Whether an exercise is on a planned slot's list as it runs: its own exercise, then its substitutions (Program edits included). */
+const onList = (plan: PlannedSlot, exerciseId: string): boolean => plan.slot.exerciseId === exerciseId || plan.slot.substitutionIds.includes(exerciseId)
+
+/**
+ * The session's swaps less any no longer on their slot's list (`plans`, whose slots carry the
+ * Program screen's edits): an edit mid-session can take a pick off it, and the engine then runs the
+ * slot's history instead (`slotAtGym`), so the runner counts it no swap either. A slot nothing here
+ * runs is held again (PROGRAM-QUESTIONS 83), and its card offers no "Back to".
+ */
+export function picksOnList(chosen: Record<string, string | undefined>, plans: readonly PlannedSlot[]): Record<string, string | undefined> {
+  const bySlot = new Map(plans.map((p) => [p.slot.id, p]))
+  return Object.fromEntries(
+    Object.entries(chosen).map(([slotId, id]) => {
+      const plan = bySlot.get(slotId)
+      return [slotId, id !== undefined && plan !== undefined && onList(plan, id) ? id : undefined]
+    }),
+  )
+}
+
+/** The slots whose stored swap a Program edit took off their list, for the runner to forget; a stored null (back to its own) and a slot not planned stay. */
+export function staleStoredSwaps(stored: Record<string, string | null>, plans: readonly PlannedSlot[]): string[] {
+  const bySlot = new Map(plans.map((p) => [p.slot.id, p]))
+  return Object.entries(stored)
+    .filter(([slotId, id]) => {
+      const plan = bySlot.get(slotId)
+      return id !== null && plan !== undefined && !onList(plan, id)
+    })
+    .map(([slotId]) => slotId)
+}
+
 /** The slots Shawn picked Do it anyway on, as stored beside the swaps: a list of slot ids, anything else read as none. */
 export function parseStoredSlotIds(raw: string | null): string[] {
   if (!raw) return []

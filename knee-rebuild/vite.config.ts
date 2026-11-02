@@ -11,8 +11,13 @@ export default defineConfig({
     VitePWA({
       // 'prompt' rather than 'autoUpdate': a deploy landing mid-set must never reload the page.
       registerType: 'prompt',
-      includeAssets: ['apple-touch-icon.png', 'favicon-32.png'],
+      // globPatterns below already precaches every icon in public/ and the plugin adds the manifest;
+      // listing them again here put each in the precache twice (PWA audit, docs/pwa-audit.md).
+      includeManifestIcons: false,
       manifest: {
+        // The installed app's identity, stated: '/' is the id Chromium already took from start_url, so
+        // nothing installed changes, and a later start_url can't fork the home-screen app (PWA audit, finding 8).
+        id: '/',
         name: 'Knee Rebuild',
         short_name: 'Knee',
         description: 'What to do today, what happened, what the knee said, what comes next.',
@@ -30,7 +35,7 @@ export default defineConfig({
       },
       workbox: {
         // Offline-first: everything the shell needs is precached on first visit, fonts included.
-        globPatterns: ['**/*.{js,css,html,woff2,png,svg,ico,webmanifest}'],
+        globPatterns: ['**/*.{js,css,html,woff2,png,svg,ico}'],
         navigateFallback: '/index.html',
         cleanupOutdatedCaches: true,
       },

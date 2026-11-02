@@ -1,6 +1,7 @@
 import { exerciseById, program, templateFor } from '../program/program.ts'
 import { availableEquipment, type Available, type SlotRoute } from '../rules/equipment.ts'
 import { attachChecks, recordsBefore, type WorkoutRecord } from '../rules/history.ts'
+import { applyOverrides, overridesBySlot } from '../rules/overrides.ts'
 import { prescribe, type GymHere, type Prescription } from '../rules/prescription.ts'
 import { phaseWeekOf, slotsForPhaseWeek } from '../rules/session.ts'
 import { slotAtGym } from '../rules/slotExercise.ts'
@@ -32,6 +33,8 @@ export interface Gym {
 }
 
 const EQUIPMENT_NAMES: ReadonlyMap<EquipmentId, string> = new Map(program.equipment.map((e) => [e.id, e.name]))
+/** The catalog by id: an edit naming an exercise the seed no longer has, or one the slot can't count or step, is dropped, never looked up. */
+const CATALOG: ReadonlyMap<string, Exercise> = new Map(program.exercises.map((e) => [e.id, e]))
 
 /** What is here at a gym: its list (the program's list as of the gym's version), its dumbbells and the bag, less what is marked off. */
 export function availableAt(gym: Gym): Available {
@@ -46,7 +49,9 @@ export function gymHere(gym: Gym): GymHere {
 /**
  * Assembles the engine's inputs from stored history and the gym, and asks it for every slot's
  * prescription. Composition only: which slots run, what the last session was, what the readings
- * were, what is here. Every decision inside comes from src/rules.
+ * were, what is here. Every decision inside comes from src/rules. Each slot is the one the Program
+ * screen's edits make of it (`applyOverrides`, M6), so `SlotPlan.slot` carries the cues and the
+ * substitutions as edited, and the routing, the Swap list and a back-off's move all read them.
  */
 export function planSession(input: {
   template: SessionTemplate
@@ -66,7 +71,10 @@ export function planSession(input: {
   const phaseWeek = phaseWeekOf(Math.max(week, settings.phaseEnteredWeek), settings.phaseEnteredWeek)
   const morning = kneeMorning(history.morningChecks, history.workouts, input.before)
   const gym = gymHere(input.gym)
-  return slotsForPhaseWeek(template, phaseWeek).map((slot) => {
+  const overrides = overridesBySlot(history.programOverrides ?? [])
+  return slotsForPhaseWeek(template, phaseWeek).map((written) => {
+    // Shawn's edits laid over program.md's slot before anything routes or prescribes from it; the seed is never written.
+    const slot = applyOverrides(written, overrides.get(written.id), CATALOG)
     const own = exerciseById(slot.exerciseId)
     const substitutions = slot.substitutionIds.map(exerciseById)
     // A swap chosen for this session beats the gym and the slot's history; the gym routes forward from the history (slotExercise.ts).
@@ -75,7 +83,7 @@ export function planSession(input: {
       input.chosenExercise?.[slot.id],
       gym.available,
     )
-    const wholeKnee = wholeKneeFor({ morning, own, exerciseId: exercise.id, phase: template.phase, records })
+    const wholeKnee = wholeKneeFor({ morning, own, exercise, phase: template.phase, records })
     const prescriptions = prescribe({
       slot,
       exercise,

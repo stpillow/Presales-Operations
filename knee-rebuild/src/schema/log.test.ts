@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { IsoDate } from './enums.ts'
-import { DEFAULT_KIT, EXTRA_TEXT_MAX, Location, MorningCheck, PLANET_FITNESS_LOCATION_ID, Run, SetLog, Settings, Workout, showsText } from './log.ts'
+import { REST_MAX, REST_MIN } from '../screens/Settings.helpers.ts'
+import { DEFAULT_KIT, EXTRA_TEXT_MAX, Location, MorningCheck, PLANET_FITNESS_LOCATION_ID, REST_TIMER_MAX, REST_TIMER_MIN, Run, SetLog, Settings, Workout, showsText } from './log.ts'
 
 describe('IsoDate', () => {
   it('accepts real dates and rejects impossible ones', () => {
@@ -33,6 +34,21 @@ describe('nested objects are strict too', () => {
     const settings = { injuredSide: 'right', startDate: '2026-11-02', dumbbellMax: 80, restTimerSeconds: 60, painPerSet: false }
     expect(Settings.safeParse(settings).success).toBe(true)
     expect(Settings.safeParse({ ...settings, redFlag: { active: false, items: [], extra: 1 } }).success).toBe(false)
+  })
+})
+
+describe('Settings takes what the Settings form takes', () => {
+  const settings = { injuredSide: 'right', startDate: '2026-11-02', dumbbellMax: 80, restTimerSeconds: 60, painPerSet: false }
+  it('a start date on a Monday only, the day weeks start (PROMPT rule 10)', () => {
+    for (const date of ['2026-11-02', '2026-11-09', '2027-01-04']) expect(Settings.safeParse({ ...settings, startDate: date }).success, date).toBe(true)
+    for (const date of ['2026-11-01', '2026-11-03', '2026-11-04', '2026-11-08']) {
+      expect(Settings.safeParse({ ...settings, startDate: date }).error?.issues.map((i) => i.message), date).toEqual(['the start date is a Monday, the day weeks start'])
+    }
+  })
+  it('a rest timer inside the stepper’s range, the same bounds the form uses', () => {
+    expect([REST_TIMER_MIN, REST_TIMER_MAX]).toEqual([REST_MIN, REST_MAX])
+    for (const seconds of [REST_TIMER_MIN, 60, REST_TIMER_MAX]) expect(Settings.safeParse({ ...settings, restTimerSeconds: seconds }).success, String(seconds)).toBe(true)
+    for (const seconds of [REST_TIMER_MIN - 1, REST_TIMER_MAX + 1, 99999]) expect(Settings.safeParse({ ...settings, restTimerSeconds: seconds }).success, String(seconds)).toBe(false)
   })
 })
 
