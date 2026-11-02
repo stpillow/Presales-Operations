@@ -208,6 +208,18 @@ describe('reading a file back', () => {
     expect(({}) as Record<string, unknown>).not.toHaveProperty('polluted')
   })
 
+  it('refuses settings the Settings form would refuse: a start date that isn’t a Monday, a rest timer off its stepper', () => {
+    const settingsWith = (over: Partial<Settings>) => parseBackup(fileText({ ...built(), settings: { ...built().settings, ...over } }))
+    expect(settingsWith({ startDate: '2026-11-04' })).toEqual({
+      ok: false,
+      refusal: 'This backup’s settings don’t read as the app stores them (startDate: the start date is a Monday, the day weeks start). Nothing was imported.',
+    })
+    expect(settingsWith({ restTimerSeconds: 99999 })).toMatchObject({ ok: false, refusal: expect.stringMatching(/^This backup’s settings don’t read as the app stores them \(restTimerSeconds: .+\)\. Nothing was imported\.$/) })
+    expect(settingsWith({ restTimerSeconds: 5 })).toMatchObject({ ok: false, refusal: expect.stringContaining('restTimerSeconds') })
+    expect(settingsWith({ startDate: '2026-11-09', restTimerSeconds: 600 })).toMatchObject({ ok: true })
+    expect(settingsWith({ restTimerSeconds: 15 })).toMatchObject({ ok: true })
+  })
+
   it('refuses a file missing its date, its settings or a table, or with a table that isn’t a list', () => {
     expect(parseBackup(fileText({ ...built(), exportedAt: 'Nov 21' }))).toEqual({ ok: false, refusal: 'This backup doesn’t say when it was exported. Nothing was imported.' })
     expect(parseBackup(fileText(without(built(), 'settings')))).toEqual({ ok: false, refusal: 'This backup has no settings. Nothing was imported.' })
