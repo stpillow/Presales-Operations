@@ -218,11 +218,25 @@ export type TodayBody =
       /** This week's miles so far and the week's target (null outside the plan), with why when capped. */
       weekMiles: number
       target: number | null
+      /** The rule's own flag: true exactly when rule 7 put the target below the plan's number. */
+      capped: boolean
       targetReason: string
       /** Runs already logged today. */
       loggedToday: Run[]
     }
   | { kind: 'off'; label: string }
+
+type RunBody = Extract<TodayBody, { kind: 'run' }>
+
+/**
+ * "This week: 3 of 10 miles", and the cap's reason after it only when the rule says it capped the
+ * week ("· last week read hold: capped at last week’s 6 miles"); "This week: 2 miles" outside the plan.
+ */
+export function runWeekWords(body: Pick<RunBody, 'weekMiles' | 'target' | 'capped' | 'targetReason'>): string {
+  if (body.target === null) return `This week: ${body.weekMiles} miles`
+  const line = `This week: ${body.weekMiles} of ${body.target} miles`
+  return body.capped ? `${line} · ${body.targetReason}` : line
+}
 
 export interface TodayView {
   dateWords: string
@@ -298,6 +312,7 @@ export function todayView(input: { today: IsoDate; settings: Settings; history: 
       suggestion,
       weekMiles: weekMiles([...before, ...todays]),
       target: target.target,
+      capped: target.capped,
       targetReason: target.reason,
       loggedToday: todays,
     },

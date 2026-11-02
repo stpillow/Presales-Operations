@@ -8,7 +8,7 @@ import { Screen } from '../components/Screen.tsx'
 import { useHistory, useSettings } from '../db/hooks.ts'
 import { putWorkout, reopenWorkout } from '../db/repo.ts'
 import type { IsoDate, Settings } from '../schema/index.ts'
-import { newWorkoutId, runLabel, todayView, type OpenWorkout, type TodayBody, type TodayView, type YesterdayLine } from './Today.helpers.ts'
+import { newWorkoutId, runLabel, runWeekWords, todayView, type OpenWorkout, type TodayBody, type TodayView, type YesterdayLine } from './Today.helpers.ts'
 
 const LABEL = 'font-mono text-small uppercase tracking-[0.22em] text-on-dark-muted'
 const SECTION = 'flex flex-col gap-4'
@@ -246,10 +246,7 @@ function RunBlock({ body }: { body: Extract<TodayBody, { kind: 'run' }> }) {
           ))}
         </div>
       ) : null}
-      <p className="text-small text-on-dark-dim">
-        This week: {body.weekMiles} {body.target !== null ? `of ${body.target} miles` : 'miles'}
-        {body.target !== null && body.targetReason !== 'from the plan' ? ` · ${body.targetReason}` : ''}
-      </p>
+      <p className="text-small text-on-dark-dim">{runWeekWords(body)}</p>
       <Button variant={body.loggedToday.length > 0 ? 'secondary' : 'primary'} wide onClick={() => navigate({ name: 'run' })}>
         {body.loggedToday.length > 0 ? 'Log another run' : 'Log the run'}
       </Button>

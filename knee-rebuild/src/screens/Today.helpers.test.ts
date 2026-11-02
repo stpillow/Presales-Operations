@@ -6,6 +6,7 @@ import {
   openWorkouts,
   phaseName,
   runLabel,
+  runWeekWords,
   sessionLabel,
   sessionLetter,
   sessionNote,
@@ -317,6 +318,24 @@ describe('run days', () => {
   it('shows what was already logged today', () => {
     const v = view('2026-11-02', {}, { runs: [run('2026-11-02', 3)] })
     expect(v.body.kind === 'run' && v.body.loggedToday.map((r: Run) => r.miles)).toEqual([3])
+  })
+  it('shows the cap’s reason only when the rule capped the week (M4 review)', () => {
+    // Week 3 (plan 12) logs 12 miles and one run reads hold; week 4 is the down week, plan 9.
+    const weekThree = [run('2026-11-16', 3.5), { ...run('2026-11-18', 3.5, 'easy'), maxPain: 4 }, run('2026-11-20', 5, 'long')]
+    const checks = ['2026-11-17', '2026-11-19', '2026-11-21'].map((date) => check(date))
+    const deload = view('2026-11-23', {}, { runs: weekThree, morningChecks: checks })
+    expect(deload.body).toMatchObject({ kind: 'run', target: 9, capped: false })
+    expect(deload.body.kind === 'run' && runWeekWords(deload.body)).toBe('This week: 0 of 9 miles')
+    // Week 1 logs 6 of 10 with a hold, so week 2 (plan 11) is capped at 6.
+    const weekOne = [run('2026-11-02', 3), { ...run('2026-11-04', 3, 'easy'), maxPain: 4 }]
+    const capped = view('2026-11-09', {}, { runs: weekOne, morningChecks: [check('2026-11-03'), check('2026-11-05')] })
+    expect(capped.body).toMatchObject({ kind: 'run', target: 6, capped: true })
+    expect(capped.body.kind === 'run' && runWeekWords(capped.body)).toBe('This week: 0 of 6 miles · last week read hold: capped at last week’s 6 miles')
+  })
+  it('names no target outside the plan', () => {
+    const v = view('2027-01-25', { currentPhase: 3, phaseEnteredWeek: 8 }, { runs: [run('2027-01-25', 2)] })
+    expect(v.body).toMatchObject({ kind: 'run', target: null, capped: false })
+    expect(v.body.kind === 'run' && runWeekWords(v.body)).toBe('This week: 2 miles')
   })
   it('a hold morning suggests the swap', () => {
     const check = { id: 'm', date: '2026-11-04', appliesTo: null, stiffnessUnder30Min: true, worseThanYesterday: true, visibleSwelling: false, warmth: false, painChangePoints: 1, redFlags: [] }
