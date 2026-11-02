@@ -52,18 +52,6 @@ export function dateChoices(today: IsoDate, startDate: IsoDate): IsoDate[] {
   return Array.from({ length: daysBetween(monday, today) + 1 }, (_, i) => addDays(monday, i))
 }
 
-const SESSION_FOR: Partial<Record<RunType, DaySession>> = { mbr: 'run:mbr', easy: 'run:easy', long: 'run:long' }
-
-/**
- * Which run the engine is asked to suggest: the run being logged when its type is a run, else the
- * day's scheduled run (so a swap taken on a run day still shows that run's suggestion), else none.
- */
-export function suggestionSession(scheduled: DaySession, type: RunType | null): DaySession | null {
-  const own = type === null ? undefined : SESSION_FOR[type]
-  if (own) return own
-  return runTypeFor(scheduled) ? scheduled : null
-}
-
 /** That date's morning reading, from the check logged that morning, or null when none was. */
 export function morningFor(date: IsoDate, checks: readonly MorningCheck[]): ReadingResult | null {
   const check = checks.find((c) => c.date === date)
@@ -85,7 +73,11 @@ export type LoggerView =
       preselected: RunType | null
       /** The type being logged: the one picked, else the preselection. */
       type: RunType | null
-      /** Null when no run is scheduled or picked, or while the red-flag state suspends progression. */
+      /**
+       * suggestRun for the day's scheduled run (after moves), whatever type is picked: null on a lift
+       * or off day, where a run still logs but the engine plans nothing (no long-run share, tempo or
+       * strides, M4 review), and while the red-flag state suspends progression.
+       */
       suggestion: RunSuggestion | null
       stop: { headline: string; items: string[] } | null
       summary: WeekMiles
@@ -117,19 +109,17 @@ export function loggerView(input: {
   const weekRuns = runsInWeek(history.runs, settings.startDate, week).sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
 
   const stop = stopMessage(settings.redFlag, program.redFlags)
-  const suggestFor = suggestionSession(scheduled, type)
-  const suggestion =
-    progressionSuspended(settings.redFlag) || suggestFor === null
-      ? null
-      : suggestRun({
-          session: suggestFor,
-          week,
-          target: summary.target.target,
-          milesSoFar: summary.miles,
-          currentPhase: settings.currentPhase,
-          phaseWeek: phaseWeekOf(Math.max(week, settings.phaseEnteredWeek), settings.phaseEnteredWeek),
-          morning: morningFor(date, history.morningChecks),
-        })
+  const suggestion = progressionSuspended(settings.redFlag)
+    ? null
+    : suggestRun({
+        session: scheduled,
+        week,
+        target: summary.target.target,
+        milesSoFar: summary.miles,
+        currentPhase: settings.currentPhase,
+        phaseWeek: phaseWeekOf(Math.max(week, settings.phaseEnteredWeek), settings.phaseEnteredWeek),
+        morning: morningFor(date, history.morningChecks),
+      })
 
   return {
     kind: 'form',
@@ -157,7 +147,7 @@ export function noSuggestionWords(view: { date: IsoDate; scheduledLabel: string;
   if (view.stop) return 'No run is suggested while the red-flag state is on.'
   const day = view.date === today ? 'Today' : (dateWords(view.date).split(',')[0] ?? 'That day')
   const base = `${day} holds ${view.scheduledLabel}, not a run, so there is no suggestion.`
-  return view.type === null ? `${base} Pick the type to log one anyway.` : base
+  return view.type === null ? `${base} Pick the type to log one anyway.` : `${base} It still logs, with what you enter.`
 }
 
 /** "Run: easy · 3 miles" or, outside the plan, the type alone: the run the engine plans. */

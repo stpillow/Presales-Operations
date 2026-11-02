@@ -21,7 +21,6 @@ import {
   runRow,
   stravaProblem,
   suggestionHead,
-  suggestionSession,
   takeSwapWords,
   toRun,
   weekLine,
@@ -108,19 +107,6 @@ describe('dateChoices', () => {
   })
 })
 
-describe('suggestionSession', () => {
-  it('asks for the run being logged when it is a run', () => {
-    expect(suggestionSession('run:mbr', 'long')).toBe('run:long')
-    expect(suggestionSession('lift:A', 'easy')).toBe('run:easy')
-  })
-  it('falls back to the day’s scheduled run for a swap or no pick, and to none off a run day', () => {
-    expect(suggestionSession('run:easy', 'elliptical-swap')).toBe('run:easy')
-    expect(suggestionSession('run:easy', null)).toBe('run:easy')
-    expect(suggestionSession('lift:A', 'rower-swap')).toBeNull()
-    expect(suggestionSession('off', null)).toBeNull()
-  })
-})
-
 describe('morningFor', () => {
   it('reads the check logged that morning, or null', () => {
     expect(morningFor('2026-11-04', [check('2026-11-04', { worseThanYesterday: true })])).toBe('hold')
@@ -137,15 +123,32 @@ describe('loggerView', () => {
     expect(view).toMatchObject({ date: '2026-11-02', week: 1, scheduled: 'run:mbr', preselected: 'mbr', type: 'mbr', scheduledLabel: 'Run: MBR' })
     expect(view.suggestion).toMatchObject({ type: 'mbr', miles: 3 })
   })
-  it('follows session moves', () => {
+  it('follows session moves, and suggests the run moved onto the day', () => {
     const view = formView({ ...base, today: '2026-11-05', history: history({ sessionMoves: [{ id: 'm', week: 1, dayA: 'thu', dayB: 'fri' }] }) })
     expect(view).toMatchObject({ scheduled: 'run:long', preselected: 'long' })
+    expect(view.suggestion).toMatchObject({ type: 'long', miles: 4 })
   })
   it('preselects nothing on a lift day, and a picked type overrides the preselection', () => {
     const lift = formView({ ...base, today: '2026-11-03' })
     expect(lift).toMatchObject({ preselected: null, type: null, suggestion: null, scheduledLabel: 'Session A' })
-    expect(formView({ ...base, today: '2026-11-03', picked: { date: null, type: 'easy' } }).suggestion?.type).toBe('easy')
     expect(formView({ ...base, today: '2026-11-02', picked: { date: null, type: 'long' } }).type).toBe('long')
+  })
+  it('suggests only the day’s scheduled run: a run picked on a lift or off day gets no share, tempo or strides', () => {
+    // Week 10, Phase 3 from week 8: Thursday Jan 7 holds Session B, Friday the long run with the tempo.
+    const phase3 = settings({ currentPhase: 3, phaseEnteredWeek: 8 })
+    const clean = history({ morningChecks: [check('2027-01-07'), check('2027-01-10')] })
+    for (const type of ['long', 'easy', 'mbr'] as const) {
+      const lift = formView({ ...base, today: '2027-01-07', settings: phase3, history: clean, picked: { date: null, type } })
+      expect(lift).toMatchObject({ scheduled: 'lift:B', type, suggestion: null })
+      expect(resolveForm(emptyForm(), lift)).toMatchObject({ miles: 0, strides: false, tempo: false })
+    }
+    const off = formView({ ...base, today: '2027-01-10', settings: phase3, history: clean, picked: { date: null, type: 'easy' } })
+    expect(off).toMatchObject({ scheduled: 'off', suggestion: null })
+  })
+  it('on a run day, a different run type picked still gets the scheduled run’s suggestion', () => {
+    const view = formView({ ...base, today: '2026-11-02', picked: { date: null, type: 'long' } })
+    expect(view.suggestion).toMatchObject({ type: 'mbr', miles: 3 })
+    expect(formView({ ...base, today: '2026-11-04', picked: { date: null, type: 'elliptical-swap' } }).suggestion?.type).toBe('easy')
   })
   it('logs for an earlier day this week, and falls back to today when the pick is outside it', () => {
     const earlier = formView({ ...base, today: '2026-11-05', picked: { date: '2026-11-04', type: null } })
@@ -194,7 +197,12 @@ describe('words for the view', () => {
     expect(noSuggestionWords({ date: '2026-11-03', scheduledLabel: 'Session A', type: null, stop: null }, '2026-11-03')).toBe(
       'Today holds Session A, not a run, so there is no suggestion. Pick the type to log one anyway.',
     )
-    expect(noSuggestionWords({ date: '2026-11-03', scheduledLabel: 'Session A', type: 'rower-swap', stop: null }, '2026-11-05')).toBe('Tuesday holds Session A, not a run, so there is no suggestion.')
+    expect(noSuggestionWords({ date: '2026-11-03', scheduledLabel: 'Session A', type: 'rower-swap', stop: null }, '2026-11-05')).toBe(
+      'Tuesday holds Session A, not a run, so there is no suggestion. It still logs, with what you enter.',
+    )
+    expect(noSuggestionWords({ date: '2026-11-08', scheduledLabel: 'Off', type: 'long', stop: null }, '2026-11-08')).toBe(
+      'Today holds Off, not a run, so there is no suggestion. It still logs, with what you enter.',
+    )
     expect(noSuggestionWords({ date: '2026-11-02', scheduledLabel: 'Run: MBR', type: 'mbr', stop: { headline: 'x', items: [] } }, '2026-11-02')).toContain('red-flag state')
   })
   it('turns the engine’s fragments into sentences', () => {
