@@ -42,6 +42,9 @@ export function sideWords(side: Side): string {
  */
 export const DUMBBELLS_LINE = 'Dumbbells are set per gym in Where you train.'
 
+/** Under the Phase section, beside a way to the Gates screen: the phase is shown here, and advanced there. */
+export const PHASE_NOTE = 'Read-only here. The Gates screen advances the phase once every item of its gate passes and you confirm.'
+
 /** Rest in 15 s steps, from a quarter minute to ten minutes. */
 export const REST_STEP = 15
 export const REST_MIN = 15

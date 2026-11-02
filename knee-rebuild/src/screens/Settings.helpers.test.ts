@@ -4,6 +4,7 @@ import type { SessionMove, Settings } from '../schema/index.ts'
 import {
   DUMBBELLS_LINE,
   IMPORT_CONFIRM,
+  PHASE_NOTE,
   exportedOnWords,
   holdsLine,
   holdsWords,
@@ -190,6 +191,10 @@ describe('painWords and phaseWords', () => {
     expect(phaseWords(settings(), phases)).toEqual({ title: 'Phase 1: Foundation', entered: 'Entered in week 1.' })
     expect(phaseWords(settings({ currentPhase: 2, phaseEnteredWeek: 5 }), phases)).toEqual({ title: 'Phase 2: Single-leg strength and balance', entered: 'Entered in week 5.' })
     expect(phaseWords(settings({ currentPhase: 4, phaseEnteredWeek: 13 }), phases).title).toBe('Phase 4')
+  })
+  it('says the phase is read-only here and that the Gates screen advances it, not a milestone still to come', () => {
+    expect(PHASE_NOTE).toBe('Read-only here. The Gates screen advances the phase once every item of its gate passes and you confirm.')
+    expect(PHASE_NOTE).not.toMatch(/\bM\d/)
   })
 })
 

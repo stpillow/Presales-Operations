@@ -14,6 +14,7 @@ import type { IsoDate, IsoDateTime, Settings as SettingsRecord } from '../schema
 import {
   DUMBBELLS_LINE,
   IMPORT_CONFIRM,
+  PHASE_NOTE,
   REST_MAX,
   REST_MIN,
   REST_STEP,
@@ -286,7 +287,10 @@ function SettingsForm({ stored }: { stored: SettingsRecord }) {
       <Section label="Phase" saved={false} problem={null}>
         <p className="text-body text-on-dark">{phase.title}</p>
         <p className="text-body text-on-dark-dim">{phase.entered}</p>
-        <Note>Read-only here. The Gates screen advances the phase when a gate passes; it arrives in M5.</Note>
+        <Note>{PHASE_NOTE}</Note>
+        <Button wide onClick={() => navigate({ name: 'gates' })}>
+          Gates
+        </Button>
       </Section>
 
       {flagFirst ? null : redFlag}
