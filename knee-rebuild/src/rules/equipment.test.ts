@@ -326,6 +326,23 @@ describe('stageCeiling', () => {
   it('-1 when not even the first stage can run: a bosu and no mat', () => {
     expect(stageCeiling(exercise('balance-mat-bosu'), here(['bosu']))).toBe(-1)
   })
+
+  it('an exercise whose first stage can\'t run is not here: a bosu and no mat routes the slot on, as prescribe moves it', () => {
+    const bosuOnly = here(['bosu'])
+    expect(routeSlot(balance, byId, bosuOnly)).toEqual({
+      kind: 'moved',
+      exerciseId: 'single-leg-balance',
+      passedOver: [{ exerciseId: 'balance-mat-bosu', missing: ['mats'] }],
+    })
+    expect(routeSlot(slot('lone', 'balance-mat-bosu'), byId, bosuOnly)).toMatchObject({ kind: 'none', passedOver: [{ exerciseId: 'balance-mat-bosu', missing: ['mats'] }] })
+    expect(fallbacksAfter(slot('x', 'dead-bug', ['balance-mat-bosu', 'single-leg-balance']), 'dead-bug', byId, bosuOnly).map((e) => e.id)).toEqual(['single-leg-balance'])
+    const template: SessionTemplate = { id: 'fx-b', phase: 2, letter: 'B', slots: [{ ...balance, order: 1 }] }
+    expect(locationCoverage([template], 1, byId, bosuOnly)).toEqual([
+      { templateId: 'fx-b', moves: [{ slotId: 'p2a-7', from: 'balance-mat-bosu', to: 'single-leg-balance', kind: 'moved', missing: ['mats'] }] },
+    ])
+    // With the mats here the ladder runs, stopped below the bosu stages only when the bosu isn't here.
+    expect(routeSlot(balance, byId, here(['mats']))).toMatchObject({ kind: 'own', exerciseId: 'balance-mat-bosu' })
+  })
 })
 
 describe('run swaps here', () => {

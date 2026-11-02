@@ -50,6 +50,17 @@ export function missingFor(requires: readonly Requirement[], available: Availabl
   return requires.filter((r) => !requirementHolds(r, available))
 }
 
+/**
+ * What this gym lacks for an exercise to run as written: its missing requirements, or with those all
+ * here, what its first stage needs when not even that stage can run (a bosu and no mat,
+ * PROGRAM-QUESTIONS 76). Empty means it runs here; routes, fallbacks and `prescribe` agree on that.
+ */
+export function missingHere(exercise: Pick<Exercise, 'requires' | 'stages' | 'stageRequires'>, available: Available): Requirement[] {
+  const missing = missingFor(exercise.requires, available)
+  if (missing.length > 0 || stageCeiling(exercise, available) !== -1) return missing
+  return missingFor(exercise.stageRequires?.[0] ?? [], available)
+}
+
 export type ExerciseLookup = ReadonlyMap<string, Exercise>
 
 function lookup(byId: ExerciseLookup, id: string): Exercise {
@@ -79,13 +90,14 @@ export interface SlotRoute {
 }
 
 /**
- * Which exercise a slot runs at this gym: the first of [own, ...substitutionIds] whose requirements
- * all hold. Nothing from outside the slot's list is ever picked (Shawn's Nov 1 answer 6).
+ * Which exercise a slot runs at this gym: the first of [own, ...substitutionIds] that runs here
+ * (`missingHere`: its requirements all hold and its first stage can run). Nothing from outside the
+ * slot's list is ever picked (Shawn's Nov 1 answer 6).
  */
 export function routeSlot(slot: Pick<Slot, 'exerciseId' | 'substitutionIds'>, byId: ExerciseLookup, available: Available): SlotRoute {
   const passedOver: PassedOver[] = []
   for (const [index, id] of slotOrder(slot).entries()) {
-    const missing = missingFor(lookup(byId, id).requires, available)
+    const missing = missingHere(lookup(byId, id), available)
     if (missing.length === 0) return { kind: index === 0 ? 'own' : 'moved', exerciseId: id, passedOver }
     passedOver.push({ exerciseId: id, missing })
   }
@@ -94,7 +106,7 @@ export function routeSlot(slot: Pick<Slot, 'exerciseId' | 'substitutionIds'>, by
 
 /**
  * The exercises a cap or a back-off may move to from `currentId`: the entries of [own, ...subs]
- * after it in that order whose requirements hold here. Never the current exercise and never an
+ * after it in that order that run here (`missingHere`). Never the current exercise and never an
  * earlier one, so a gym never walks a slot backward from the engine's pick. An exercise that isn't
  * on the slot's list has nothing ahead of it, so every entry that holds is offered (as
  * `nextSubstitution` reads it; PROGRAM-QUESTIONS 77).
@@ -105,7 +117,7 @@ export function fallbacksAfter(slot: Pick<Slot, 'exerciseId' | 'substitutionIds'
     .slice(order.indexOf(currentId) + 1)
     .filter((id) => id !== currentId)
     .map((id) => lookup(byId, id))
-    .filter((exercise) => missingFor(exercise.requires, available).length === 0)
+    .filter((exercise) => missingHere(exercise, available).length === 0)
 }
 
 /**
