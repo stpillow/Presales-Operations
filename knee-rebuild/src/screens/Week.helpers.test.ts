@@ -174,6 +174,12 @@ describe('miles words', () => {
     expect(targetWords(capped, ['clean', 'hold', 'clean'])).toBe('Capped at last week’s 10.5 miles: last week read hold')
     expect(targetWords(capped, ['hold', 'back-off'])).toBe('Capped at last week’s 10.5 miles: last week read back off')
   })
+  it('names this week, and says its miles are so far, when the week before the one shown is still going (M4 review)', () => {
+    const capped = miles({ target: { target: 6, capped: true, reason: 'last week read hold: capped at last week’s 6 miles' } })
+    expect(targetWords(capped, ['clean', 'hold'], true)).toBe('Capped at this week’s 6 miles so far: this week read hold')
+    expect(targetWords(capped, ['back-off'], true)).toBe('Capped at this week’s 6 miles so far: this week read back off')
+    expect(targetWords(miles(), [], true)).toBe('Target from the plan')
+  })
   it('says the target is the plan’s when nothing capped it, and why there is none outside the plan', () => {
     expect(targetWords(miles(), [])).toBe('Target from the plan')
     expect(targetWords(miles({ target: { target: null, reason: 'week 13 is outside the 12-week plan' } }), [])).toBe('No target: week 13 is outside the 12-week plan')
@@ -288,7 +294,10 @@ describe('weekView', () => {
     expect(two.days.map((d) => d.statusWord)).toEqual(['Done', 'Missed', 'Done', 'Missed', 'Done', 'Today', 'Off'])
     expect(two.days.map((d) => d.reading)).toEqual(['clean', null, 'clean', null, 'hold', null, null])
     const three = weekView({ today: '2026-11-14', selected: 3, settings: settings(), history: weekTwo, program: PROGRAM })
-    expect(three).toMatchObject({ miles: '0 of 10.5 miles · no runs logged', target: 'Capped at last week’s 10.5 miles: last week read hold', capped: true, relation: 'Next week' })
+    expect(three).toMatchObject({ miles: '0 of 10.5 miles · no runs logged', target: 'Capped at this week’s 10.5 miles so far: this week read hold', capped: true, relation: 'Next week' })
+    // Once week 2 is over, the cap reads as last week's.
+    const after = weekView({ today: '2026-11-16', selected: null, settings: settings(), history: weekTwo, program: PROGRAM })
+    expect(after).toMatchObject({ week: 3, target: 'Capped at last week’s 10.5 miles: last week read hold', capped: true, relation: 'This week' })
   })
   it('rows carry the session in words, the status, what was logged and what a tap does', () => {
     const h = history({

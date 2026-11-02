@@ -110,13 +110,16 @@ export function milesWords(summary: WeekMiles): string {
 /**
  * The target's reason in words: "Capped at last week’s 10.5 miles: last week read hold" when rule 7
  * capped it, "Target from the plan" otherwise, and the rule's own words when the week has no plan.
- * The cap's reading is the worst of last week's, which is the reading the rule capped on.
+ * The cap's reading is the worst of last week's, which is the reading the rule capped on. When the
+ * week before the one shown is today's week, it is not over and its miles can still grow, so the
+ * words name this week and say so far: "Capped at this week’s 6 miles so far: this week read hold".
  */
-export function targetWords(summary: WeekMiles, previousReadings: readonly ReadingResult[]): string {
+export function targetWords(summary: WeekMiles, previousReadings: readonly ReadingResult[], previousIsThisWeek = false): string {
   const { target, capped, reason } = summary.target
   if (target === null) return `No target: ${reason}`
   if (!capped) return 'Target from the plan'
   const read = worst(previousReadings) === 'back-off' ? 'back off' : 'hold'
+  if (previousIsThisWeek) return `Capped at this week’s ${plural(target, 'mile')} so far: this week read ${read}`
   return `Capped at last week’s ${plural(target, 'mile')}: last week read ${read}`
 }
 
@@ -325,7 +328,7 @@ export function weekView(input: { today: IsoDate; selected: number | null; setti
     prev,
     next,
     miles: milesWords(summary),
-    target: targetWords(summary, previous),
+    target: targetWords(summary, previous, currentWeek >= 1 && week - 1 === currentWeek),
     capped: summary.target.capped,
     days: days.map((d) => {
       const { mark, word } = STATUS_WORDS[d.status]
