@@ -323,19 +323,22 @@ export async function getProgramOverrides(): Promise<ProgramOverride[]> {
 }
 
 /**
- * Stores a slot's edit from the Program screen in place of its earlier one: parsed, then checked
- * against program.md's slot (`overrideProblems`: substitutions from the catalog only, never the
- * slot's own exercise). A refusal throws its first sentence and writes nothing. The seed is never
- * written; the engine lays the row over it (`applyOverrides`). Returns the row written.
+ * Stores a slot's edit from the Program screen in place of its earlier one: checked against
+ * program.md's slot (`overrideProblems`: each cue one the screen takes, substitutions from the
+ * catalog only, never the slot's own exercise, each once), then parsed. A refusal throws one
+ * sentence and writes nothing: the rule's own words first, and the schema's reason, in a sentence,
+ * for anything else, never Zod's issue list. The seed is never written; the engine lays the row
+ * over it (`applyOverrides`). Returns the row written.
  */
 export async function saveProgramOverride(override: ProgramOverride, seed: OverrideSeed): Promise<ProgramOverride> {
-  const parsed = ProgramOverride.parse(override)
-  const slot = seed.templates.flatMap((t) => t.slots).find((s) => s.id === parsed.slotId)
-  if (!slot) throw new Error(`No slot ${parsed.slotId} in the program.`)
-  const [problem] = overrideProblems(slot, parsed, new Map(seed.exercises.map((e) => [e.id, e])))
+  const slot = seed.templates.flatMap((t) => t.slots).find((s) => s.id === override.slotId)
+  if (!slot) throw new Error(`No slot ${String(override.slotId)} in the program.`)
+  const [problem] = overrideProblems(slot, override, new Map(seed.exercises.map((e) => [e.id, e])))
   if (problem) throw new Error(problem)
-  await db.programOverrides.put(parsed)
-  return parsed
+  const parsed = ProgramOverride.safeParse(override)
+  if (!parsed.success) throw new Error(`That edit can’t be stored: ${parsed.error.issues[0]?.message ?? 'it is not an edit of cues or substitutions'}.`)
+  await db.programOverrides.put(parsed.data)
+  return parsed.data
 }
 
 /** "Back to program.md's": the slot's row goes, so it runs as program.md writes it. */

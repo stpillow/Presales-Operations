@@ -40,10 +40,20 @@ describe('saving a slot’s edit', () => {
     expect(await getProgramOverrides()).toEqual([{ slotId: 'p1a-1', cues: ['Feet high'], editedOn: '2026-11-16' }])
   })
 
-  it('refuses a row the schema refuses: a cue over 200 characters, an empty edit, a repeat', async () => {
-    await expect(saveProgramOverride(edit({ cues: ['x'.repeat(201)] }), program)).rejects.toThrow()
-    await expect(saveProgramOverride(edit({}), program)).rejects.toThrow()
-    await expect(saveProgramOverride(edit({ substitutionIds: ['smith-box-squat', 'smith-box-squat'] }), program)).rejects.toThrow()
+  it('refuses a row the schema refuses in a sentence, the rule’s own words first: a cue over 200 characters, a repeat, an empty edit, a control character', async () => {
+    const refusal = async (row: ProgramOverride) => {
+      const error = await saveProgramOverride(row, program).then(
+        () => null,
+        (e: unknown) => e,
+      )
+      return error instanceof Error ? error.message : String(error)
+    }
+    expect(await refusal(edit({ cues: ['x'.repeat(201)] }))).toBe('Cue 1: A cue runs to 200 characters; this one is 201.')
+    expect(await refusal(edit({ substitutionIds: ['smith-box-squat', 'smith-box-squat'] }))).toBe('Smith machine box squat is listed twice.')
+    expect(await refusal(edit({}))).toBe('That edit can’t be stored: an override edits the cues, the substitutions, or both.')
+    // A raw cue the screen would have cleaned (src/rules/overrides.ts cleanCue) is still refused in words, never as Zod's issue list.
+    expect(await refusal(edit({ cues: ['Knees out\u0007now'] }))).toBe('That edit can’t be stored: a cue is one line of plain text.')
+    expect(await refusal(edit({ cues: ['Feet high'], editedOn: 'Nov 16' as ProgramOverride['editedOn'] }))).toMatch(/^That edit can’t be stored: [^[{]+\.$/)
     expect(await db.programOverrides.count()).toBe(0)
   })
 
