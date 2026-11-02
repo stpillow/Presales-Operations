@@ -13,7 +13,13 @@ import { serveDist, type StaticServer } from './staticServer.ts'
 const DIST = fileURLToPath(new URL('../dist', import.meta.url))
 const VERCEL_JSON = fileURLToPath(new URL('../vercel.json', import.meta.url))
 
-/** Every route a tab or More opens, with the title its screen shows. */
+/**
+ * A fixed day, so the screens don't depend on the day the suite runs: Tuesday of week 2, Session A's
+ * day, after week 1 began on Monday Nov 2 (the runner check below starts Session A on it).
+ */
+const TUESDAY_WEEK_2 = '2026-11-10T09:00:00-05:00'
+
+/** Every route the app has, with the title its screen shows; the Session runner's has its own check below. */
 const SCREENS: { hash: string; title: string }[] = [
   { hash: '#/today', title: 'Today' },
   { hash: '#/week', title: 'Week' },
@@ -23,6 +29,8 @@ const SCREENS: { hash: string; title: string }[] = [
   { hash: '#/morning', title: 'Morning check' },
   { hash: '#/run', title: 'Log a run' },
   { hash: '#/locations', title: 'Where you train' },
+  { hash: '#/location/new', title: 'New location' },
+  { hash: '#/location/planet-fitness', title: 'Planet Fitness' },
   { hash: '#/next-update', title: 'For the next program update' },
   { hash: '#/program', title: 'Program' },
   { hash: '#/settings', title: 'Settings' },
@@ -36,6 +44,7 @@ let complaints: string[] = []
 
 test.beforeEach(async ({ page }) => {
   complaints = []
+  await page.clock.install({ time: new Date(TUESDAY_WEEK_2) })
   page.on('pageerror', (e) => complaints.push(`pageerror: ${e.message}`))
   page.on('console', (m) => {
     if (m.type() === 'error') complaints.push(`console: ${m.text()}`)
@@ -171,6 +180,46 @@ test('the service worker controls the page, and every screen renders offline aft
     return [...document.fonts].filter((f) => f.status === 'loaded').map((f) => f.family.replace(/["']/g, ''))
   })
   for (const family of ['Fraunces Variable', 'IBM Plex Sans', 'IBM Plex Mono']) expect(faces, family).toContain(family)
+  expect(failed).toEqual([])
+})
+
+test('offline at the gym, the Session runner starts Session A, logs a set, and reopens on it after a reload with the set kept', async ({ page, context }) => {
+  server = await serveDist(DIST, VERCEL_JSON)
+  const url = server.url
+  expect(await controlled(page, url)).toBe(`${url}/sw.js`)
+
+  // No signal on the gym floor: the server is gone and the browser is told so.
+  await server.close()
+  server = null
+  await context.setOffline(true)
+  const failed: string[] = []
+  page.on('requestfailed', (r) => failed.push(`${r.url()} ${r.failure()?.errorText ?? ''}`))
+
+  await page.getByRole('button', { name: 'Start Session A' }).click()
+  await expect(page.getByRole('heading', { name: 'Session A', level: 1 })).toBeVisible()
+  const session = new URL(page.url()).hash
+  expect(session).toMatch(/^#\/session\/.+/)
+
+  const card = page.getByRole('region', { name: 'Now' })
+  const bar = page.locator('[aria-label="Done bar"]')
+  const line = bar.locator('p').last()
+  const done = bar.getByRole('button').last()
+  await expect(card.getByRole('heading', { level: 2 })).toHaveText('Leg press, both legs')
+  await card.getByRole('textbox', { name: 'Weight (lb)' }).fill('90')
+  await card.getByRole('group', { name: 'Pain this exercise' }).getByRole('button', { name: '2', exact: true }).click()
+  await expect(done).toHaveText(/^Done: set 1 of 3/)
+  await done.click()
+  await expect(line).toContainText('set 2 of 3')
+
+  // The screen locked long enough for iOS to drop the page: it reopens from the cache, on the same
+  // session, with the logged set read back out of storage and set 2 next.
+  await page.reload()
+  await expect(page.getByRole('heading', { name: 'Session A', level: 1 })).toBeVisible()
+  expect(new URL(page.url()).hash).toBe(session)
+  await expect(card.getByRole('heading', { level: 2 })).toHaveText('Leg press, both legs')
+  await expect(line).toContainText('set 2 of 3')
+  await expect(line).toContainText('90 lb')
+  expect(await page.evaluate(() => navigator.serviceWorker.controller !== null)).toBe(true)
   expect(failed).toEqual([])
 })
 
