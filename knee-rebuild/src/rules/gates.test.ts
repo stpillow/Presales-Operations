@@ -76,6 +76,21 @@ describe('evaluateGate (rule 8)', () => {
     expect(evaluateGate(gate1, ctx()).items[1]?.detail).toBe('no test entered yet')
   })
 
+  it('the latest test is the last one written: by date, then by id, whatever order the tests arrive in', () => {
+    // Ids lead with the write's ISO stamp: a tick at 18:00 and an untick at 18:05 on the same day.
+    const tick = test({ id: 'gate-test-2026-11-22T18:00:00.000Z-g1-stance', date: '2026-11-22', item: 'g1-stance', manual: true, pass: true })
+    const untick = test({ id: 'gate-test-2026-11-22T18:05:00.000Z-g1-stance', date: '2026-11-22', item: 'g1-stance', manual: true, pass: false })
+    expect(evaluateGate(gate1, ctx({ gateTests: [tick, untick] })).items[2]).toMatchObject({ pass: false, detail: 'unticked 2026-11-22' })
+    expect(evaluateGate(gate1, ctx({ gateTests: [untick, tick] })).items[2]).toMatchObject({ pass: false, detail: 'unticked 2026-11-22' })
+    // A later date still wins over a later id.
+    const nextDay = test({ id: 'gate-test-2026-11-21T09:00:00.000Z-g1-stance', date: '2026-11-23', item: 'g1-stance', manual: true, pass: true })
+    expect(evaluateGate(gate1, ctx({ today: '2026-11-23', gateTests: [nextDay, untick, tick] })).items[2]).toMatchObject({ pass: true, detail: 'ticked 2026-11-23' })
+    // The same for symmetry tests: the second test of the day wins, passed in either order.
+    const first = test({ id: 'gate-test-2026-11-22T18:00:00.000Z-sl-leg-press-10rm', date: '2026-11-22', valueInjured: 9 })
+    const second = test({ id: 'gate-test-2026-11-22T18:05:00.000Z-sl-leg-press-10rm', date: '2026-11-22', valueInjured: 7 })
+    expect(evaluateGate(gate1, ctx({ gateTests: [second, first] })).items[1]).toMatchObject({ pass: false, detail: expect.stringContaining('70%') })
+  })
+
   it('worked example: hop test 56 vs 62 is 90.3% and passes gate 3', () => {
     const hop = test({ gate: 3, item: 'single-hop', trialsInjured: [50, 56, 54], trialsOther: [60, 62, 61], valueInjured: 56, valueOther: 62 })
     const result = evaluateGate(gate3, ctx({ gateTests: [hop] }))

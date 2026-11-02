@@ -38,11 +38,20 @@ function inWindow(date: IsoDate, today: IsoDate, windowDays: number): boolean {
   return date > addDays(today, -windowDays) && date <= today
 }
 
+const byId = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0)
+
+/**
+ * Gate tests in the order they were written: by date, then by id. Ids lead with the write's ISO
+ * stamp (the Gates screen's newGateTestId), so a tick and an untick on the same day keep their
+ * order whatever order the tests are handed over in, and "the latest test wins" (the M5 brief)
+ * means the last one written.
+ */
+export function inWriteOrder(tests: readonly GateTest[]): GateTest[] {
+  return [...tests].sort((a, b) => a.date.localeCompare(b.date) || byId(a.id, b.id))
+}
+
 function latestTest(tests: readonly GateTest[], gate: number, item: string, manual: boolean): GateTest | undefined {
-  return [...tests]
-    .filter((t) => t.gate === gate && t.item === item && t.manual === manual)
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .at(-1)
+  return inWriteOrder(tests.filter((t) => t.gate === gate && t.item === item && t.manual === manual)).at(-1)
 }
 
 /**
