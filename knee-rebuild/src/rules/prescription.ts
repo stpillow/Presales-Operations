@@ -2,7 +2,7 @@ import type { EquipmentId, Exercise, IsoDate, LoadUnit, ReadingResult, RepUnit, 
 import { isDeloadWeek } from './calendar.ts'
 import { prescribedSets } from './deload.ts'
 import { effectiveSlot } from './effectiveSlot.ts'
-import { fallbacksAfter, missingFor, slotOrder, stageCeiling, type Available, type ExerciseLookup } from './equipment.ts'
+import { DUMBBELLS, fallbacksAfter, missingFor, slotOrder, stageCeiling, type Available, type ExerciseLookup } from './equipment.ts'
 
 /** Why the prescription is what it is. Every basis has a one-sentence note for the screen. */
 export type Basis =
@@ -233,6 +233,15 @@ function holdsDumbbells(exercise: Exercise): boolean {
 }
 
 /**
+ * Whether the exercise holds dumbbells without needing them (PROGRAM-QUESTIONS 64: the step-ups,
+ * split squats, Bulgarians, the back extension and the calf raise on a step), so at a gym with no
+ * dumbbells it runs at bodyweight.
+ */
+function bodyweightWithoutDumbbells(exercise: Exercise): boolean {
+  return holdsDumbbells(exercise) && !exercise.requires.some((r) => (typeof r === 'string' ? r === DUMBBELLS : r.anyOf.includes(DUMBBELLS)))
+}
+
+/**
  * Everything the slot's list could need, as one set: what "no gym given" means, so every exercise
  * and every stage runs, as before M4b.
  */
@@ -343,19 +352,23 @@ function prescribeSideAnywhere(input: PrescriptionInput, here: Here, side: SetSi
   }
 
   if (last.length === 0) {
+    // At a gym with no dumbbells, an exercise that holds them without needing them starts at
+    // bodyweight (PROGRAM-QUESTIONS 64 and 91): there is no load to pick, and none to cap.
+    const bodyweight = startLoad(exercise) === null && here.rackLb <= 0 && bodyweightWithoutDumbbells(exercise)
     // In a deload week a new exercise runs its lightest version (PROGRAM-QUESTIONS 8): the smallest step, nothing to pick.
-    const load = startLoad(exercise) ?? (deload && exercise.loadDirection !== 'down' ? lightestLoad(exercise) : null)
+    const load = bodyweight ? 0 : (startLoad(exercise) ?? (deload && exercise.loadDirection !== 'down' ? lightestLoad(exercise) : null))
     const rpe = slot.rpeTarget === undefined ? '' : ` that lands at RPE ${slot.rpeTarget}`
+    const deloadNote = bodyweight ? `First time in a deload week: bodyweight, ${sets} sets, perfect reps.` : `First time in a deload week: the lightest version, ${sets} sets, perfect reps.`
     return {
       ...base,
       load,
       repsTarget: slot.repsMin,
       basis: 'first',
       note: deload
-        ? `First time in a deload week: the lightest version, ${sets} sets, perfect reps.`
+        ? deloadNote
         : load === null
           ? `First time: pick a load${rpe} and start at ${slot.repsMin} ${slot.repUnit}.`
-          : `First time: start at ${slot.repsMin} ${slot.repUnit}.`,
+          : `First time: ${bodyweight ? 'bodyweight; ' : ''}start at ${slot.repsMin} ${slot.repUnit}.`,
     }
   }
 

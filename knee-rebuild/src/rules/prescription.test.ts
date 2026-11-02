@@ -425,6 +425,43 @@ describe('where you train (M4b): moves go forward on the slot’s list, to what 
       expect(balance({ lastSets: holds('balance-mat-bosu', 1), gym: gym(80, 'bosu', 'mats') })).toMatchObject({ exerciseId: 'balance-mat-bosu', stage: 2 })
     })
   })
+
+  describe('a gym with no dumbbells (PROGRAM-QUESTIONS 64 and 91)', () => {
+    const split = ex({ id: 'split-squat', name: 'Split squat', pattern: 'single-leg', loadType: 'dumbbell-each', loadUnit: 'lb', increment: 5, unilateral: true, requires: [] })
+    const stepUp = ex({ id: 'step-up', name: 'Step-up', pattern: 'single-leg', loadType: 'step-height', loadUnit: 'in', increment: 2, heightIncrementIn: 2, holdsLoad: 'dumbbell-each', unilateral: true, requires: ['step-platforms'] })
+    const stair = ex({ ...stepUp, id: 'step-up-stair', name: 'Step-up on the lowest stair in the club', requires: ['stair'] })
+    const backExtension = ex({ id: 'back-extension-45', name: '45° back extension', pattern: 'hinge', loadType: 'dumbbell-single', loadUnit: 'lb', increment: 5, requires: ['back-extension-bench'] })
+    const splitSlot = slot({ id: 'p2c-6', exerciseId: 'reverse-lunge', repsMin: 8, repsMax: 8, unilateral: true, substitutionIds: ['split-squat'] })
+    const p1c1 = slot({ id: 'p1c-1', exerciseId: 'step-up', repsMin: 10, repsMax: 10, rpeTarget: 6, progressionRule: 'height-then-load', unilateral: true, heightIn: 6, heightMaxIn: 8, loadBeforeHeightLb: 20, substitutionIds: ['step-up-stair', 'split-squat'] })
+    const inHands = (load: number) => [...threeSets({ exerciseId: 'step-up', side: 'right', load, loadUnit: 'lb', reps: 10, heightIn: 6 }), ...threeSets({ exerciseId: 'step-up', side: 'left', load, loadUnit: 'lb', reps: 10, heightIn: 6 })]
+
+    it('a first session on an exercise that holds dumbbells without needing them is bodyweight: nothing to pick, nothing capped', () => {
+      const first = (week: number, rack: number) => prescribe(input({ slot: splitSlot, exercise: split, substitutions: [split], readings: [], lastSets: [], week, gym: gym(rack) }))
+      const [injured, healthy] = first(6, 0)
+      expect(injured).toMatchObject({ side: 'right', exerciseId: 'split-squat', load: 0, loadUnit: 'lb', repsTarget: 8, basis: 'first', note: 'First time: bodyweight; start at 8 reps.' })
+      expect(injured?.rackCapped).toBeUndefined()
+      expect(healthy).toMatchObject({ side: 'left', load: 0 })
+      expect(first(8, 0)[0]).toMatchObject({ load: 0, sets: 2, basis: 'first', note: 'First time in a deload week: bodyweight, 2 sets, perfect reps.' })
+      expect(first(8, 0)[0]?.rackCapped).toBeUndefined()
+      // With dumbbells here it is a load to pick, as before, and in a deload week the lightest one.
+      expect(first(6, 25)[0]).toMatchObject({ load: null, note: 'First time: pick a load and start at 8 reps.' })
+      expect(first(8, 25)[0]).toMatchObject({ load: 5 })
+      const s = slot({ id: 'p1c-6', exerciseId: 'back-extension-45', repsMin: 10, repsMax: 12 })
+      expect(one({ slot: s, exercise: backExtension, readings: [], lastSets: [], gym: gym(0, 'back-extension-bench') })).toMatchObject({ load: 0, basis: 'first', note: 'First time: bodyweight; start at 10 reps.' })
+    })
+
+    it('a step-up with dumbbells in the hands moves to the split squat, which starts at bodyweight, in a deload week too', () => {
+      const moved = (week: number, readings: ('clean' | 'hold' | 'back-off')[]) =>
+        prescribe(input({ slot: p1c1, exercise: stepUp, substitutions: [stair, split], readings, lastSets: inHands(10), week, gym: gym(0, 'step-platforms') }))
+      const deload = moved(4, ['clean'])
+      expect(deload.map((p) => [p.exerciseId, p.load, p.sets])).toEqual([['split-squat', 0, 2], ['split-squat', 0, 2]])
+      expect(deload[0]?.rackCapped).toBeUndefined()
+      expect(deload[0]?.note).toBe('Deload week: 2 sets instead of 3, same loads and reps, no progression. There are no dumbbells here: swap to Split squat. First time in a deload week: bodyweight, 2 sets, perfect reps.')
+      const hold = moved(3, ['hold'])
+      expect(hold[0]).toMatchObject({ exerciseId: 'split-squat', load: 0, basis: 'repeat' })
+      expect(hold[0]?.note).toBe('Hold: repeat the last session’s loads and reps exactly. There are no dumbbells here: swap to Split squat. First time: bodyweight; start at 10 reps.')
+    })
+  })
 })
 
 describe('what a back-off does, and whether it moves the slot (PROGRAM-QUESTIONS 49 and 55)', () => {
