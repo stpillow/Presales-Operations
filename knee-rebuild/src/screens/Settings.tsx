@@ -58,6 +58,18 @@ type ResetStep = 'idle' | 'confirm' | 'erasing'
 let pendingNotice: string | null = null
 
 /**
+ * Set by Today's "No export in 9 days · Export": the next Settings mount opens at its Export
+ * section, so the tap lands by Export JSON rather than at the injured side, seven sections up.
+ */
+let openAtExport = false
+
+/** Opens Settings at its Export section (Today's export line). */
+export function openSettingsAtExport(): void {
+  openAtExport = true
+  navigate({ name: 'settings' })
+}
+
+/**
  * The knobs the engine reads: injured side, start date, rest timer, pain logging,
  * plus the red-flag state and a reset. Every change saves at once through the repo and says so.
  * Nothing here decides anything about the knee; Monday-ness and the red-flag rule come from src/rules.
@@ -566,6 +578,14 @@ function ExportSection({
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const firstLine = useRef<HTMLParagraphElement>(null)
+
+  // Opened from Today's export line: start at this section, once.
+  useEffect(() => {
+    if (!openAtExport) return
+    openAtExport = false
+    firstLine.current?.closest('section')?.scrollIntoView({ block: 'start' })
+  }, [])
 
   useEffect(() => {
     const url = ready?.url
@@ -625,7 +645,9 @@ function ExportSection({
 
   return (
     <Section label="Export" saved={saved} problem={problem}>
-      <p className="text-body text-on-dark">{lastExportWords(lastExportedAt, today)}</p>
+      <p ref={firstLine} className="text-body text-on-dark">
+        {lastExportWords(lastExportedAt, today)}
+      </p>
       <Note>One JSON file with everything on this phone. iOS can clear a home-screen app’s storage when it goes unused, so keep a recent file somewhere else.</Note>
       <Button wide disabled={busy} onClick={() => void prepare()}>
         {busy && !ready ? 'Reading…' : ready ? 'Export JSON again' : 'Export JSON'}

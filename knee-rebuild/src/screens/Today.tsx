@@ -9,6 +9,7 @@ import { useActiveLocation, useHistory, useLocations, useSettings } from '../db/
 import { clearMarkOff, putWorkout, reopenWorkout, setActiveLocation, type History } from '../db/repo.ts'
 import { liftGym } from '../rules/gymDay.ts'
 import type { EquipmentId, IsoDate, Location, Settings } from '../schema/index.ts'
+import { openSettingsAtExport } from './Settings.tsx'
 import {
   NEW_LOCATION_HASH,
   atGymWords,
@@ -503,7 +504,7 @@ function YesterdayBlock({ lines }: { lines: YesterdayLine[] }) {
   )
 }
 
-/** One quiet line once the last export is over a week old (iOS can evict the app's storage), with the way to Settings' Export. */
+/** One quiet line once the last export is over a week old (iOS can evict the app's storage), with the way to Settings' Export section. */
 function ExportLine({ line }: { line: string | null }) {
   if (line === null) return null
   return (
@@ -512,7 +513,7 @@ function ExportLine({ line }: { line: string | null }) {
       <span aria-hidden="true" className="shrink-0 text-small text-on-dark-muted">
         ·
       </span>
-      <Button variant="quiet" className="shrink-0" onClick={() => navigate({ name: 'settings' })}>
+      <Button variant="quiet" className="shrink-0" onClick={openSettingsAtExport}>
         Export
       </Button>
     </section>
