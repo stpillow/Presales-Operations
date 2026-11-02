@@ -107,7 +107,7 @@ describe('suggestRun', () => {
     const tempoDay = { ...base, session: 'run:long' as const, currentPhase: 3, phaseWeek: 3, week: 10, target: 17 }
     expect(suggestRun({ ...tempoDay, morning: 'clean' })).toMatchObject({ miles: 7, tempo: true })
     expect(suggestRun({ ...tempoDay, morning: null })).toEqual({
-      type: 'long', miles: 7, strides: false, tempo: false, fasterAllowed: false, swapSuggested: false,
+      type: 'long', miles: 7, headline: '7 miles', strides: false, tempo: false, fasterAllowed: false, swapSuggested: false,
       reasons: ['no morning check yet today', waiting],
     })
     expect(suggestRun({ ...base, session: 'run:easy', currentPhase: 3, phaseWeek: 1, week: 8, morning: null })).toMatchObject({ strides: false, swapSuggested: false })
@@ -116,6 +116,18 @@ describe('suggestRun', () => {
     expect(faster?.reasons).toContain(waiting)
     // Nothing to hold back in Phase 1: the line would only say what isn't on the plan anyway.
     expect(suggestRun({ ...base, session: 'run:mbr', morning: null })?.reasons).toEqual(['no morning check yet today'])
+  })
+})
+
+describe('suggestRun headline', () => {
+  const base = { week: 1, target: 10, milesSoFar: 0, currentPhase: 1, phaseWeek: 1, morning: 'clean' as const }
+  it('names the swap when one is suggested, else the miles, else easy by feel outside the plan', () => {
+    expect(suggestRun({ ...base, session: 'run:long', morning: 'hold' })?.headline).toBe('a 30 to 40 minute elliptical or rower swap')
+    expect(suggestRun({ ...base, session: 'run:long', target: null, morning: 'back-off' })?.headline).toBe('a 30 to 40 minute elliptical or rower swap')
+    expect(suggestRun({ ...base, session: 'run:long' })?.headline).toBe('4 miles')
+    expect(suggestRun({ ...base, session: 'run:mbr', milesSoFar: 7.1 })?.headline).toBe('2.75 miles')
+    expect(suggestRun({ ...base, session: 'run:mbr', milesSoFar: 9 })?.headline).toBe('1 mile')
+    expect(suggestRun({ ...base, session: 'run:easy', week: 13, target: null })?.headline).toBe('easy, by feel')
   })
 })
 

@@ -33,6 +33,11 @@ export interface RunSuggestion {
   type: RunType
   /** Suggested miles: the run's share of the target, never more than what is left under the week's ceiling. Null outside the plan. */
   miles: number | null
+  /**
+   * The suggestion in words, for screens to print after "Suggested: ", so none writes its own:
+   * the swap when one is suggested, else the miles ("4 miles", "1 mile"), else "easy, by feel".
+   */
+  headline: string
   strides: boolean
   tempo: boolean
   /** One faster effort is allowed on this run (PROGRAM-QUESTIONS 29). */
@@ -99,7 +104,14 @@ export function suggestRun(input: {
   if (strides) reasons.push('finish with 4 × 15 s strides building to about 85%, full walk-back between')
   if (tempo) reasons.push('carry a 2 × 5 min comfortably-hard segment with 3 min easy between')
   if (fasterAllowed) reasons.push('one faster effort is allowed today')
-  return { type, miles, strides, tempo, fasterAllowed, swapSuggested, reasons }
+  return { type, miles, headline: runHeadline(swapSuggested, miles), strides, tempo, fasterAllowed, swapSuggested, reasons }
+}
+
+/** RunSuggestion.headline. */
+function runHeadline(swapSuggested: boolean, miles: number | null): string {
+  if (swapSuggested) return 'a 30 to 40 minute elliptical or rower swap'
+  if (miles === null) return 'easy, by feel'
+  return `${miles} ${miles === 1 ? 'mile' : 'miles'}`
 }
 
 export type DayStatus = 'done' | 'missed' | 'today' | 'upcoming' | 'off'

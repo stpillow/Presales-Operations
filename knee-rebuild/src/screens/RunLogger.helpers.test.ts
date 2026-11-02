@@ -182,10 +182,10 @@ describe('words for the view', () => {
   })
   it('heads the suggestion with the type and miles', () => {
     expect(view.suggestion && suggestionHead(view.suggestion)).toBe('Run: MBR · 3 miles')
-    expect(suggestionHead({ type: 'long', miles: null, strides: false, tempo: false, fasterAllowed: false, swapSuggested: false, reasons: [] })).toBe('Run: long')
+    expect(suggestionHead({ type: 'long', miles: null, headline: 'easy, by feel', strides: false, tempo: false, fasterAllowed: false, swapSuggested: false, reasons: [] })).toBe('Run: long')
   })
   it('heads with the swap when the engine calls for one, and keeps the run’s plan in words', () => {
-    const swap = { type: 'easy' as const, miles: 3, strides: false, tempo: false, fasterAllowed: false, swapSuggested: true, reasons: [] }
+    const swap = { type: 'easy' as const, miles: 3, headline: 'a 30 to 40 minute elliptical or rower swap', strides: false, tempo: false, fasterAllowed: false, swapSuggested: true, reasons: [] }
     expect(suggestionHead(swap)).toBe('An elliptical or rower swap')
     expect(runPlanWords(swap)).toBe('Run: easy · 3 miles')
   })
@@ -241,7 +241,7 @@ describe('weekLine', () => {
 })
 
 describe('resolveForm', () => {
-  const suggestion = { type: 'easy' as const, miles: 3.5, strides: true, tempo: false, fasterAllowed: false, swapSuggested: false, reasons: [] }
+  const suggestion = { type: 'easy' as const, miles: 3.5, headline: '3.5 miles', strides: true, tempo: false, fasterAllowed: false, swapSuggested: false, reasons: [] }
   it('follows the suggestion until a field is touched', () => {
     const resolved = resolveForm(emptyForm(), { date: '2026-11-04', type: 'easy', suggestion })
     expect(resolved).toMatchObject({ date: '2026-11-04', miles: 3.5, strides: true, tempo: false, swap: false, maxPain: null, effort: 'easy' })
