@@ -14,6 +14,7 @@ import {
   countLabel,
   countStep,
   countWords,
+  cuesWrittenFor,
   draftFromSet,
   loadLabel,
   loadMax,
@@ -112,6 +113,7 @@ export function ActiveCard(props: ActiveCardProps) {
   const blockedOnPain = !editing && step !== null && pain === null
   const moved = movedByEngine(plan.slot.exerciseId, prescription.exerciseId, plan.route, props.swapped)
   const bothForUnilateral = !plan.slot.unilateral && exercise.unilateral
+  const cuesFor = cuesWrittenFor(plan.slot.exerciseId, exercise.id, (id) => exerciseById(id).name)
   const healthyStep = step && step.side !== 'both' && step.side !== injuredSide
   const budgetLine = healthyStep
     ? props.budget && props.budget[step.setNumber - 1] !== undefined
@@ -176,13 +178,16 @@ export function ActiveCard(props: ActiveCardProps) {
 
         {plan.slot.cues.length > 0 ? (
           showCues ? (
-            <ul className="flex flex-col gap-1">
-              {plan.slot.cues.map((cue) => (
-                <li key={cue} className="text-small text-on-dark">
-                  {cue}
-                </li>
-              ))}
-            </ul>
+            <div className="flex flex-col gap-1">
+              {cuesFor ? <p className="font-mono text-label uppercase tracking-[0.22em] text-on-dark-muted">{cuesFor}</p> : null}
+              <ul className="flex flex-col gap-1">
+                {plan.slot.cues.map((cue) => (
+                  <li key={cue} className="text-small text-on-dark">
+                    {cue}
+                  </li>
+                ))}
+              </ul>
+            </div>
           ) : (
             <Button variant="quiet" onClick={() => setShowCues(true)}>
               Show cues

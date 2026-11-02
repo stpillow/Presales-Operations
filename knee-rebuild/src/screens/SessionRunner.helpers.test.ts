@@ -13,6 +13,7 @@ import {
   countField,
   countLabel,
   countWords,
+  cuesWrittenFor,
   doneWords,
   draftFromSet,
   durationWords,
@@ -185,6 +186,7 @@ describe('per-side words', () => {
 describe('the gym in words (M4b, design section 4)', () => {
   const items = program.equipment
   const hotel = 'Hotel gym'
+  const nameOf = (id: string) => exerciseById(id).name
 
   it('names a list item inside a sentence, keeping the Smith machine’s capital', () => {
     expect(itemInSentence('Seated leg press')).toBe('seated leg press')
@@ -266,6 +268,12 @@ describe('the gym in words (M4b, design section 4)', () => {
     expect(holdsOffWords('Nordic hamstring negatives', 'engine', 'Single-leg seated leg curl', 80)).toBe('Nordic hamstring negatives backed off, so the slot stays on Single-leg seated leg curl today.')
   })
 
+  it('cues written for the slot’s own exercise say so when another exercise runs: moved, swapped or backed off (M4b review)', () => {
+    expect(cuesWrittenFor('leg-press', 'goblet-squat-bench', nameOf)).toBe('Cues written for Leg press, both legs')
+    expect(cuesWrittenFor('nordic-negatives', 'single-leg-seated-leg-curl', nameOf)).toBe('Cues written for Nordic hamstring negatives')
+    expect(cuesWrittenFor('leg-press', 'leg-press', nameOf)).toBeNull()
+  })
+
   it('Finish lists the slots the gym changed, in words', () => {
     const route = (kind: SlotRoute['kind'], from: string): SlotRoute => ({ kind, exerciseId: from, passedOver: [{ exerciseId: from, missing: ['x'] }] })
     const plans = [
@@ -281,8 +289,6 @@ describe('the gym in words (M4b, design section 4)', () => {
     expect(notHereWords(hotel, anyway)).toBe('Not at Hotel gym: 7 Step-off landing (nothing here; done anyway).')
     expect(notHereWords(hotel, [])).toBeNull()
   })
-
-  const nameOf = (id: string) => exerciseById(id).name
 
   it('the card says what the gym did to the slot, unless a swap chose', () => {
     const moved: SlotRoute = { kind: 'moved', exerciseId: 'goblet-squat-bench', passedOver: [{ exerciseId: 'leg-press', missing: ['seated-leg-press'] }] }

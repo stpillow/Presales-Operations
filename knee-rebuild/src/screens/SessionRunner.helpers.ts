@@ -277,6 +277,16 @@ export function durationWords(startedAt: string | undefined, finishedAt: string 
   return minutes >= 90 ? `${Math.floor(minutes / 60)} h ${minutes % 60} min` : `${minutes} min`
 }
 
+/**
+ * A slot's cues are program.md's words for the slot's own exercise. When another exercise runs (the
+ * gym moved it, a swap chose it, the engine backed it off), they stay on screen, since some carry the
+ * pain stop, labelled for the exercise they were written for: "Cues written for Leg press, both legs".
+ * Null when the slot's own exercise runs (PROGRAM-QUESTIONS 97).
+ */
+export function cuesWrittenFor(slotExerciseId: string, runExerciseId: string, nameOf: (exerciseId: string) => string): string | null {
+  return runExerciseId === slotExerciseId ? null : `Cues written for ${nameOf(slotExerciseId)}`
+}
+
 /** The count in words for the Done bar: "10 reps each side", "30 s", "40 yd". */
 export function countWords(count: number, repUnit: RepUnit, slot: Pick<Slot, 'unilateral' | 'perSideLabel'>): string {
   const unit = { reps: ' reps', seconds: ' s', minutes: ' min', yards: ' yd', steps: ' steps' }[repUnit]

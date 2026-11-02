@@ -1,5 +1,7 @@
 import type { SlotPlan } from '../../app/session.ts'
+import { exerciseById } from '../../program/program.ts'
 import type { Step } from '../../rules/runOrder.ts'
+import { cuesWrittenFor } from '../SessionRunner.helpers.ts'
 
 export interface SlotStatus {
   word: string
@@ -61,20 +63,25 @@ export function SlotList({
           const groupId = plan.slot.groupId
           const header = groupId && !seenGroups.has(groupId) ? groupLabels.get(groupId) : undefined
           if (groupId) seenGroups.add(groupId)
-          const cue = plan.slot.cues[0]
+          // The row names what the card runs: the plan's exercise, or where the rack or a back-off moved it on.
+          const runs = exerciseById(plan.prescriptions[0]?.exerciseId ?? plan.exercise.id)
+          const firstCue = plan.slot.cues[0]
+          // Another exercise runs (moved, swapped, backed off): the cue is program.md's for the slot's own, and says so.
+          const writtenFor = cuesWrittenFor(plan.slot.exerciseId, runs.id, (id) => exerciseById(id).name)
+          const cue = firstCue && writtenFor ? `${writtenFor}: ${firstCue}` : firstCue
           return (
             <li key={plan.slot.id} className={groupId ? 'border-l border-on-dark-faint pl-3' : ''}>
               {header ? <p className="pt-3 font-mono text-label uppercase tracking-[0.22em] text-on-dark-muted">{header}</p> : null}
               <button
                 type="button"
-                aria-label={`Slot ${plan.slot.label}: ${plan.exercise.name}${status.word ? `, ${status.word}` : ''}`}
+                aria-label={`Slot ${plan.slot.label}: ${runs.name}${status.word ? `, ${status.word}` : ''}`}
                 aria-current={plan.slot.id === currentSlotId ? 'step' : undefined}
                 onClick={() => onPick(plan.slot.id)}
                 className="tap flex w-full flex-col gap-1 border-b border-on-dark-faint py-3 text-left"
               >
                 <span className="flex w-full items-baseline justify-between gap-3">
                   <span className="text-body text-on-dark">
-                    <span className="font-mono text-small text-on-dark-muted">{plan.slot.label}</span> {plan.exercise.name}
+                    <span className="font-mono text-small text-on-dark-muted">{plan.slot.label}</span> {runs.name}
                     <span className="text-on-dark-muted"> · {plan.slot.prescriptionText}</span>
                   </span>
                   {status.word ? (
