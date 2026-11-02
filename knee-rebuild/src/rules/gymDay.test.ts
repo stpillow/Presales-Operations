@@ -62,18 +62,24 @@ describe('the gym a run swap was done at (M4b review)', () => {
   it('a swap logged for today is at the active gym, the one Today names', () => {
     expect(runSwapGym({ ...base, date: '2026-11-10', workouts: [lift('2026-11-10', 'loc-1')] })).toBe(PLANET_FITNESS_LOCATION_ID)
     // A gym picked for another day doesn't follow the form back to today.
-    expect(runSwapGym({ ...base, date: '2026-11-10', workouts: [], picked: 'loc-1' })).toBe(PLANET_FITNESS_LOCATION_ID)
+    expect(runSwapGym({ ...base, date: '2026-11-10', workouts: [], picked: { date: '2026-11-09', locationId: 'loc-1' } })).toBe(PLANET_FITNESS_LOCATION_ID)
   })
   it('a back-dated swap on a day whose lift ran at another gym is preset to that gym', () => {
     expect(runSwapGym({ ...base, date: '2026-11-09', workouts: [lift('2026-11-08'), lift('2026-11-09', 'loc-1')] })).toBe('loc-1')
   })
   it('a back-dated swap on a day with no lift is preset to the active gym; a gym picked on the logger wins either way', () => {
     expect(runSwapGym({ ...base, date: '2026-11-09', workouts: [lift('2026-11-10', 'loc-1')] })).toBe(PLANET_FITNESS_LOCATION_ID)
-    expect(runSwapGym({ ...base, date: '2026-11-09', workouts: [], picked: 'loc-1' })).toBe('loc-1')
-    expect(runSwapGym({ ...base, date: '2026-11-09', workouts: [lift('2026-11-09', 'loc-1')], picked: PLANET_FITNESS_LOCATION_ID })).toBe(PLANET_FITNESS_LOCATION_ID)
+    expect(runSwapGym({ ...base, date: '2026-11-09', workouts: [], picked: { date: '2026-11-09', locationId: 'loc-1' } })).toBe('loc-1')
+    expect(runSwapGym({ ...base, date: '2026-11-09', workouts: [lift('2026-11-09', 'loc-1')], picked: { date: '2026-11-09', locationId: PLANET_FITNESS_LOCATION_ID } })).toBe(PLANET_FITNESS_LOCATION_ID)
+  })
+  it('a gym picked for one earlier day stays with that day: another day the logger moves to gets its own preset', () => {
+    // Planet Fitness tapped for Sunday, then the logger moved to Monday, whose lift ran at the hotel.
+    expect(runSwapGym({ ...base, date: '2026-11-09', workouts: [lift('2026-11-09', 'loc-1')], picked: { date: '2026-11-08', locationId: PLANET_FITNESS_LOCATION_ID } })).toBe('loc-1')
+    // And back on Sunday, the tap stands.
+    expect(runSwapGym({ ...base, date: '2026-11-08', workouts: [lift('2026-11-08', 'loc-1')], picked: { date: '2026-11-08', locationId: PLANET_FITNESS_LOCATION_ID } })).toBe(PLANET_FITNESS_LOCATION_ID)
   })
   it('a pick or a lift at a gym the lists no longer offer (archived) falls back to the active gym', () => {
     expect(runSwapGym({ ...base, date: '2026-11-09', workouts: [lift('2026-11-09', 'loc-2')] })).toBe(PLANET_FITNESS_LOCATION_ID)
-    expect(runSwapGym({ ...base, date: '2026-11-09', workouts: [], picked: 'loc-2' })).toBe(PLANET_FITNESS_LOCATION_ID)
+    expect(runSwapGym({ ...base, date: '2026-11-09', workouts: [], picked: { date: '2026-11-09', locationId: 'loc-2' } })).toBe(PLANET_FITNESS_LOCATION_ID)
   })
 })

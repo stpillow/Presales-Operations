@@ -101,7 +101,7 @@ function Logger({ today, settings, history, active, locations }: { today: IsoDat
   // at the gym picked for it, else that day's lift's gym, else the active one (runSwapGym).
   const listed = listedLocations(locations)
   const date = loggedDate(today, settings.startDate, form.date)
-  const gymId = runSwapGym({ date, today, activeId: active.id, listed, workouts: history.workouts, picked: form.gymId })
+  const gymId = runSwapGym({ date, today, activeId: active.id, listed, workouts: history.workouts, picked: form.gymPick })
   const location = listed.find((l) => l.id === gymId) ?? active
   const gym = { name: location.name, available: availableAt({ location, kit: settings.kit }) }
   const view = loggerView({ today, picked: { date: form.date, type: form.type }, settings, history, program: PROGRAM, gym })
@@ -196,7 +196,7 @@ function Logger({ today, settings, history, active, locations }: { today: IsoDat
         <Section label="Gym for a swap">
           <div role="radiogroup" aria-label="Gym for a swap" className="flex flex-col gap-2">
             {listed.map((l) => (
-              <Choice key={l.id} label={l.name} selected={l.id === location.id} onSelect={() => set({ gymId: l.id })} />
+              <Choice key={l.id} label={l.name} selected={l.id === location.id} onSelect={() => set({ gymPick: { date: view.date, locationId: l.id } })} />
             ))}
           </div>
           <Note>{swapGymNote(view.date, location.name)}</Note>

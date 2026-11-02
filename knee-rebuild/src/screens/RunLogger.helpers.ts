@@ -326,12 +326,12 @@ export interface RunForm {
   tempo: boolean | null
   stravaUrl: string
   notes: string
-  /** The gym picked for a swap logged for an earlier day; null follows `runSwapGym`'s preset. */
-  gymId: string | null
+  /** The gym picked for a swap logged for an earlier day, and that day; null follows `runSwapGym`'s preset. */
+  gymPick: { date: IsoDate; locationId: string } | null
 }
 
 export function emptyForm(): RunForm {
-  return { date: null, type: null, miles: null, minutes: 0, effort: 'easy', maxPain: null, strides: null, tempo: null, stravaUrl: '', notes: '', gymId: null }
+  return { date: null, type: null, miles: null, minutes: 0, effort: 'easy', maxPain: null, strides: null, tempo: null, stravaUrl: '', notes: '', gymPick: null }
 }
 
 /**
