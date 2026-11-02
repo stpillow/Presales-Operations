@@ -18,6 +18,7 @@ import {
   morningFor,
   newRunId,
   noSuggestionWords,
+  loggedDate,
   openForm,
   reasonSentence,
   resolveForm,
@@ -28,6 +29,7 @@ import {
   saveWords,
   stravaProblem,
   suggestionHead,
+  swapGymNote,
   swapHereWords,
   takeSwapWords,
   toRun,
@@ -301,6 +303,25 @@ describe('swaps at the gym (M4b, design section 7)', () => {
     const view = formView({ ...base, today: '2026-11-04', gym: NEITHER, picked: { date: null, type: 'elliptical-swap' } })
     const draft = toRun(resolveForm({ ...emptyForm(), minutes: 35, maxPain: 1 }, view), 'r', 'loc-1')
     expect(draft).toMatchObject({ ok: true, run: { type: 'elliptical-swap', miles: 0, minutes: 35, locationId: 'loc-1' } })
+  })
+})
+
+describe('a run swap logged for an earlier day (M4b review)', () => {
+  it('the date the gym is read for is the one the view logs: the pinned pick while it is a choice, else today', () => {
+    expect(loggedDate('2026-11-03', START, '2026-11-02')).toBe('2026-11-02')
+    expect(loggedDate('2026-11-03', START, null)).toBe('2026-11-03')
+    // A pinned date no longer a choice is the view's dateLost; until a day is picked again the gym follows today.
+    expect(loggedDate('2026-11-10', START, '2026-11-06')).toBe('2026-11-10')
+    expect(formView({ ...base, today: '2026-11-03', picked: { date: '2026-11-02', type: null } }).date).toBe(loggedDate('2026-11-03', START, '2026-11-02'))
+  })
+  it('says which gym the swap is stored at, and that another is a tap away', () => {
+    expect(swapGymNote('2026-11-02', 'Marriott Downtown')).toBe('A swap stores the gym it was done at: Monday’s is preset to Marriott Downtown. Tap another if it was elsewhere.')
+  })
+  it('a back-dated swap judged and stored at the gym picked for that day, not today’s', () => {
+    // Monday at Marriott (no elliptical), logged Tuesday with Planet Fitness active and Marriott picked for Monday.
+    const view = formView({ ...base, today: '2026-11-03', gym: ROWER_ONLY, picked: { date: '2026-11-02', type: 'elliptical-swap' } })
+    expect(typeDetail('elliptical-swap', view)).toBe('Not at Marriott Downtown')
+    expect(toRun(resolveForm({ ...openForm('2026-11-03'), date: '2026-11-02', minutes: 35, maxPain: 1 }, view), 'r', 'loc-1')).toMatchObject({ ok: true, run: { date: '2026-11-02', locationId: 'loc-1' } })
   })
 })
 

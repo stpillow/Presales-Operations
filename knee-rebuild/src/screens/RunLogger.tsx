@@ -7,8 +7,10 @@ import { PAIN_SCALE, ScalePicker } from '../components/ScalePicker.tsx'
 import { Screen } from '../components/Screen.tsx'
 import { Stepper } from '../components/Stepper.tsx'
 import { Tap } from '../components/Tap.tsx'
-import { useActiveLocation, useHistory, useSettings } from '../db/hooks.ts'
+import { useActiveLocation, useHistory, useLocations, useSettings } from '../db/hooks.ts'
 import { addRun, deleteRun, type History } from '../db/repo.ts'
+import { runSwapGym } from '../rules/gymDay.ts'
+import { listedLocations } from '../rules/locations.ts'
 import type { IsoDate, Location, Run, RunType, Settings } from '../schema/index.ts'
 import { noSwapSuggestedWords, runLabel } from './Today.helpers.ts'
 import {
@@ -25,6 +27,7 @@ import {
   errorWords,
   isSwapType,
   leadWords,
+  loggedDate,
   loggedWords,
   loggerView,
   newRunId,
@@ -39,6 +42,7 @@ import {
   saveWords,
   stravaProblem,
   suggestionHead,
+  swapGymNote,
   takeSwapWords,
   toRun,
   typeDetail,
@@ -65,10 +69,11 @@ export function RunLogger() {
   const today = useToday()
   const settings = useSettings()
   const history = useHistory()
-  // A swap is logged at the gym Today plans for (M4b).
+  // A swap logged for today is at the gym Today plans for; one for an earlier day, at the gym picked or preset for that day (M4b).
   const activeLocation = useActiveLocation()
+  const locations = useLocations()
 
-  if (settings === undefined || history === undefined || activeLocation === undefined || (settings !== null && activeLocation === null)) {
+  if (settings === undefined || history === undefined || activeLocation === undefined || locations === undefined || (settings !== null && activeLocation === null)) {
     return (
       <Screen title={TITLE} lead="Opening storage…">
         <p className="text-body text-on-dark-dim">This week’s runs and the mileage plan load from the phone.</p>
@@ -82,17 +87,22 @@ export function RunLogger() {
       </Screen>
     )
   }
-  return <Logger today={today} settings={settings} history={history} location={activeLocation} />
+  return <Logger today={today} settings={settings} history={history} active={activeLocation} locations={locations} />
 }
 
-function Logger({ today, settings, history, location }: { today: IsoDate; settings: Settings; history: History; location: Location }) {
+function Logger({ today, settings, history, active, locations }: { today: IsoDate; settings: Settings; history: History; active: Location; locations: Location[] }) {
   // The date is pinned when the logger opens: useToday() moves at midnight, and the form must not move with it.
   const [form, setForm] = useState<RunForm>(() => openForm(today))
   const [saved, setSaved] = useState<Run | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // A swap is done at the active gym: each one reads here or not there, and a hold morning names the first one here.
+  // A swap is judged and stored at the gym it was done at: today's at the active gym; an earlier day's
+  // at the gym picked for it, else that day's lift's gym, else the active one (runSwapGym).
+  const listed = listedLocations(locations)
+  const date = loggedDate(today, settings.startDate, form.date)
+  const gymId = runSwapGym({ date, today, activeId: active.id, listed, workouts: history.workouts, picked: form.gymId })
+  const location = listed.find((l) => l.id === gymId) ?? active
   const gym = { name: location.name, available: availableAt({ location, kit: settings.kit }) }
   const view = loggerView({ today, picked: { date: form.date, type: form.type }, settings, history, program: PROGRAM, gym })
   if (view.kind === 'before-start') {
@@ -179,6 +189,17 @@ function Logger({ today, settings, history, location }: { today: IsoDate; settin
             ))}
           </div>
           <Note>{dayChoicesNote(today, settings.startDate)}</Note>
+        </Section>
+      ) : null}
+
+      {view.date !== today && listed.length > 1 ? (
+        <Section label="Gym for a swap">
+          <div role="radiogroup" aria-label="Gym for a swap" className="flex flex-col gap-2">
+            {listed.map((l) => (
+              <Choice key={l.id} label={l.name} selected={l.id === location.id} onSelect={() => set({ gymId: l.id })} />
+            ))}
+          </div>
+          <Note>{swapGymNote(view.date, location.name)}</Note>
         </Section>
       ) : null}
 

@@ -1,4 +1,4 @@
-import type { Location, Workout } from '../schema/index.ts'
+import type { IsoDate, Location, Workout } from '../schema/index.ts'
 import { suggestedRunSwap, type Available, type RunSwapType } from './equipment.ts'
 import { locationIdOf, locationOrHome } from './locations.ts'
 
@@ -30,4 +30,29 @@ export function swapCallAt(suggestion: { swapSuggested: boolean } | null, availa
   if (!suggestion?.swapSuggested) return null
   const type = suggestedRunSwap(available)
   return type ? { kind: 'take', type } : { kind: 'neither' }
+}
+
+/**
+ * The gym a run swap (elliptical or rower) logged for `date` was done at, by id (M4b review). One
+ * logged for today is at the active gym, the one Today names. One logged for an earlier day is at
+ * the gym picked on the logger, else the gym that day's lift was stamped with, else the active gym:
+ * a preset he can change, since the app keeps no record of which gym was active that day. A pick or
+ * a lift at a gym the lists no longer offer (`listed`) falls back to the active gym.
+ */
+export function runSwapGym(input: {
+  date: IsoDate
+  today: IsoDate
+  activeId: string
+  /** The gyms the lists offer (`listedLocations`). */
+  listed: readonly Pick<Location, 'id'>[]
+  workouts: readonly Pick<Workout, 'date' | 'locationId'>[]
+  /** A gym picked on the logger for this swap, or null. */
+  picked: string | null
+}): string {
+  if (input.date === input.today) return input.activeId
+  const offered = (id: string | null | undefined): id is string => id != null && input.listed.some((l) => l.id === id)
+  if (offered(input.picked)) return input.picked
+  const lift = input.workouts.find((w) => w.date === input.date)
+  const liftId = lift ? locationIdOf(lift) : null
+  return offered(liftId) ? liftId : input.activeId
 }

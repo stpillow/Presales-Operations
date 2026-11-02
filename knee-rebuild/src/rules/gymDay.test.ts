@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { PLANET_FITNESS_LOCATION_ID, type Location, type Workout } from '../schema/index.ts'
-import { liftGym, swapCallAt } from './gymDay.ts'
+import { liftGym, runSwapGym, swapCallAt } from './gymDay.ts'
 
 const home: Location = {
   id: PLANET_FITNESS_LOCATION_ID,
@@ -52,5 +52,28 @@ describe('a hold or back-off morning’s swap call at a gym', () => {
   it('no call when the engine suggests no swap, or nothing at all', () => {
     expect(swapCallAt({ swapSuggested: false }, new Set(['elliptical']))).toBeNull()
     expect(swapCallAt(null, new Set(['elliptical']))).toBeNull()
+  })
+})
+
+describe('the gym a run swap was done at (M4b review)', () => {
+  const lift = (date: string, locationId?: string): Pick<Workout, 'date' | 'locationId'> => ({ date, ...(locationId ? { locationId } : {}) })
+  const base = { today: '2026-11-10', activeId: PLANET_FITNESS_LOCATION_ID, listed: [home, hotel], picked: null }
+
+  it('a swap logged for today is at the active gym, the one Today names', () => {
+    expect(runSwapGym({ ...base, date: '2026-11-10', workouts: [lift('2026-11-10', 'loc-1')] })).toBe(PLANET_FITNESS_LOCATION_ID)
+    // A gym picked for another day doesn't follow the form back to today.
+    expect(runSwapGym({ ...base, date: '2026-11-10', workouts: [], picked: 'loc-1' })).toBe(PLANET_FITNESS_LOCATION_ID)
+  })
+  it('a back-dated swap on a day whose lift ran at another gym is preset to that gym', () => {
+    expect(runSwapGym({ ...base, date: '2026-11-09', workouts: [lift('2026-11-08'), lift('2026-11-09', 'loc-1')] })).toBe('loc-1')
+  })
+  it('a back-dated swap on a day with no lift is preset to the active gym; a gym picked on the logger wins either way', () => {
+    expect(runSwapGym({ ...base, date: '2026-11-09', workouts: [lift('2026-11-10', 'loc-1')] })).toBe(PLANET_FITNESS_LOCATION_ID)
+    expect(runSwapGym({ ...base, date: '2026-11-09', workouts: [], picked: 'loc-1' })).toBe('loc-1')
+    expect(runSwapGym({ ...base, date: '2026-11-09', workouts: [lift('2026-11-09', 'loc-1')], picked: PLANET_FITNESS_LOCATION_ID })).toBe(PLANET_FITNESS_LOCATION_ID)
+  })
+  it('a pick or a lift at a gym the lists no longer offer (archived) falls back to the active gym', () => {
+    expect(runSwapGym({ ...base, date: '2026-11-09', workouts: [lift('2026-11-09', 'loc-2')] })).toBe(PLANET_FITNESS_LOCATION_ID)
+    expect(runSwapGym({ ...base, date: '2026-11-09', workouts: [], picked: 'loc-2' })).toBe(PLANET_FITNESS_LOCATION_ID)
   })
 })

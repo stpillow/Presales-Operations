@@ -65,6 +65,19 @@ export function dayChoicesNote(today: IsoDate, startDate: IsoDate): string {
     : 'Earlier days of this program week can be logged; later ones cannot.'
 }
 
+/**
+ * The date the logger logs for: the one picked (pinned when the logger opened) while it is still a
+ * choice, else today. The view's `date`, and the date a swap's gym is read for (`runSwapGym`).
+ */
+export function loggedDate(today: IsoDate, startDate: IsoDate, picked: IsoDate | null): IsoDate {
+  return picked !== null && dateChoices(today, startDate).includes(picked) ? picked : today
+}
+
+/** Under the gym choice on an earlier day's log: where the swap is stored, and that another gym is a tap away. */
+export function swapGymNote(date: IsoDate, gymName: string): string {
+  return `A swap stores the gym it was done at: ${dateWords(date).split(',')[0] ?? 'that day'}’s is preset to ${gymName}. Tap another if it was elsewhere.`
+}
+
 /** That date's morning reading, from the check logged that morning, or null when none was. */
 export function morningFor(date: IsoDate, checks: readonly MorningCheck[]): ReadingResult | null {
   const check = checks.find((c) => c.date === date)
@@ -100,7 +113,7 @@ export type LoggerView =
       stop: { headline: string; items: string[] } | null
       /** That date's morning reading, from the check logged that morning; null when none was. */
       morning: ReadingResult | null
-      /** The gym a swap is logged at (the active one), by name. */
+      /** The gym a swap is logged at, by name: the active one, or for an earlier day the one `runSwapGym` gives. */
       gym: string
       /** Both swaps in program.md's order, each here or not at that gym; both stay loggable (design section 7). */
       swaps: RunSwapHere[]
@@ -122,7 +135,7 @@ export function loggerView(input: {
   settings: Settings
   history: HistoryLike
   program: ProgramLike
-  /** The active gym: its name and what is there (`availableAt`). */
+  /** The gym a swap is logged at (`runSwapGym`): its name and what is there (`availableAt`). */
   gym: { name: string; available: Available }
 }): LoggerView {
   const { today, picked, settings, history, program, gym } = input
@@ -130,7 +143,7 @@ export function loggerView(input: {
   if (dates.length === 0) return { kind: 'before-start', line: `Week 1 starts ${shortDateWords(settings.startDate)}` }
 
   const dateLost = picked.date !== null && !dates.includes(picked.date) ? picked.date : null
-  const date = picked.date !== null && dateLost === null ? picked.date : today
+  const date = loggedDate(today, settings.startDate, picked.date)
   const { week, session } = scheduledSession(date, settings.startDate, program.weeklyTemplate, history.sessionMoves)
   const scheduled: DaySession = session ?? 'off'
   const preselected = runTypeFor(scheduled)
@@ -313,10 +326,12 @@ export interface RunForm {
   tempo: boolean | null
   stravaUrl: string
   notes: string
+  /** The gym picked for a swap logged for an earlier day; null follows `runSwapGym`'s preset. */
+  gymId: string | null
 }
 
 export function emptyForm(): RunForm {
-  return { date: null, type: null, miles: null, minutes: 0, effort: 'easy', maxPain: null, strides: null, tempo: null, stravaUrl: '', notes: '' }
+  return { date: null, type: null, miles: null, minutes: 0, effort: 'easy', maxPain: null, strides: null, tempo: null, stravaUrl: '', notes: '', gymId: null }
 }
 
 /**
@@ -375,8 +390,9 @@ export type RunDraft = { ok: true; run: Run } | { ok: false; blocker: string }
 
 /**
  * The Run that Save logs, or the words on the disabled Save button saying what is missing. A swap
- * (elliptical or rower) is done at a gym, so it stores `locationId`, the active gym's id (M4b); a
- * run outside stores none.
+ * (elliptical or rower) is done at a gym, so it stores `locationId`, the gym it was done at
+ * (`runSwapGym`: the active one for today, the one picked or preset for an earlier day); a run
+ * outside stores none.
  */
 export function toRun(form: ResolvedForm, id: string, locationId: string): RunDraft {
   const { type, maxPain } = form
