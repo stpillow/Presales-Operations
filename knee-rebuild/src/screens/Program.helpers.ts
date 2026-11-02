@@ -1,9 +1,9 @@
 import { PROGRAM } from '../app/session.ts'
 import type { Block } from '../rules/markdown.ts'
 import { plainText } from '../rules/markdown.ts'
-import { addableSubstitutions, cueLength, editedParts, overridesBySlot, slotEdit, type Edited, type SlotEdit } from '../rules/overrides.ts'
+import { addableSubstitutions, cleanCue, cueLength, editedParts, overridesBySlot, slotEdit, type Edited, type SlotEdit } from '../rules/overrides.ts'
 import { slotsForPhaseWeek } from '../rules/session.ts'
-import { CUE_MAX, type Exercise, type IsoDate, type ProgramOverride, type Settings, type Slot } from '../schema/index.ts'
+import { CUE_MAX, showsText, type Exercise, type IsoDate, type ProgramOverride, type Settings, type Slot } from '../schema/index.ts'
 import { coverageWeek, currentTemplates, shortDate } from './LocationEditor.helpers.ts'
 
 /*
@@ -166,6 +166,17 @@ export function cueCountWords(text: string): string | null {
   const length = cueLength(text)
   if (length < CUE_COUNT_FROM) return null
   return length > CUE_MAX ? `${length} of ${CUE_MAX} characters: ${length - CUE_MAX} over.` : `${length} of ${CUE_MAX} characters.`
+}
+
+/**
+ * A new cue typed but not added when the editor closes (Done editing, or another slot's Edit): the
+ * text is kept in the slot's new-cue field, and the slot says so under it, quoting the cue as it
+ * would be stored, so nothing typed goes without a word. Null when the field holds no words.
+ */
+export function unaddedCueWords(text: string): string | null {
+  const cue = cleanCue(text)
+  if (!showsText(cue)) return null
+  return `Your new cue wasn’t added yet: “${cue}”. It waits in the new-cue field; tap Edit, then Add cue.`
 }
 
 /** What came off the list, said beside "Put it back". */

@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { PROGRAM } from '../../app/session.ts'
 import { Button } from '../../components/Button.tsx'
 import { clearProgramOverride, saveProgramOverride } from '../../db/repo.ts'
@@ -33,18 +33,23 @@ const STILL = 'the slot shows what the phone still has.'
  * stored lists so two quick taps build on each other. "Back to program.md's" clears the slot's row.
  * `onStanding` gets the last refusal or failed save in words (null once one is answered), for the
  * slot to keep showing after Done editing closes the editor: the tap that closes it is often the
- * one that left the field and drew the refusal.
+ * one that left the field and drew the refusal. `newCue` is the new-cue field's text, held by the
+ * slot so that closing the editor before Add cue keeps it (the slot says so: `unaddedCueWords`).
  */
 export function SlotEditor({
   slot,
   override,
   today,
   onStanding,
+  newCue,
+  onNewCue,
 }: {
   slot: Slot
   override: ProgramOverride | undefined
   today: IsoDate
   onStanding: (sentence: string | null) => void
+  newCue: string
+  onNewCue: Dispatch<SetStateAction<string>>
 }) {
   const view = editorView(slot, override)
   const stored = view.edit
@@ -170,7 +175,7 @@ export function SlotEditor({
             />
           ))}
         </ol>
-        <AddCue onAdd={(text) => write('cues', withCueAdded(latest.current, text))} onRefusal={onStanding} />
+        <AddCue text={newCue} setText={onNewCue} onAdd={(text) => write('cues', withCueAdded(latest.current, text))} onRefusal={onStanding} />
         {problemFor('cues')}
         {view.writtenCues ? <Written heading="program.md’s cues" items={view.writtenCues} empty="program.md writes no cues for this slot." /> : null}
       </Group>
@@ -330,10 +335,22 @@ function CueRow({
   )
 }
 
-/** A new cue at the end of the list; refused in words when it is empty or over 200 characters. */
-function AddCue({ onAdd, onRefusal }: { onAdd: (text: string) => Promise<boolean>; onRefusal: (sentence: string | null) => void }) {
+/**
+ * A new cue at the end of the list; refused in words when it is empty or over 200 characters. Its
+ * text is the slot's (`text`, `setText`), so it outlives the editor until it is added or cleared.
+ */
+function AddCue({
+  text,
+  setText,
+  onAdd,
+  onRefusal,
+}: {
+  text: string
+  setText: Dispatch<SetStateAction<string>>
+  onAdd: (text: string) => Promise<boolean>
+  onRefusal: (sentence: string | null) => void
+}) {
   const id = useId()
-  const [text, setText] = useState('')
   const [refusal, setShownRefusal] = useState<string | null>(null)
   const setRefusal = (sentence: string | null) => {
     if (sentence === null && refusal === null) return

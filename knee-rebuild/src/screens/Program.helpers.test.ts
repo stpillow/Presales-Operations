@@ -14,6 +14,7 @@ import {
   phaseScreen,
   removedWords,
   tableLayout,
+  unaddedCueWords,
 } from './Program.helpers.ts'
 
 const settingsIn = (over: Partial<Settings> = {}): Settings =>
@@ -145,6 +146,19 @@ describe('removedWords', () => {
   it('names what came off the list', () => {
     expect(removedWords('cue', 'Feet high')).toBe('Removed the cue “Feet high”.')
     expect(removedWords('substitution', 'Goblet squat to a bench')).toBe('Removed Goblet squat to a bench from the substitutions.')
+  })
+})
+
+describe('unaddedCueWords', () => {
+  it('says a new cue typed but never added is kept in its field, quoting it as it would be stored, once the editor closes', () => {
+    expect(unaddedCueWords('  Drive through\n  the heel ')).toBe('Your new cue wasn’t added yet: “Drive through the heel”. It waits in the new-cue field; tap Edit, then Add cue.')
+    // Kept even when it couldn't be added as it stands: the words are his, and the field says what is wrong.
+    expect(unaddedCueWords('x'.repeat(214))).toContain('wasn’t added yet')
+  })
+  it('says nothing when the field holds no words', () => {
+    expect(unaddedCueWords('')).toBeNull()
+    expect(unaddedCueWords('  \n\t ')).toBeNull()
+    expect(unaddedCueWords('\u200b')).toBeNull()
   })
 })
 
