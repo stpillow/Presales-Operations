@@ -3,8 +3,8 @@ import { program } from '../program/program.ts'
 import { addDays, weekOf } from '../rules/calendar.ts'
 import { evaluateGate } from '../rules/gates.ts'
 import { attachChecks } from '../rules/history.ts'
-import { advancePhase, phaseEntryWeek } from '../rules/progress.ts'
-import { Settings, type Gate, type GateTest, type IsoDate, type MorningCheck, type Run, type SetLog, type Workout } from '../schema/index.ts'
+import { advancePhase, loadTestPrefill, phaseEntryWeek } from '../rules/progress.ts'
+import { Settings, type Gate, type GateTest, type IsoDate, type Location, type MorningCheck, type Run, type SetLog, type Workout } from '../schema/index.ts'
 import {
   CALF_RAISE_EXERCISE_IDS,
   advanceQuestion,
@@ -21,7 +21,6 @@ import {
   gateContext,
   gatesView,
   lineWords,
-  loadPrefill,
   manualTest,
   newGateTestId,
   noGateWords,
@@ -173,7 +172,7 @@ describe('done criterion: gate 1 evaluates from logged data alone', () => {
     const slSets = [set('w-sl', 'single-leg-leg-press', 'right', 1, 80, { reps: 10 }), set('w-sl', 'single-leg-leg-press', 'left', 1, 100, { reps: 10 })]
     const history: HistoryLike = { ...logged, workouts: [...logged.workouts, sl], setLogs: [...logged.setLogs, ...slSets] }
     // The rule itself still finds the session; the screen doesn't offer it for a phase that doesn't run the exercise.
-    expect(loadPrefill(attachChecks(history.workouts, history.setLogs, []), 'single-leg-leg-press', 'right')).toEqual({ date: '2026-11-19', injured: 80, other: 100 })
+    expect(loadTestPrefill(attachChecks(history.workouts, history.setLogs, []), 'single-leg-leg-press', 'right').prefill).toMatchObject({ date: '2026-11-19', injured: 80, other: 100 })
     const legPress = byId(gatesView({ today: TODAY, settings: settings(), history, program: PROGRAM }), 'g1-sl-leg-press')
     if (legPress.kind !== 'symmetry') throw new Error('expected a symmetry item')
     expect(legPress.entry.prefill).toBeNull()
@@ -301,14 +300,14 @@ describe('symmetry forms: load tests', () => {
     expect(symmetryLine({ injured: 80, other: null }, 0.8)).toBe('Enter the other side to see the symmetry.')
     expect(symmetryLine({ injured: null, other: null }, 0.8)).toBe('Enter both sides to see the symmetry.')
     expect(symmetryLine({ injured: 70, other: 100 }, 0.8)).toBe('70% · the line is 80%: not yet')
-    expect(openForm(null, { date: '2026-12-01', injured: 80, other: 100 })).toEqual({ injured: [80], other: [100] })
+    expect(openForm(null, { injured: 80, other: 100 })).toEqual({ injured: [80], other: [100] })
   })
 
   it('save, then the form and its blocker: the form keeps what was saved, and Save waits until a value changes', () => {
     const bulgarian = gateNumber(2).items.find((i) => i.id === 'g2-bulgarian')
     if (!bulgarian) throw new Error('no Bulgarian item in the seed')
     // The prefill read 40 lb right and 50 lb left; the test lifted 47.5 on the right.
-    const form = setValue(openForm(null, { date: '2026-12-08', injured: 40, other: 50 }), 'injured', 0, 47.5)
+    const form = setValue(openForm(null, { injured: 40, other: 50 }), 'injured', 0, 47.5)
     const draft = buildTest({ gate: gateNumber(2), item: bulgarian, form, today: '2026-12-12', id: 'gate-test-a' })
     if (!draft.ok) throw new Error(draft.blocker)
     expect(draft.test).toMatchObject({ valueInjured: 47.5, valueOther: 50, pass: true })
@@ -346,7 +345,7 @@ describe('symmetry forms: load tests', () => {
   })
 })
 
-describe('loadPrefill', () => {
+describe('the load prefill (loadTestPrefill)', () => {
   const records = (workouts: Workout[], sets: SetLog[]) => attachChecks(workouts, sets, [])
   it('takes the latest session that logged both sides, each side’s heaviest set', () => {
     const w1 = workout('2026-12-01', { id: 'w1' })
@@ -355,8 +354,8 @@ describe('loadPrefill', () => {
       set('w1', 'single-leg-leg-press', 'right', 1, 90), set('w1', 'single-leg-leg-press', 'left', 1, 100),
       set('w2', 'single-leg-leg-press', 'right', 1, 95), set('w2', 'single-leg-leg-press', 'right', 2, 100), set('w2', 'single-leg-leg-press', 'left', 1, 105),
     ]
-    expect(loadPrefill(records([w1, w2], sets), 'single-leg-leg-press', 'right')).toEqual({ date: '2026-12-08', injured: 100, other: 105 })
-    expect(loadPrefill(records([w1, w2], sets), 'single-leg-leg-press', 'left')).toEqual({ date: '2026-12-08', injured: 105, other: 100 })
+    expect(loadTestPrefill(records([w1, w2], sets), 'single-leg-leg-press', 'right').prefill).toMatchObject({ date: '2026-12-08', injured: 100, other: 105 })
+    expect(loadTestPrefill(records([w1, w2], sets), 'single-leg-leg-press', 'left').prefill).toMatchObject({ date: '2026-12-08', injured: 105, other: 100 })
   })
 
   it('passes over a session missing a side and one still in progress; abandoned sessions count', () => {
@@ -368,16 +367,52 @@ describe('loadPrefill', () => {
       set('w2', 'bulgarian-split-squat', 'right', 1, 30, { stopped: true, stopReason: 'sharp-joint-line-pain' }),
       set('w3', 'bulgarian-split-squat', 'right', 1, 35), set('w3', 'bulgarian-split-squat', 'left', 1, 35),
     ]
-    expect(loadPrefill(records([w1, w2, w3], sets), 'bulgarian-split-squat', 'right')).toEqual({ date: '2026-12-01', injured: 25, other: 30 })
-    expect(loadPrefill(records([w2], sets), 'bulgarian-split-squat', 'right')).toBeNull()
+    expect(loadTestPrefill(records([w1, w2, w3], sets), 'bulgarian-split-squat', 'right').prefill).toMatchObject({ date: '2026-12-01', injured: 25, other: 30 })
+    expect(loadTestPrefill(records([w2], sets), 'bulgarian-split-squat', 'right').prefill).toBeNull()
   })
 
+  const exercise = { name: 'Bulgarian split squat', loadUnit: 'lb' as const }
+  const none = { rackCapped: 0, noLoad: 0 }
+  const at = (date: IsoDate, injured: number, other: number) => ({ date, workoutId: 'w', locationId: 'planet-fitness', injured, other })
+
   it('says where the numbers came from', () => {
-    const exercise = { name: 'Bulgarian split squat', loadUnit: 'lb' as const }
-    expect(prefillWords(exercise, { date: '2026-12-01', injured: 25, other: 30 }, 'left')).toBe(
+    expect(prefillWords({ exercise, prefill: at('2026-12-01', 25, 30), injuredSide: 'left' })).toBe(
       'Prefilled from Tuesday Dec 1’s session: Bulgarian split squat, 25 lb left and 30 lb right, the heaviest set on each side. Change either to what the test lifted.',
     )
-    expect(prefillWords(null, null, 'right')).toBe('Nothing to prefill from: enter the values from the test.')
+    expect(prefillWords({ exercise: null, prefill: null, injuredSide: 'right' })).toBe('Nothing to prefill from: enter the values from the test.')
+  })
+
+  it('names the gym when the session ran away from the active one, and says what was passed over', () => {
+    expect(prefillWords({ exercise, prefill: at('2026-12-08', 40, 50), injuredSide: 'right', gymName: 'Marriott Downtown', passedOver: { rackCapped: 1, noLoad: 0 } })).toBe(
+      'Prefilled from Tuesday Dec 8’s session at Marriott Downtown: Bulgarian split squat, 40 lb right and 50 lb left, the heaviest set on each side. Passed over a later session that the rack capped. Change either to what the test lifted.',
+    )
+    expect(prefillWords({ exercise, prefill: at('2026-12-08', 40, 50), injuredSide: 'right', passedOver: { rackCapped: 0, noLoad: 2 } })).toContain('Passed over 2 later sessions with no load on a side.')
+    expect(prefillWords({ exercise, prefill: at('2026-12-08', 40, 50), injuredSide: 'right', passedOver: { rackCapped: 2, noLoad: 1 } })).toContain('Passed over 3 later sessions: 2 that the rack capped, 1 with no load on a side.')
+    expect(prefillWords({ exercise, prefill: null, injuredSide: 'right', passedOver: { rackCapped: 1, noLoad: 0 } })).toBe(
+      'Nothing to prefill: every session that logged both sides of this exercise (Bulgarian split squat) was rack-capped. Enter the loads from the test.',
+    )
+    expect(prefillWords({ exercise, prefill: null, injuredSide: 'right', passedOver: { rackCapped: 1, noLoad: 1 } })).toContain('was rack-capped or had no load on a side.')
+    expect(prefillWords({ exercise, prefill: null, injuredSide: 'right', passedOver: none })).toBe('Nothing to prefill: no session has logged both sides of this exercise (Bulgarian split squat) yet. Enter the loads from the test.')
+  })
+
+  it('gate 2’s Bulgarian opens on the last uncapped session, not the hotel’s rack-capped 25 against 25', () => {
+    const home = workout('2026-12-08', { id: 'w-home', templateId: 'p2-b', phase: 2 })
+    const hotel = workout('2026-12-10', { id: 'w-hotel', templateId: 'p2-b', phase: 2, locationId: 'hotel' })
+    const sets = [
+      set('w-home', 'bulgarian-split-squat', 'right', 1, 40, { reps: 8 }), set('w-home', 'bulgarian-split-squat', 'left', 1, 50, { reps: 8 }),
+      set('w-hotel', 'bulgarian-split-squat', 'right', 1, 25, { reps: 8, rackCapped: true }), set('w-hotel', 'bulgarian-split-squat', 'left', 1, 25, { reps: 8, rackCapped: true }),
+    ]
+    const history: HistoryLike = { workouts: [home, hotel], setLogs: sets, morningChecks: [], runs: [], gateTests: [], sessionMoves: [] }
+    const phase2 = settings({ currentPhase: 2, phaseEnteredWeek: 4, activeLocationId: 'hotel' })
+    const gym = (id: string, name: string): Location => ({ id, name, present: [], dumbbellMaxLb: 25, startedFrom: 'empty', listVersion: 1, extras: [], markedOff: [], createdOn: '2026-11-01', archived: false })
+    const view = gatesView({ today: '2026-12-11', settings: phase2, history, program: PROGRAM, locations: [gym('planet-fitness', 'Planet Fitness'), gym('hotel', 'Hampton Inn')] })
+    const row = byId(view, 'g2-bulgarian')
+    if (row.kind !== 'symmetry') throw new Error('expected a symmetry item')
+    expect(row.entry.prefill).toMatchObject({ date: '2026-12-08', injured: 40, other: 50 })
+    expect(row.entry.prefillLine).toBe(
+      'Prefilled from Tuesday Dec 8’s session at Planet Fitness: Bulgarian split squat, 40 lb right and 50 lb left, the heaviest set on each side. Passed over a later session that the rack capped. Change either to what the test lifted.',
+    )
+    expect(symmetryLine(formBest(openForm(null, row.entry.prefill)), 0.9)).toBe('80% · the line is 90%: not yet')
   })
 })
 

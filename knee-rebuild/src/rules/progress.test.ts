@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { MileageWeek, MorningCheck, Run, SessionMove, SetLog, Settings, WeeklyTemplate, Workout } from '../schema/index.ts'
 import { attachChecks, type SubjectReading } from './history.ts'
-import { advancePhase, awaitingMorningCheck, consecutiveCleanDays, loadSeries, milesSeries, phaseEntryWeek, symmetryLeftOut, symmetrySeries } from './progress.ts'
+import { advancePhase, awaitingMorningCheck, consecutiveCleanDays, loadSeries, loadTestPrefill, milesSeries, phaseEntryWeek, symmetryLeftOut, symmetrySeries } from './progress.ts'
 
 const workout = (id: string, date: string, status: Workout['status'] = 'finished'): Workout => ({ id, date, templateId: 'p2-b', phase: 2, week: 5, isDeload: false, status })
 const set = (workoutId: string, side: SetLog['side'], n: number, load: number, reps: number, exerciseId = 'bulgarian-split-squat'): SetLog => ({ id: `${workoutId}-${side}-${n}`, workoutId, slotId: 'p2b-1', exerciseId, setNumber: n, side, load, loadUnit: 'lb', reps, painDuring: 1, stopped: false })
@@ -18,6 +18,58 @@ describe('loadSeries', () => {
       { date: '2026-12-01', side: 'left', load: 25, count: 8 },
       { date: '2026-12-08', side: 'right', load: 25, count: 8 },
     ])
+  })
+})
+
+describe('loadTestPrefill: the loads a gate load test opens on (PROGRAM-QUESTIONS 25, 73, 115)', () => {
+  const capped = (s: SetLog): SetLog => ({ ...s, rackCapped: true })
+  it('takes the latest session that logged both sides, each side’s heaviest set, with where it ran', () => {
+    const records = attachChecks(
+      [workout('w1', '2026-12-01'), { ...workout('w2', '2026-12-08'), locationId: 'marriott' }],
+      [set('w1', 'right', 1, 30, 8), set('w1', 'left', 1, 40, 8), set('w2', 'right', 1, 35, 8), set('w2', 'right', 2, 40, 6), set('w2', 'left', 1, 50, 8)],
+      [],
+    )
+    expect(loadTestPrefill(records, 'bulgarian-split-squat', 'right')).toEqual({
+      prefill: { date: '2026-12-08', workoutId: 'w2', locationId: 'marriott', injured: 40, other: 50 },
+      passedOver: { rackCapped: 0, noLoad: 0 },
+    })
+    // A workout with no gym stamped ran at Planet Fitness.
+    expect(loadTestPrefill(records.slice(0, 1), 'bulgarian-split-squat', 'left').prefill).toEqual({ date: '2026-12-01', workoutId: 'w1', locationId: 'planet-fitness', injured: 40, other: 30 })
+  })
+  it('passes over a rack-capped session: the hotel’s 25 against 25 is the rack’s, not a 100% the knee lifted', () => {
+    const records = attachChecks(
+      [workout('w1', '2026-12-08'), { ...workout('w2', '2026-12-10'), locationId: 'hotel' }],
+      [set('w1', 'right', 1, 40, 8), set('w1', 'left', 1, 50, 8), capped(set('w2', 'right', 1, 25, 8)), capped(set('w2', 'left', 1, 25, 8))],
+      [],
+    )
+    expect(loadTestPrefill(records, 'bulgarian-split-squat', 'right')).toEqual({
+      prefill: { date: '2026-12-08', workoutId: 'w1', locationId: 'planet-fitness', injured: 40, other: 50 },
+      passedOver: { rackCapped: 1, noLoad: 0 },
+    })
+  })
+  it('one capped set on one side passes the whole session over', () => {
+    const records = attachChecks([workout('w1', '2026-12-08'), workout('w2', '2026-12-10')], [set('w1', 'right', 1, 40, 8), set('w1', 'left', 1, 50, 8), set('w2', 'right', 1, 45, 8), capped(set('w2', 'left', 2, 25, 8)), set('w2', 'left', 1, 55, 8)], [])
+    expect(loadTestPrefill(records, 'bulgarian-split-squat', 'right').prefill).toMatchObject({ date: '2026-12-08', injured: 40, other: 50 })
+  })
+  it('passes over a session where a side carried no load: a bodyweight session hides no loaded one', () => {
+    const records = attachChecks(
+      [workout('w1', '2026-12-08'), workout('w2', '2026-12-10'), workout('w3', '2026-12-12')],
+      [set('w1', 'right', 1, 40, 8), set('w1', 'left', 1, 50, 8), set('w2', 'right', 1, 0, 8), set('w2', 'left', 1, 0, 8), set('w3', 'right', 1, 0, 8), set('w3', 'left', 1, 20, 8)],
+      [],
+    )
+    expect(loadTestPrefill(records, 'bulgarian-split-squat', 'right')).toEqual({
+      prefill: { date: '2026-12-08', workoutId: 'w1', locationId: 'planet-fitness', injured: 40, other: 50 },
+      passedOver: { rackCapped: 0, noLoad: 2 },
+    })
+  })
+  it('null when nothing is left, with what was passed over; sessions missing a side or not yet happened are not counted', () => {
+    const records = attachChecks(
+      [workout('w1', '2026-12-08'), workout('w2', '2026-12-10'), workout('w3', '2026-12-12', 'in-progress')],
+      [capped(set('w1', 'right', 1, 25, 8)), capped(set('w1', 'left', 1, 25, 8)), set('w2', 'right', 1, 40, 8), set('w3', 'right', 1, 40, 8), set('w3', 'left', 1, 50, 8)],
+      [],
+    )
+    expect(loadTestPrefill(records, 'bulgarian-split-squat', 'right')).toEqual({ prefill: null, passedOver: { rackCapped: 1, noLoad: 0 } })
+    expect(loadTestPrefill([], 'bulgarian-split-squat', 'right')).toEqual({ prefill: null, passedOver: { rackCapped: 0, noLoad: 0 } })
   })
 })
 

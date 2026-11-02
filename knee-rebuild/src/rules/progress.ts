@@ -1,6 +1,8 @@
 import type { IsoDate, MileageWeek, MorningCheck, Run, SessionMove, SetLog, Settings, Side, WeeklyTemplate, Workout } from '../schema/index.ts'
 import { DAYS, addDays, dateOf, daysBetween, weekOf, weekSchedule } from './calendar.ts'
+import { isRackCapped } from './gymLoads.ts'
 import type { SubjectReading, WorkoutRecord } from './history.ts'
+import { locationIdOf } from './locations.ts'
 import { weekMiles } from './mileage.ts'
 import { morningCheckApplies } from './reading.ts'
 import { symmetryPercent } from './unilateral.ts'
@@ -33,6 +35,54 @@ export function loadSeries(records: readonly WorkoutRecord[], exerciseId: string
     }
   }
   return points.sort((a, b) => a.date.localeCompare(b.date))
+}
+
+/** The session a gate's load test opens on, each side's heaviest set, and the gym it ran at. */
+export interface LoadTestSession {
+  date: IsoDate
+  workoutId: string
+  /** The workout's stamped gym; one with none stamped ran at Planet Fitness. */
+  locationId: string
+  injured: number
+  other: number
+}
+
+export interface LoadTestPrefill {
+  prefill: LoadTestSession | null
+  /** Later sessions that logged both sides but were passed over, by why. */
+  passedOver: { rackCapped: number; noLoad: number }
+}
+
+/**
+ * The loads a gate's load test opens on, so they get confirmed rather than retyped (PROGRAM-QUESTIONS
+ * 25): the latest session, finished or abandoned, that logged both sides of the exercise, each side's
+ * heaviest set as loadSeries reads it. A session where any set of the exercise was rack-capped is
+ * passed over, both sides, as it is for the baseline (question 73): its loads are the rack's, so a
+ * hotel's 25 against 25 would open the test on a 100% the knee never lifted. So is one where either
+ * side's heaviest set carried no load, since a load test needs a load on each side and a bodyweight
+ * session would hide the last loaded one (PROGRAM-QUESTIONS 115). Null when nothing is left; either
+ * way, what was passed over is counted, so the screen can say so.
+ */
+export function loadTestPrefill(records: readonly WorkoutRecord[], exerciseId: string, injuredSide: Side): LoadTestPrefill {
+  const other: Side = injuredSide === 'left' ? 'right' : 'left'
+  const passedOver = { rackCapped: 0, noLoad: 0 }
+  // Newest first; of two on one date, the later one written.
+  for (const record of [...records].reverse().sort((a, b) => b.workout.date.localeCompare(a.workout.date))) {
+    const points = loadSeries([record], exerciseId)
+    const a = points.find((p) => p.side === injuredSide)
+    const b = points.find((p) => p.side === other)
+    if (!a || !b) continue
+    if (record.sets.some((s) => s.exerciseId === exerciseId && isRackCapped(s))) {
+      passedOver.rackCapped += 1
+      continue
+    }
+    if (!(a.load > 0) || !(b.load > 0)) {
+      passedOver.noLoad += 1
+      continue
+    }
+    return { prefill: { date: record.workout.date, workoutId: record.workout.id, locationId: locationIdOf(record.workout), injured: a.load, other: b.load }, passedOver }
+  }
+  return { prefill: null, passedOver }
 }
 
 export interface SymmetryPoint {

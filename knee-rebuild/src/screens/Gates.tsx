@@ -6,10 +6,10 @@ import { Button } from '../components/Button.tsx'
 import { Screen } from '../components/Screen.tsx'
 import { Stepper } from '../components/Stepper.tsx'
 import { Tap } from '../components/Tap.tsx'
-import { useHistory, useSettings } from '../db/hooks.ts'
+import { useHistory, useLocations, useSettings } from '../db/hooks.ts'
 import { addGateTest, saveSettings, type History } from '../db/repo.ts'
 import { advancePhase } from '../rules/progress.ts'
-import type { GateItem, IsoDate, Settings } from '../schema/index.ts'
+import type { GateItem, IsoDate, Location, Settings } from '../schema/index.ts'
 import {
   advanceErrorSentence,
   advancedWords,
@@ -54,8 +54,9 @@ export function Gates() {
   const today = useToday()
   const settings = useSettings()
   const history = useHistory()
+  const locations = useLocations()
 
-  if (settings === undefined || history === undefined) {
+  if (settings === undefined || history === undefined || locations === undefined) {
     return (
       <Screen title={TITLE} lead="Opening storage…">
         <p className="text-body text-on-dark-dim">Reading the sessions, runs, morning checks and tests logged on this phone.</p>
@@ -72,10 +73,10 @@ export function Gates() {
       </Screen>
     )
   }
-  return <GateScreen today={today} settings={settings} history={history} />
+  return <GateScreen today={today} settings={settings} history={history} locations={locations} />
 }
 
-function GateScreen({ today, settings, history }: { today: IsoDate; settings: Settings; history: History }) {
+function GateScreen({ today, settings, history, locations }: { today: IsoDate; settings: Settings; history: History; locations: readonly Location[] }) {
   /** Symmetry forms being typed, by gate item id; an item with no draft shows its opening form. */
   const [drafts, setDrafts] = useState<Record<string, SymmetryForm>>({})
   /** The write in flight, so only the control that made it says "Saving…". */
@@ -99,7 +100,7 @@ function GateScreen({ today, settings, history }: { today: IsoDate; settings: Se
     if (advanced !== null) window.scrollTo({ top: 0 })
   }, [advanced])
 
-  const view = gatesView({ today, settings, history, program: PROGRAM })
+  const view = gatesView({ today, settings, history, program: PROGRAM, locations })
   const takenIds = history.gateTests.map((t) => t.id)
   const setError = (key: string, text: string | null) => setErrors((all) => (text === null ? withoutKey(all, key) : { ...all, [key]: text }))
 

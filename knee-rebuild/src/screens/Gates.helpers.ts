@@ -2,11 +2,12 @@ import type { History } from '../db/repo.ts'
 import { evaluateGate, type GateContext, type GateItemResult, type GateResult } from '../rules/gates.ts'
 import { attachChecks, subjectReadings, type WorkoutRecord } from '../rules/history.ts'
 import { weekOf } from '../rules/calendar.ts'
-import { loadSeries, phaseEntryWeek } from '../rules/progress.ts'
+import { locationOrHome } from '../rules/locations.ts'
+import { loadTestPrefill, phaseEntryWeek, type LoadTestPrefill, type LoadTestSession } from '../rules/progress.ts'
 import { progressionSuspended, stopMessage, type RedFlagState } from '../rules/redFlags.ts'
 import { phaseRunsExercise } from '../rules/session.ts'
 import { bestOfTrials, meetsSymmetry, symmetryPercent } from '../rules/unilateral.ts'
-import type { Exercise, Gate, GateItem, GateTest, IsoDate, Phase, Program, Settings, Side } from '../schema/index.ts'
+import type { Exercise, Gate, GateItem, GateTest, IsoDate, Location, Phase, Program, Settings, Side } from '../schema/index.ts'
 import { shortDateWords } from './Today.helpers.ts'
 
 /**
@@ -14,7 +15,7 @@ import { shortDateWords } from './Today.helpers.ts'
  * logged; the words for each item's state and detail; the symmetry entry forms (best of the trials,
  * the live percent against the gate's line, the prefill from logged sets); the tests the screen
  * writes; and whether the phase may advance. Every verdict comes from src/rules (evaluateGate,
- * meetsSymmetry, symmetryPercent, bestOfTrials, progressionSuspended, loadSeries); this file only
+ * meetsSymmetry, symmetryPercent, bestOfTrials, progressionSuspended, loadTestPrefill); this file only
  * composes the answers and names them. The program pieces are passed in, so tests use fixtures.
  */
 
@@ -119,28 +120,8 @@ export function detailWords(detail: string): string {
 // Symmetry entry
 // ---------------------------------------------------------------------------------------------
 
-/** The loads of the latest session that logged both sides of an exercise: each side's heaviest set (loadSeries). */
-export interface LoadPrefill {
-  date: IsoDate
-  injured: number
-  other: number
-}
-
-/**
- * The latest session, finished or abandoned, that logged both sides of the exercise, with each
- * side's best set as loadSeries picks it (the heaviest load). A session missing either side is
- * passed over, so a stop on the injured side never prefills half a test.
- */
-export function loadPrefill(records: readonly WorkoutRecord[], exerciseId: string, injuredSide: Side): LoadPrefill | null {
-  const other = otherSide(injuredSide)
-  for (const record of [...records].reverse()) {
-    const points = loadSeries([record], exerciseId)
-    const a = points.find((p) => p.side === injuredSide)
-    const b = points.find((p) => p.side === other)
-    if (a && b) return { date: record.workout.date, injured: a.load, other: b.load }
-  }
-  return null
-}
+/** The session a load form opens on: loadTestPrefill's pick (src/rules/progress.ts). */
+export type LoadPrefill = LoadTestSession
 
 /**
  * One value in a form: a trial or a load, or null when it isn't entered. A hop trial of 0 is a
@@ -162,7 +143,7 @@ export interface FormBest {
 }
 
 /** A fresh form: every trial not entered for a hop test, else the prefill's loads (not entered with nothing to prefill from). */
-export function openForm(trials: number | null, prefill: LoadPrefill | null): SymmetryForm {
+export function openForm(trials: number | null, prefill: Pick<LoadPrefill, 'injured' | 'other'> | null): SymmetryForm {
   if (trials !== null) return { injured: Array.from({ length: trials }, () => null), other: Array.from({ length: trials }, () => null) }
   return { injured: [prefill?.injured ?? null], other: [prefill?.other ?? null] }
 }
@@ -301,18 +282,49 @@ export function earlierTests(tests: readonly GateTest[], gate: number, key: stri
     })
 }
 
+type PassedOver = LoadTestPrefill['passedOver']
+
+const sessionsWord = (n: number) => (n === 1 ? 'a later session' : `${n} later sessions`)
+
+/** What the prefill passed over, in one sentence, or null when nothing was. */
+function passedOverWords({ rackCapped, noLoad }: PassedOver): string | null {
+  const total = rackCapped + noLoad
+  if (total === 0) return null
+  if (noLoad === 0) return `Passed over ${sessionsWord(total)} that the rack capped.`
+  if (rackCapped === 0) return `Passed over ${sessionsWord(total)} with no load on a side.`
+  return `Passed over ${total} later sessions: ${rackCapped} that the rack capped, ${noLoad} with no load on a side.`
+}
+
 /**
- * Where a load form's numbers came from, in one sentence. `notRunIn` is the phase when it runs no
- * slot of the exercise, so no session of it can prefill the test (gate 1, PROGRAM-QUESTIONS 114).
+ * Where a load form's numbers came from, in one sentence or three: the session, the gym when it
+ * isn't the one Today plans at, and the later sessions loadTestPrefill passed over (rack-capped, or
+ * no load on a side; PROGRAM-QUESTIONS 115). `notRunIn` is the phase when it runs no slot of the
+ * exercise, so no session of it can prefill the test (gate 1, PROGRAM-QUESTIONS 114).
  */
-export function prefillWords(exercise: Pick<Exercise, 'name' | 'loadUnit'> | null, prefill: LoadPrefill | null, injuredSide: Side, notRunIn: number | null = null): string {
+export function prefillWords(input: {
+  exercise: Pick<Exercise, 'name' | 'loadUnit'> | null
+  prefill: LoadPrefill | null
+  injuredSide: Side
+  notRunIn?: number | null
+  gymName?: string | null
+  passedOver?: PassedOver
+}): string {
+  const { exercise, prefill, injuredSide } = input
+  const passedOver = input.passedOver ?? { rackCapped: 0, noLoad: 0 }
   if (!exercise) return 'Nothing to prefill from: enter the values from the test.'
-  if (notRunIn !== null) return `Phase ${notRunIn} doesn’t run this exercise (${exercise.name}), so no session can prefill this test. Enter the loads from the test.`
-  if (!prefill) return `Nothing to prefill: no session has logged both sides of this exercise (${exercise.name}) yet. Enter the loads from the test.`
+  if (input.notRunIn !== undefined && input.notRunIn !== null) return `Phase ${input.notRunIn} doesn’t run this exercise (${exercise.name}), so no session can prefill this test. Enter the loads from the test.`
+  if (!prefill) {
+    const { rackCapped, noLoad } = passedOver
+    if (rackCapped + noLoad === 0) return `Nothing to prefill: no session has logged both sides of this exercise (${exercise.name}) yet. Enter the loads from the test.`
+    const why = noLoad === 0 ? 'was rack-capped' : rackCapped === 0 ? 'had no load on a side' : 'was rack-capped or had no load on a side'
+    return `Nothing to prefill: every session that logged both sides of this exercise (${exercise.name}) ${why}. Enter the loads from the test.`
+  }
   const unit = exercise.loadUnit === 'none' ? '' : ` ${exercise.loadUnit}`
   const injured = SIDE_WORD[injuredSide].toLowerCase()
   const other = SIDE_WORD[otherSide(injuredSide)].toLowerCase()
-  return `Prefilled from ${dateInWords(prefill.date)}’s session: ${exercise.name}, ${prefill.injured}${unit} ${injured} and ${prefill.other}${unit} ${other}, the heaviest set on each side. Change either to what the test lifted.`
+  const where = input.gymName ? ` at ${input.gymName}` : ''
+  const over = passedOverWords(passedOver)
+  return `Prefilled from ${dateInWords(prefill.date)}’s session${where}: ${exercise.name}, ${prefill.injured}${unit} ${injured} and ${prefill.other}${unit} ${other}, the heaviest set on each side.${over ? ` ${over}` : ''} Change either to what the test lifted.`
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -435,7 +447,20 @@ export type GatesView =
       stop: { headline: string; items: string[] } | null
     }
 
-function symmetryEntry(item: GateItem, gate: Gate, history: HistoryLike, records: readonly WorkoutRecord[], injuredSide: Side, program: ProgramLike): SymmetryEntry {
+/** Where the screen's gyms stand: every stored gym, and the one Today plans at. */
+interface Gyms {
+  locations: readonly Location[]
+  activeId: string | undefined
+}
+
+/** The gym's name when a session ran away from the one Today plans at, else null. */
+function awayGymName(locationId: string, gyms: Gyms): string | null {
+  const active = locationOrHome(gyms.locations, gyms.activeId)
+  const there = locationOrHome(gyms.locations, locationId)
+  return active && there && there.id !== active.id ? there.name : null
+}
+
+function symmetryEntry(item: GateItem, gate: Gate, history: HistoryLike, records: readonly WorkoutRecord[], injuredSide: Side, program: ProgramLike, gyms: Gyms): SymmetryEntry {
   const key = item.testItem ?? null
   const threshold = lineOf(item)
   const trials = item.trials ?? null
@@ -449,7 +474,8 @@ function symmetryEntry(item: GateItem, gate: Gate, history: HistoryLike, records
   const exercise = exerciseId ? (program.exercises.find((e) => e.id === exerciseId) ?? null) : null
   // A phase that runs no slot of the exercise can't produce a session to prefill from (PROGRAM-QUESTIONS 114).
   const runs = exercise !== null && phaseRunsExercise(program.templates, gate.fromPhase, exercise.id)
-  const prefill = exercise && runs ? loadPrefill(records, exercise.id, injuredSide) : null
+  const found = exercise && runs ? loadTestPrefill(records, exercise.id, injuredSide) : null
+  const prefill = found?.prefill ?? null
   const unit = exercise && exercise.loadUnit !== 'none' ? exercise.loadUnit : 'lb'
   return {
     key,
@@ -458,22 +484,33 @@ function symmetryEntry(item: GateItem, gate: Gate, history: HistoryLike, records
     unit,
     step: exercise && exercise.increment > 0 ? exercise.increment : 5,
     prefill,
-    prefillLine: prefillWords(exercise, prefill, injuredSide, exercise && !runs ? gate.fromPhase : null),
+    prefillLine: prefillWords({
+      exercise,
+      prefill,
+      injuredSide,
+      notRunIn: exercise && !runs ? gate.fromPhase : null,
+      gymName: prefill ? awayGymName(prefill.locationId, gyms) : null,
+      ...(found ? { passedOver: found.passedOver } : {}),
+    }),
     earlier: key ? earlierTests(history.gateTests, gate.number, key, threshold, unit) : [],
     sides,
   }
 }
 
-function itemView(r: GateItemResult, gate: Gate, history: HistoryLike, records: readonly WorkoutRecord[], injuredSide: Side, program: ProgramLike): ItemView {
+function itemView(r: GateItemResult, gate: Gate, history: HistoryLike, records: readonly WorkoutRecord[], injuredSide: Side, program: ProgramLike, gyms: Gyms): ItemView {
   const base: ItemBase = { item: r.item, pass: r.pass, ...stateWords(r.pass), detail: detailWords(r.detail) }
   if (r.item.evaluator === 'manual') return { ...base, kind: 'manual' }
-  if (r.item.evaluator === 'symmetry') return { ...base, kind: 'symmetry', entry: symmetryEntry(r.item, gate, history, records, injuredSide, program) }
+  if (r.item.evaluator === 'symmetry') return { ...base, kind: 'symmetry', entry: symmetryEntry(r.item, gate, history, records, injuredSide, program, gyms) }
   return { ...base, kind: 'auto' }
 }
 
-/** What the Gates screen shows: the current gate evaluated live, item by item, and whether it may advance. */
-export function gatesView(input: { today: IsoDate; settings: Settings; history: HistoryLike; program: ProgramLike }): GatesView {
+/**
+ * What the Gates screen shows: the current gate evaluated live, item by item, and whether it may
+ * advance. `locations` lets a prefill line name a gym away from the one Today plans at.
+ */
+export function gatesView(input: { today: IsoDate; settings: Settings; history: HistoryLike; program: ProgramLike; locations?: readonly Location[] }): GatesView {
   const { today, settings, history, program } = input
+  const gyms: Gyms = { locations: input.locations ?? [], activeId: settings.activeLocationId }
   const gate = currentGate(program.gates, settings.currentPhase)
   if (!gate) return { kind: 'no-gate', line: noGateWords(program.gates, settings.currentPhase) }
   const records = attachChecks(history.workouts, history.setLogs, history.morningChecks)
@@ -484,7 +521,7 @@ export function gatesView(input: { today: IsoDate; settings: Settings; history: 
     gate,
     result,
     countLine: passCountWords(result),
-    items: result.items.map((r) => itemView(r, gate, history, records, settings.injuredSide, program)),
+    items: result.items.map((r) => itemView(r, gate, history, records, settings.injuredSide, program, gyms)),
     advance: advanceState(result, settings.redFlag),
     entryWeek,
     question: advanceQuestion(gate, program.phases, entryWeek, weekOf(today, settings.startDate)),
