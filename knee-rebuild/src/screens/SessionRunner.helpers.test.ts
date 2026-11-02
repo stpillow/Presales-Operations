@@ -48,6 +48,7 @@ import {
   routeLines,
   setWords,
   showsLoad,
+  sideLine,
   standingMarkFor,
   swapChoices,
   swapPick,
@@ -171,6 +172,20 @@ describe('summary helpers', () => {
     expect(durationWords('2026-11-03T22:00:00Z', '2026-11-04T00:05:00Z')).toBe('2 h 5 min')
     expect(durationWords(undefined, 'x')).toBeNull()
     expect(durationWords('2026-11-03T22:00:00Z', '2026-11-03T22:00:20Z')).toBeNull()
+  })
+})
+
+describe('a slot and an exercise that count sides differently (design section 4)', () => {
+  it('a unilateral slot on a two-legged exercise is done one leg at a time; the reverse logs as both sides (PROGRAM-QUESTIONS 54)', () => {
+    expect(sideLine(true, false)).toBe('One leg at a time: the slot is single-leg in the program, so each side logs on its own, injured side first.')
+    expect(sideLine(false, true)).toBe('Logs as both sides: this slot is two-legged in the program.')
+    expect(sideLine(true, true)).toBeNull()
+    expect(sideLine(false, false)).toBeNull()
+  })
+  it('Phase 2 A1 at a hotel with a bench and 25 lb dumbbells: the single-leg leg press moves to the goblet squat, and says so', () => {
+    const slot = program.templates.find((t) => t.id === 'p2-a')?.slots.find((s) => s.id === 'p2a-1')
+    expect(slot?.unilateral).toBe(true)
+    expect(sideLine(slot?.unilateral ?? false, exerciseById('goblet-squat-bench').unilateral)).toMatch(/^One leg at a time/)
   })
 })
 

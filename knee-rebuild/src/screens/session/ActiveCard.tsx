@@ -25,6 +25,7 @@ import {
   rangeStopOptions,
   setWords,
   showsLoad,
+  sideLine,
   sideWords,
   type SwapChoice,
 } from '../SessionRunner.helpers.ts'
@@ -112,7 +113,7 @@ export function ActiveCard(props: ActiveCardProps) {
   const pain = props.painPerSet ? (draft?.pain ?? null) : props.exercisePain
   const blockedOnPain = !editing && step !== null && pain === null
   const moved = movedByEngine(plan.slot.exerciseId, prescription.exerciseId, plan.route, props.swapped)
-  const bothForUnilateral = !plan.slot.unilateral && exercise.unilateral
+  const sideNote = sideLine(plan.slot.unilateral, exercise.unilateral)
   const cuesFor = cuesWrittenFor(plan.slot.exerciseId, exercise.id, (id) => exerciseById(id).name)
   const healthyStep = step && step.side !== 'both' && step.side !== injuredSide
   const budgetLine = healthyStep
@@ -172,7 +173,7 @@ export function ActiveCard(props: ActiveCardProps) {
           {prescription.note ? <p className="text-small text-on-dark-dim">{prescription.note}</p> : null}
           {moved ? <p className="text-small text-on-dark">Moved to {exercise.name} by the engine.</p> : null}
           <GymNotes lines={props.gym.lines} actions={props.gym.actions} rack={props.gym.rack} busy={props.busy} />
-          {bothForUnilateral ? <p className="text-small text-on-dark-dim">Logs as both sides: this slot is two-legged in the program.</p> : null}
+          {sideNote ? <p className="text-small text-on-dark-dim">{sideNote}</p> : null}
           {exercise.sideMeaning ? <p className="text-small text-on-dark-dim">{exercise.sideMeaning}</p> : null}
         </header>
 

@@ -128,6 +128,17 @@ export function setWords(set: SetLog, repUnit: RepUnit, exercise: Exercise): str
   return parts.filter(Boolean).join(' · ')
 }
 
+/**
+ * When the slot and the exercise on the card count sides differently (design section 4): a
+ * unilateral slot on a two-legged exercise (a single-leg leg press moved to a goblet squat) is done
+ * one leg at a time; a two-legged slot on a one-sided exercise logs as both sides (PROGRAM-QUESTIONS 54).
+ */
+export function sideLine(slotUnilateral: boolean, exerciseUnilateral: boolean): string | null {
+  if (slotUnilateral && !exerciseUnilateral) return 'One leg at a time: the slot is single-leg in the program, so each side logs on its own, injured side first.'
+  if (!slotUnilateral && exerciseUnilateral) return 'Logs as both sides: this slot is two-legged in the program.'
+  return null
+}
+
 export function sideWords(side: SetSide, injuredSide: Side): string {
   if (side === 'both') return ''
   const name = side === 'left' ? 'Left' : 'Right'
