@@ -34,7 +34,7 @@ Four parts, in this order:
 1. **Consecutive clean days**, a stat: the number from `consecutiveCleanDays`, in the spdc stat style (Fraunces number), with a context line ("days since the last hold or back-off" or "no readings yet").
 2. **Load over time**, one exercise at a time: a list of the exercises that have logged sets (names, grouped by pattern is fine, most recent first), one tap picks; a line chart of `loadSeries` for that exercise. Two-sided exercises draw two lines.
 3. **Symmetry over time**, for the picked exercise when it is two-sided: `symmetrySeries` as one line in percent, with solid hairline reference lines at 80% and 90% labelled in text ("Gate 1 · 80%", "Gates 2 and 3 · 90%"). Say what was compared (loads or counts) in the tooltip and the table.
-4. **Weekly miles, actual against plan**, for the 12 weeks: `milesSeries` as columns for actual miles with the plan as a short hairline mark across each week's column slot; down weeks labelled "down" under the axis.
+4. **Weekly miles, actual against plan**, for the 12 weeks: `milesSeries` as columns for actual miles with the plan as a short hairline mark across each week's column slot; deload weeks 4, 8 and 12 labelled "deload" under the axis (the plan holds flat there by Shawn's Nov 1 call, so they no longer dip). Machine loads are pounds (Nov 1), so every load chart is in lb.
 
 Chart rules (from the dataviz skill; hand-rolled SVG, no chart library):
 
