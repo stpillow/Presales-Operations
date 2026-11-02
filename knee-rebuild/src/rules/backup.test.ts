@@ -18,6 +18,8 @@ import {
   lostOnImport,
   migrateForward,
   parseBackup,
+  redFlagOnImport,
+  settingsOnImport,
   sizeProblem,
   summarize,
   type Backup,
@@ -334,6 +336,48 @@ describe('what a file holds', () => {
       { table: 'programOverrides', count: 1 },
     ])
     expect(lostOnImport(file, phone)).toEqual([])
+  })
+})
+
+describe('the red flag through an import (PROGRAM-QUESTIONS 128)', () => {
+  const off = { active: false, items: [] }
+  const cleared = { active: false, items: [], clearedOn: '2026-11-20', clearNote: 'PT checked it Nov 19: no block' }
+  const locking = { active: true, since: '2026-11-05', items: ['locking'] }
+
+  it('never lifts a red flag the phone has on: an older file’s clear state leaves it on, as it was', () => {
+    expect(redFlagOnImport(locking, off)).toEqual(locking)
+    expect(redFlagOnImport(locking, cleared)).toEqual(locking)
+  })
+
+  it('with both on, the flags join, each once, the phone’s first, from the earlier day', () => {
+    expect(redFlagOnImport(locking, { active: true, since: '2026-11-03', items: ['giving-way', 'locking'] })).toEqual({ active: true, since: '2026-11-03', items: ['locking', 'giving-way'] })
+    expect(redFlagOnImport({ active: true, items: ['locking'] }, { active: true, since: '2026-11-07', items: ['numbness'] })).toEqual({ active: true, since: '2026-11-07', items: ['locking', 'numbness'] })
+  })
+
+  it('with the phone’s flag off, or no settings on the phone, the file’s state comes in whole, its last clear and note included', () => {
+    expect(redFlagOnImport(cleared, locking)).toEqual(locking)
+    expect(redFlagOnImport(off, cleared)).toEqual(cleared)
+    expect(redFlagOnImport(undefined, locking)).toEqual(locking)
+  })
+
+  const fileSettings = without(settings, 'lastExportedAt') as Omit<Settings, 'lastExportedAt'>
+
+  it('the confirm is told which flag the import keeps on, and nothing when the file has it on too', () => {
+    expect(settingsOnImport({ ...settings, redFlag: locking }, fileSettings)).toEqual({ keptRedFlag: locking, changes: [] })
+    expect(settingsOnImport({ ...settings, redFlag: locking }, { ...fileSettings, redFlag: locking })).toEqual({ keptRedFlag: null, changes: [] })
+    expect(settingsOnImport({ ...settings, redFlag: { ...locking, items: ['locking', 'numbness'] } }, { ...fileSettings, redFlag: locking }).keptRedFlag).toEqual({ ...locking, items: ['locking', 'numbness'] })
+    expect(settingsOnImport(settings, fileSettings)).toEqual({ keptRedFlag: null, changes: [] })
+  })
+
+  it('names each setting the file changes: the injured side, the start date, the phase and the week it was entered', () => {
+    const file = { ...fileSettings, injuredSide: 'left' as const, startDate: '2026-11-09', currentPhase: 1, phaseEnteredWeek: 1, painPerSet: false }
+    expect(settingsOnImport(settings, file).changes).toEqual([
+      { field: 'injuredSide', phone: 'right', file: 'left' },
+      { field: 'startDate', phone: '2026-11-02', file: '2026-11-09' },
+      { field: 'currentPhase', phone: 2, file: 1 },
+      { field: 'phaseEnteredWeek', phone: 4, file: 1 },
+    ])
+    expect(settingsOnImport(undefined, file)).toEqual({ keptRedFlag: null, changes: [] })
   })
 })
 

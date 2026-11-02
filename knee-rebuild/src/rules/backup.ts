@@ -1,4 +1,5 @@
 import { daysBetween, todayIn } from './calendar.ts'
+import type { RedFlagState } from './redFlags.ts'
 import {
   GateTest,
   IsoDateTime,
@@ -11,6 +12,7 @@ import {
   Settings,
   Workout,
   type IsoDate,
+  type Side,
 } from '../schema/index.ts'
 
 /**
@@ -380,6 +382,51 @@ export function lostOnImport(phone: BackupTables, file: BackupTables): { table: 
 
 function keysOf<K extends BackupTable>(name: K, tables: BackupTables): string[] {
   return (tables[name] as BackupTables[K][number][]).map((row) => rowKey(name, row))
+}
+
+/**
+ * The red-flag state an import leaves (PROGRAM-QUESTIONS 128). Rule 9 lifts a red flag only from
+ * Settings, with a note, so an import never lifts one the phone has on: an older file's clear state
+ * leaves it as it is, and a file with a flag on too joins it (each item once, the phone's first,
+ * from the earlier day). With the phone's flag off, or no settings on the phone yet, the file's
+ * state comes in whole, its last clear and note included. Everything else an import replaces.
+ */
+export function redFlagOnImport(phone: RedFlagState | undefined, file: RedFlagState): RedFlagState {
+  if (!phone?.active) return file
+  if (!file.active) return phone
+  const since = [phone.since, file.since].filter((d): d is IsoDate => d !== undefined).sort()[0]
+  return { active: true, ...(since !== undefined ? { since } : {}), items: [...new Set([...phone.items, ...file.items])] }
+}
+
+/** A setting the file would change, the phone's value then the file's. */
+export type SettingChange =
+  | { field: 'injuredSide'; phone: Side; file: Side }
+  | { field: 'startDate'; phone: IsoDate; file: IsoDate }
+  | { field: 'currentPhase'; phone: number; file: number }
+  | { field: 'phaseEnteredWeek'; phone: number; file: number }
+
+export interface SettingsOnImport {
+  /** The red flag the phone has on that the file's settings don't carry, which the import keeps on (`redFlagOnImport`); null when the file carries it all. */
+  keptRedFlag: RedFlagState | null
+  /** The settings that set the plan which the file changes, in the order Settings lists them; empty with no settings on the phone. */
+  changes: SettingChange[]
+}
+
+/**
+ * What an import does to the settings, for the confirm to name next to the row counts (question
+ * 123 counts rows by key, so a changed settings row is never counted): the red flag it keeps on,
+ * and the injured side, start date, phase and the week it was entered that the file changes.
+ */
+export function settingsOnImport(phone: Settings | undefined, file: FileSettings): SettingsOnImport {
+  if (!phone) return { keptRedFlag: null, changes: [] }
+  const flag = redFlagOnImport(phone.redFlag, file.redFlag)
+  const carried = flag.active === file.redFlag.active && flag.since === file.redFlag.since && flag.items.length === file.redFlag.items.length
+  const changes: SettingChange[] = []
+  if (phone.injuredSide !== file.injuredSide) changes.push({ field: 'injuredSide', phone: phone.injuredSide, file: file.injuredSide })
+  if (phone.startDate !== file.startDate) changes.push({ field: 'startDate', phone: phone.startDate, file: file.startDate })
+  if (phone.currentPhase !== file.currentPhase) changes.push({ field: 'currentPhase', phone: phone.currentPhase, file: file.currentPhase })
+  if (phone.phaseEnteredWeek !== file.phaseEnteredWeek) changes.push({ field: 'phaseEnteredWeek', phone: phone.phaseEnteredWeek, file: file.phaseEnteredWeek })
+  return { keptRedFlag: carried ? null : flag, changes }
 }
 
 // ---------------------------------------------------------------------------------------------

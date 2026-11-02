@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { program, templateFor } from '../program/program.ts'
 import { BACKUP_SCHEMA_VERSION, BACKUP_TABLES, backupText, parseBackup, type Backup, type BackupTables } from '../rules/backup.ts'
 import { addDays, dateOf } from '../rules/calendar.ts'
+import { afterMorningCheck, stopMessage } from '../rules/redFlags.ts'
 import {
   GateTest,
   Location,
@@ -345,6 +346,31 @@ describe('import is all or nothing', () => {
     const twice = { ...backup, runs: [...backup.runs, ...backup.runs.slice(0, 1)] }
     await expect(replaceAll(twice, program, TODAY)).rejects.toThrow('twice')
     expect(await rawDump()).toEqual(before)
+  })
+})
+
+describe('an import and the red flag (PROGRAM-QUESTIONS 128)', () => {
+  it('a red-flagged phone importing a file from before the flag keeps the flag on: only Settings clears it, with a note', async () => {
+    await ensureSettings(defaultSettings(program))
+    await ensureLocations(program, START)
+    await addMorningCheck(MorningCheck.parse({ id: 'mc-2026-11-04', date: '2026-11-04', appliesTo: null, stiffnessUnder30Min: true, worseThanYesterday: false, visibleSwelling: false, warmth: false, painChangePoints: 0, redFlags: [] }))
+    const wednesday = backupText((await exportBackup('2026-11-04T23:00:00.000Z')).backup)
+    const flagged = MorningCheck.parse({ id: 'mc-2026-11-05', date: '2026-11-05', appliesTo: null, stiffnessUnder30Min: true, worseThanYesterday: false, visibleSwelling: false, warmth: false, painChangePoints: 0, redFlags: ['locking'] })
+    await addMorningCheck(flagged)
+    const before = await getSettings()
+    if (!before) throw new Error('no settings')
+    await saveSettings({ ...before, redFlag: afterMorningCheck(before.redFlag, flagged) })
+
+    const read = parseBackup(wednesday)
+    if (!read.ok) throw new Error(read.refusal)
+    expect(read.backup.settings.redFlag).toEqual({ active: false, items: [] })
+    await replaceAll(read.backup, program, '2026-11-05')
+
+    const after = await getSettings()
+    expect(after?.redFlag).toEqual({ active: true, since: '2026-11-05', items: ['locking'] })
+    expect(stopMessage(after?.redFlag ?? { active: false, items: [] }, program.redFlags)?.headline).toBe('Stop. Call the ortho or PT.')
+    // Everything else is the file's: the flagged morning check is gone with the rest of what came after it.
+    expect((await db.morningChecks.toArray()).map((m) => m.id)).toEqual(['mc-2026-11-04'])
   })
 })
 
