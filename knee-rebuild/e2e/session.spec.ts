@@ -63,8 +63,12 @@ async function openOn(page: Page, when: string): Promise<void> {
 }
 
 test('Session A at week 1, the morning check, and Session A at week 2', async ({ page }) => {
+  // A script error or a console error (a write Dexie refused, a failed load) fails the run, as in e2e/pwa.spec.ts.
   const errors: string[] = []
-  page.on('pageerror', (e) => errors.push(e.message))
+  page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`))
+  page.on('console', (m) => {
+    if (m.type() === 'error') errors.push(`console: ${m.text()}`)
+  })
 
   await page.clock.install({ time: new Date(TUESDAY_WEEK_1) })
   await page.goto('/')
