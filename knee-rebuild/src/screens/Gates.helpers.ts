@@ -1,14 +1,14 @@
 import type { History } from '../db/repo.ts'
 import { evaluateGate, type GateContext, type GateItemResult, type GateResult } from '../rules/gates.ts'
-import { attachChecks, subjectReadings, type WorkoutRecord } from '../rules/history.ts'
+import { attachChecks, subjectReadings, type SubjectReading, type WorkoutRecord } from '../rules/history.ts'
 import { weekOf } from '../rules/calendar.ts'
 import { locationOrHome } from '../rules/locations.ts'
-import { advanceWaitsFor, loadTestPrefill, phaseEntryWeek, type LoadTestPrefill, type LoadTestSession } from '../rules/progress.ts'
+import { advanceWaitsFor, awaitingMorningCheck, loadTestPrefill, phaseEntryWeek, type LoadTestPrefill, type LoadTestSession } from '../rules/progress.ts'
 import { progressionSuspended, stopMessage, type RedFlagState } from '../rules/redFlags.ts'
 import { phaseRunsExercise } from '../rules/session.ts'
 import { bestOfTrials, meetsSymmetry, symmetryPercent } from '../rules/unilateral.ts'
 import type { Exercise, Gate, GateItem, GateTest, IsoDate, Location, Phase, Program, Settings, Side } from '../schema/index.ts'
-import { dateWords, shortDateWords, workoutLabel } from './Today.helpers.ts'
+import { dateWords, runLabel, shortDateWords, workoutLabel } from './Today.helpers.ts'
 
 /**
  * Pure helpers for the Gates screen: the context the gate rule reads, assembled from what is
@@ -114,6 +114,35 @@ export function detailWords(detail: string): string {
   if (dated.length === 0) return ''
   const sentence = dated.charAt(0).toUpperCase() + dated.slice(1)
   return /[.!?]$/.test(sentence) ? sentence : `${sentence}.`
+}
+
+const RESULT_WORD: Record<SubjectReading['result'], string> = { clean: 'Clean', hold: 'Hold', 'back-off': 'Back off' }
+
+/** "Session A", "Run: long": what a reading was of. */
+function readingLabel(reading: Pick<SubjectReading, 'kind' | 'id'>, history: Pick<HistoryLike, 'workouts' | 'runs'>, templates: ProgramLike['templates']): string {
+  if (reading.kind === 'run') {
+    const run = history.runs.find((r) => r.id === reading.id)
+    return run ? runLabel(run.type) : 'A run'
+  }
+  const workout = history.workouts.find((w) => w.id === reading.id)
+  return workout ? workoutLabel(workout, templates) : 'A session'
+}
+
+/**
+ * The clean-weeks detail with each reading that isn't clean named: "Hold on Tuesday Nov 17
+ * (Session A).", as Progress names the last one; and a reading that is hold only because its
+ * morning check is still due (awaitingMorningCheck) says so, with what to do: "Saturday Nov 21’s
+ * Session A reads hold until its morning check is in; log it to count." The gate still reads it as
+ * hold until then (rule 3, PROGRAM-QUESTIONS 109).
+ */
+export function cleanWeeksWords(detail: string, misses: readonly SubjectReading[], input: { today: IsoDate; history: HistoryLike; templates: ProgramLike['templates'] }): string {
+  const named = misses.map((m) => {
+    const label = readingLabel(m, input.history, input.templates)
+    const when = dateInWords(m.date)
+    if (awaitingMorningCheck(m, input.history.morningChecks, input.today)) return `${when}’s ${label} reads hold until its morning check is in; log it to count.`
+    return `${RESULT_WORD[m.result]} on ${when} (${label}).`
+  })
+  return [detailWords(detail), ...named].join(' ')
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -542,8 +571,9 @@ function symmetryEntry(item: GateItem, gate: Gate, history: HistoryLike, records
   }
 }
 
-function itemView(r: GateItemResult, gate: Gate, history: HistoryLike, records: readonly WorkoutRecord[], injuredSide: Side, program: ProgramLike, gyms: Gyms): ItemView {
-  const base: ItemBase = { item: r.item, pass: r.pass, ...stateWords(r.pass), detail: detailWords(r.detail) }
+function itemView(r: GateItemResult, gate: Gate, today: IsoDate, history: HistoryLike, records: readonly WorkoutRecord[], injuredSide: Side, program: ProgramLike, gyms: Gyms): ItemView {
+  const detail = r.misses && r.misses.length > 0 ? cleanWeeksWords(r.detail, r.misses, { today, history, templates: program.templates }) : detailWords(r.detail)
+  const base: ItemBase = { item: r.item, pass: r.pass, ...stateWords(r.pass), detail }
   if (r.item.evaluator === 'manual') return { ...base, kind: 'manual' }
   if (r.item.evaluator === 'symmetry') return { ...base, kind: 'symmetry', entry: symmetryEntry(r.item, gate, history, records, injuredSide, program, gyms) }
   return { ...base, kind: 'auto' }
@@ -566,7 +596,7 @@ export function gatesView(input: { today: IsoDate; settings: Settings; history: 
     gate,
     result,
     countLine: passCountWords(result),
-    items: result.items.map((r) => itemView(r, gate, history, records, settings.injuredSide, program, gyms)),
+    items: result.items.map((r) => itemView(r, gate, today, history, records, settings.injuredSide, program, gyms)),
     advance: advanceState(
       result,
       settings.redFlag,

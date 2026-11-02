@@ -121,11 +121,25 @@ describe('done criterion: gate 1 evaluates from logged data alone', () => {
     expect(view.advance).toEqual({ enabled: false, why: '2 items don’t pass yet' })
   })
 
-  it('one hold in the window fails the clean weeks, from the logged pain alone', () => {
+  it('one hold in the window fails the clean weeks, from the logged pain alone, and the detail names it', () => {
     const history = loggedPhase1()
     const sore = { ...history, setLogs: history.setLogs.map((s) => (s.workoutId === 'w-2026-11-17' ? { ...s, painDuring: 4 } : s)) }
     const view = gatesView({ today: TODAY, settings: settings(), history: sore, program: PROGRAM })
-    expect(byId(view, 'g1-clean-weeks')).toMatchObject({ pass: false, word: 'Not yet', detail: '1 of 12 readings in the last 14 days read hold.' })
+    expect(byId(view, 'g1-clean-weeks')).toMatchObject({ pass: false, word: 'Not yet', detail: '1 of 12 readings in the last 14 days read hold. Hold on Tuesday Nov 17 (Session A).' })
+  })
+
+  it('a session waiting on its morning check says so, rather than reading as a session that went badly', () => {
+    const history = loggedPhase1()
+    const waiting = { ...history, morningChecks: history.morningChecks.filter((c) => c.date !== TODAY) }
+    const view = gatesView({ today: TODAY, settings: settings(), history: waiting, program: PROGRAM })
+    expect(byId(view, 'g1-clean-weeks')).toMatchObject({
+      pass: false,
+      detail: '1 of 12 readings in the last 14 days read hold. Saturday Nov 21’s Session A reads hold until its morning check is in; log it to count.',
+    })
+    // A run waiting on its check and a back-off say so in the same way.
+    const run20 = { ...history, morningChecks: history.morningChecks.filter((c) => c.date !== '2026-11-21') }
+    const late = gatesView({ today: '2026-11-21', settings: settings(), history: run20, program: PROGRAM })
+    expect(byId(late, 'g1-clean-weeks').detail).toContain('Friday Nov 20’s Run: long reads hold until its morning check is in; log it to count.')
   })
 
   it('with the leg-press test entered and the stance ticked, the gate passes and advances only on confirmation', () => {

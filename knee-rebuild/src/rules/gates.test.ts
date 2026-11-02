@@ -58,6 +58,14 @@ describe('evaluateGate (rule 8)', () => {
     expect(evaluateGate(gate1, ctx({ readings: [...twoCleanWeeks, reading('2026-11-05', 'back-off')] })).items[0]?.pass).toBe(true)
   })
 
+  it('clean weeks hand back the readings that aren’t clean, oldest first, so the screen can name them', () => {
+    const hold = reading('2026-11-15', 'hold')
+    const backOff = reading('2026-11-13', 'back-off')
+    const item = evaluateGate(gate1, ctx({ readings: [...twoCleanWeeks, hold, backOff, reading('2026-11-05', 'hold')] })).items[0]
+    expect(item).toMatchObject({ pass: false, detail: '2 of 8 readings in the last 14 days read hold, back-off', misses: [backOff, hold] })
+    expect(evaluateGate(gate1, ctx({ readings: twoCleanWeeks })).items[0]?.misses).toBeUndefined()
+  })
+
   it('clean weeks leave a rack-capped clean out: it neither counts as clean nor breaks the streak (Shawn, Nov 2)', () => {
     const capped = (date: string, result: SubjectReading['result'] = 'clean'): SubjectReading => ({ ...reading(date, result), rackCapped: true })
     const withCapped = evaluateGate(gate1, ctx({ readings: [...twoCleanWeeks, capped('2026-11-16')] })).items[0]
