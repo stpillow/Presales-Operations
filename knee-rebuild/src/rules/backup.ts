@@ -268,7 +268,7 @@ export function backupFrom(raw: unknown): BackupRead {
   if (typeof version !== 'number' || !Number.isInteger(version) || version < 1) return refuse('This backup has no schema version, so the app can’t tell how to read it.')
   if (version > BACKUP_SCHEMA_VERSION) {
     return refuse(
-      `This backup is from a newer version of the app (schema version ${version}; this one reads up to ${BACKUP_SCHEMA_VERSION}). Open the app with a signal and tap Reload when Update ready shows, then import it again.`,
+      `This backup is from a newer version of the app (schema version ${version}; this one reads up to ${BACKUP_SCHEMA_VERSION}). Open the app with a signal and tap Reload now when “A new version is ready” shows, then import it again.`,
     )
   }
   if (version < OLDEST_SCHEMA_VERSION) return refuse(`This backup says schema version ${version}, and no backup was ever written below version ${OLDEST_SCHEMA_VERSION}, so the app can’t read it.`)

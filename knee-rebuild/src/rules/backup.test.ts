@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import appSource from '../App.tsx?raw'
 import type { Location, Settings } from '../schema/index.ts'
 import {
   BACKUP_MAX_BYTES,
@@ -175,11 +176,15 @@ describe('reading a file back', () => {
     expect(read).toEqual({ ok: false, refusal: 'This file is from another app, not Knee Rebuild. Nothing was imported.' })
   })
 
-  it('refuses a newer schema version, saying how to get an app that reads it', () => {
+  it('refuses a newer schema version, saying how to get an app that reads it, in the update prompt’s own words', () => {
     expect(parseBackup(fileText({ ...built(), schemaVersion: 5 }))).toEqual({
       ok: false,
-      refusal: 'This backup is from a newer version of the app (schema version 5; this one reads up to 4). Open the app with a signal and tap Reload when Update ready shows, then import it again. Nothing was imported.',
+      refusal:
+        'This backup is from a newer version of the app (schema version 5; this one reads up to 4). Open the app with a signal and tap Reload now when “A new version is ready” shows, then import it again. Nothing was imported.',
     })
+    // The prompt the refusal sends Shawn to is the one the app shows (src/App.tsx): its sentence and its button.
+    expect(appSource).toContain('<span>A new version is ready. It will not reload on its own.</span>')
+    expect(appSource).toMatch(/>\s*Reload now\s*</)
   })
 
   it('refuses a missing or nonsense version, and one older than any backup', () => {
