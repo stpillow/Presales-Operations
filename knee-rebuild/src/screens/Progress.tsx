@@ -97,7 +97,8 @@ function CleanDays({ clean }: { clean: CleanDaysView }) {
       <p className="flex flex-col gap-1">
         <span className="font-display text-stat text-on-dark">{clean.count}</span>
         <span className="text-body text-on-dark-dim">
-          {clean.unit ? <span className="text-green-bright">{clean.unit} </span> : null}
+          {/* A text token, not green: on this screen green-bright marks the injured side in the charts, and text never wears a data color. */}
+          {clean.unit ? <span className="text-on-dark">{clean.unit} </span> : null}
           {clean.context}
         </span>
       </p>

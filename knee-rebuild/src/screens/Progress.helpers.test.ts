@@ -632,3 +632,16 @@ describe('progressView', () => {
     expect(view.miles.weeks[0]?.actual).toBe(3)
   })
 })
+
+describe('the Progress screen’s text wears text tokens, never a data color', () => {
+  // The screen's sources, read at test time through Vite as src/rules/guard.test.ts reads the rules.
+  const sources = import.meta.glob<string>(['./Progress.tsx', './progress/*.tsx'], { query: '?raw', import: 'default', eager: true })
+
+  it('no green text: green-bright marks the injured side in the charts, so it stays on lines and markers', () => {
+    expect(Object.keys(sources)).toContain('./Progress.tsx')
+    for (const [path, source] of Object.entries(sources)) {
+      expect(source, `${path} gives text a green class`).not.toMatch(/\btext-green/)
+      for (const line of source.split('\n').filter((l) => l.includes('fill-green'))) expect(line, `${path}: green fill off a marker`).toContain('<circle')
+    }
+  })
+})
