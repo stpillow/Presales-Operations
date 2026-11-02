@@ -53,18 +53,36 @@ function open(step: Step, done: ReadonlySet<string>, stopped: ReadonlySet<string
   return !done.has(step.key) && !stopped.has(step.slotId)
 }
 
+const NOWHERE: ReadonlySet<string> = new Set()
+
+/** Open, and on a slot this gym has something for: a step the run order may land on by itself. */
+function auto(step: Step, done: ReadonlySet<string>, stopped: ReadonlySet<string>, notHere: ReadonlySet<string>): boolean {
+  return open(step, done, stopped) && !notHere.has(step.slotId)
+}
+
 /**
  * The step to do next. After a logged step, stay in its unit (the rest of the superset round, the
  * other side, the next set) while it has open steps; otherwise the first open step of a required
  * slot in session order. Optional slots are never chosen automatically. Null when nothing required is left.
+ *
+ * `notHere` holds the slots routed `none` at this gym (nothing on the slot's list is here,
+ * equipment.ts `routeSlot`). They are never the automatic next step, not even inside a superset
+ * round; a tap on the row still lands on them, for Skip or Do it anyway, and once Shawn picks Do it
+ * anyway the runner leaves the slot out of the set. Absent, every slot has something here.
  */
-export function nextStep(steps: readonly Step[], done: ReadonlySet<string>, stopped: ReadonlySet<string>, lastKey: string | null): Step | null {
+export function nextStep(
+  steps: readonly Step[],
+  done: ReadonlySet<string>,
+  stopped: ReadonlySet<string>,
+  lastKey: string | null,
+  notHere: ReadonlySet<string> = NOWHERE,
+): Step | null {
   const last = lastKey ? steps.find((s) => s.key === lastKey) : undefined
   if (last) {
-    const inUnit = steps.find((s) => s.unit === last.unit && open(s, done, stopped))
+    const inUnit = steps.find((s) => s.unit === last.unit && auto(s, done, stopped, notHere))
     if (inUnit) return inUnit
   }
-  return steps.find((s) => !s.optional && open(s, done, stopped)) ?? null
+  return steps.find((s) => !s.optional && auto(s, done, stopped, notHere)) ?? null
 }
 
 /** The first open step of one slot: where a tap on the slot's row lands. */
@@ -75,13 +93,14 @@ export function firstOpenStepOf(steps: readonly Step[], slotId: string, done: Re
 /**
  * Whether a rest is due after a step: it ends its round, meaning the next open step of its unit
  * (in run order, after it) has a later set number, or there is none. Both sides of a set and every
- * member of a superset round run back to back; the rest comes after the round.
+ * member of a superset round run back to back; the rest comes after the round. A slot in `notHere`
+ * isn't part of the round (`nextStep` won't land on it), so a round ends without it.
  */
-export function restAfter(steps: readonly Step[], key: string, done: ReadonlySet<string>, stopped: ReadonlySet<string>): boolean {
+export function restAfter(steps: readonly Step[], key: string, done: ReadonlySet<string>, stopped: ReadonlySet<string>, notHere: ReadonlySet<string> = NOWHERE): boolean {
   const index = steps.findIndex((s) => s.key === key)
   const step = steps[index]
   if (!step) return true
-  const following = steps.slice(index + 1).find((s) => s.unit === step.unit && open(s, done, stopped))
+  const following = steps.slice(index + 1).find((s) => s.unit === step.unit && auto(s, done, stopped, notHere))
   return !following || following.setNumber > step.setNumber
 }
 

@@ -1,7 +1,8 @@
-import type { Exercise, LoadUnit, ReadingResult, RepUnit, SetLog, SetSide, Side, Slot } from '../schema/index.ts'
+import type { EquipmentId, Exercise, IsoDate, LoadUnit, ReadingResult, RepUnit, Requirement, SetLog, SetSide, Side, Slot } from '../schema/index.ts'
 import { isDeloadWeek } from './calendar.ts'
 import { prescribedSets } from './deload.ts'
 import { effectiveSlot } from './effectiveSlot.ts'
+import { fallbacksAfter, missingFor, slotOrder, stageCeiling, type Available, type ExerciseLookup } from './equipment.ts'
 
 /** Why the prescription is what it is. Every basis has a one-sentence note for the screen. */
 export type Basis =
@@ -36,24 +37,83 @@ export interface Prescription {
   stage?: number
   /** Healthy side: its per-set rep targets come from what the injured side just did (rule 5). */
   budgetFromInjured?: boolean
+  /**
+   * The rack stopped the load short of the prescription and nothing here is written to swap to
+   * (Shawn's Nov 1 answer 5): the load is the gym's heaviest dumbbell, and the sets are logged
+   * `rackCapped`, so the session never becomes the baseline and a clean on it never counts (gymLoads.ts).
+   */
+  rackCapped?: boolean
   basis: Basis
   note: string
+}
+
+/** The gym a session runs at, as the prescription reads it (M4b, design section 3). */
+export interface GymHere {
+  /** What is here: `availableEquipment` from equipment.ts (the gym's list, its dumbbells, the kit). */
+  available: Available
+  /** The heaviest dumbbell on this gym's rack, in lb; 0 means none. */
+  dumbbellMaxLb: number
+  /** Equipment names for the notes, by id; an item without one is named from its id. */
+  names?: ReadonlyMap<EquipmentId, string>
 }
 
 export interface PrescriptionInput {
   slot: Slot
   /** The exercise the slot currently runs: its own, or a substitution. */
   exercise: Exercise
-  /** The slot's substitutions, resolved, in order. */
+  /** The slot's substitutions, resolved, in order. What a cap or a back-off may move to comes from this list. */
   substitutions: Exercise[]
-  /** Combined readings for this exercise, most recent first. */
+  /** Combined readings for this exercise, most recent first (gymLoads.ts `exerciseHistory`: a rack-capped session that read clean is left out). */
   readings: ReadingResult[]
-  /** The last session's sets for this exercise, both sides. */
+  /** The last session's sets for this exercise, both sides (gymLoads.ts: from the last session that wasn't rack-capped). */
   lastSets: SetLog[]
   week: number
   injuredSide: Side
+  /** Settings' rack; the cap reads it only when no gym is given. */
   dumbbellMax: number
   redFlagActive: boolean
+  /**
+   * Where the session runs. Absent, everything on the slot's list is here and the rack stops at
+   * `dumbbellMax`: the prescription as it was before M4b.
+   */
+  gym?: GymHere
+  /** Where the slot's history put it (slotExercise.ts, PROGRAM-QUESTIONS 55). Absent: the slot runs its exercise as usual. */
+  placement?: Placement
+  /** The next lift after a morning that read back-off, on a lower-body slot (wholeKnee.ts, PROGRAM-QUESTIONS 6). */
+  wholeKnee?: WholeKnee
+}
+
+/** A load as it was logged. */
+export interface LoggedLoad {
+  load: number
+  loadUnit: LoadUnit
+}
+
+/**
+ * "If the whole knee is complaining" (wholeKnee.ts, PROGRAM-QUESTIONS 6): the slot backs off
+ * whatever its own readings say, and a load cut takes the lower of load × 0.75 and the side's last
+ * Phase 1 load, when there is one in the same unit. A deload week, the red-flag state and a first
+ * session come first, as they do for every back-off.
+ */
+export interface WholeKnee {
+  /** The day of the morning check that read back-off. */
+  morning: IsoDate
+  /** From Phase 2 on, the last Phase 1 load per side (wholeKnee.ts `phaseOneLoads`); empty in Phase 1 or with no Phase 1 history. */
+  phaseOneLoads: Partial<Record<SetSide, LoggedLoad>>
+}
+
+/** What leads the note of a lower-body slot the whole knee backed off. */
+export const WHOLE_KNEE_NOTE = 'Whole knee: a morning check since the last lift read back off.'
+
+/**
+ * Why the slot runs the exercise it does, from its history (slotExercise.ts, PROGRAM-QUESTIONS 55).
+ * `note` leads every side's note. `returned` marks a slot back on an exercise whose easier version
+ * read clean twice in a row: the back-off still standing in that exercise's readings is served, so
+ * it repeats its last session instead of backing off again.
+ */
+export interface Placement {
+  note: string
+  returned: boolean
 }
 
 export type Effective = 'none' | 'clean-twice' | 'clean-once' | 'hold' | 'back-off'
@@ -107,10 +167,48 @@ function startLoad(exercise: Exercise): number | null {
 /**
  * The next easier version: the substitution after the exercise the slot is on now, in the
  * program's order. On the slot's own exercise that is the first substitution; on the last one there is none.
+ * `prescribe` moves with `fallbacksAfter` (equipment.ts), which reads the list the same way and
+ * also passes over what the gym doesn't have.
  */
 export function nextSubstitution(exercise: Pick<Exercise, 'id'>, substitutions: readonly Exercise[]): Exercise | undefined {
   const at = substitutions.findIndex((s) => s.id === exercise.id)
   return substitutions[at + 1]
+}
+
+/** What a back-off does to an exercise (rule 4, PROGRAM-QUESTIONS 45 and 49). */
+export type BackOffStep = 'more-assist' | 'stage-down' | 'less-time' | 'step-down' | 'lighter-in-hands' | 'easier-version' | 'lighter-load'
+
+/**
+ * Which back-off applies, from the slot as it applies to the exercise (`effectiveSlot`) and one
+ * side's last load and step height: one plate more assist, a stage back, 5 s less, a step down,
+ * less in the hands, the easier version (bodyweight work, a step at its starting height with
+ * nothing in the hands, a load of zero), or load × 0.75.
+ */
+export function backOffStep(slot: Slot, exercise: Exercise, lastLoad: number, lastHeight: number | undefined): BackOffStep {
+  if (exercise.loadDirection === 'down') return 'more-assist'
+  if (slot.progressionRule === 'stage') return 'stage-down'
+  if (slot.progressionRule === 'time') return 'less-time'
+  if (exercise.loadType === 'step-height') {
+    const heightInc = exercise.heightIncrementIn ?? exercise.increment
+    if (lastHeight !== undefined && lastHeight - heightInc >= (slot.heightIn ?? 0)) return 'step-down'
+    if (lastLoad > 0) return 'lighter-in-hands'
+  }
+  if (exercise.loadType === 'bodyweight' || exercise.loadType === 'step-height' || lastLoad <= 0) return 'easier-version'
+  return 'lighter-load'
+}
+
+/**
+ * Whether a back-off on this exercise moves the slot to its easier version (PROGRAM-QUESTIONS 49),
+ * read as `prescribe` reads it, from the first set of the last session on the injured side (or
+ * both). A load cut, a stage or time step, a step down and more assist keep the exercise. With no
+ * last session there is nothing to back off from.
+ */
+export function backOffMoves(input: Pick<PrescriptionInput, 'slot' | 'exercise' | 'lastSets' | 'injuredSide'>): boolean {
+  const slot = effectiveSlot(input.slot, input.exercise)
+  const bySet = [...input.lastSets].sort((a, b) => a.setNumber - b.setNumber)
+  const first = bySet.find((s) => s.side === 'both' || s.side === input.injuredSide) ?? bySet[0]
+  if (first === undefined) return false
+  return backOffStep(slot, input.exercise, first.load, first.heightIn ?? slot.heightIn) === 'easier-version'
 }
 
 /** Whether the slot's load can only step up with an RPE logged on every set (the load rules do; fixed, time and stage don't). */
@@ -129,26 +227,106 @@ function hitTop(sets: readonly SetLog[], slot: Slot): boolean {
   return sets.every((s) => !s.stopped && value(s) >= slot.repsMax && (!needsRpe || (s.rpe !== undefined && s.rpe <= RPE_CEILING)))
 }
 
+/** Whether the exercise's load is dumbbells, in the hands or held on a step: the rack caps it. */
+function holdsDumbbells(exercise: Exercise): boolean {
+  return DUMBBELL_TYPES.has(exercise.loadType) || (exercise.holdsLoad !== undefined && DUMBBELL_TYPES.has(exercise.holdsLoad))
+}
+
+/**
+ * Everything the slot's list could need, as one set: what "no gym given" means, so every exercise
+ * and every stage runs, as before M4b.
+ */
+function everythingFor(exercises: readonly Exercise[]): Available {
+  return new Set(
+    exercises.flatMap((e) => [...e.requires, ...(e.stageRequires ?? []).flat()]).flatMap((r) => (typeof r === 'string' ? [r] : r.anyOf)),
+  )
+}
+
+/** The gym as one prescription reads it, with the slot's list as the input gives it. */
+interface Here {
+  /** The input as given, its slot as program.md writes it (before `effectiveSlot`): a move re-reads it for the exercise moved to. */
+  raw: PrescriptionInput
+  available: Available
+  rackLb: number
+  names: ReadonlyMap<EquipmentId, string> | undefined
+  /** [own, ...substitutions], in the input's order. */
+  list: Pick<Slot, 'exerciseId' | 'substitutionIds'>
+  byId: ExerciseLookup
+}
+
+function hereFor(raw: PrescriptionInput): Here {
+  const { exercise, substitutions } = raw
+  // An exercise that is neither the slot's own nor one of its substitutions stands where the own
+  // one would, so everything written after it is offered (as nextSubstitution read it).
+  const onList = substitutions.some((s) => s.id === exercise.id)
+  return {
+    raw,
+    available: raw.gym?.available ?? everythingFor([exercise, ...substitutions]),
+    rackLb: raw.gym?.dumbbellMaxLb ?? raw.dumbbellMax,
+    names: raw.gym?.names,
+    list: { exerciseId: onList ? raw.slot.exerciseId : exercise.id, substitutionIds: substitutions.map((s) => s.id) },
+    byId: new Map([exercise, ...substitutions].map((e) => [e.id, e])),
+  }
+}
+
+/** What a cap or a back-off may move to from this exercise: the list's entries after it that are here, in order. */
+function fallbacks(here: Here, exercise: Exercise): Exercise[] {
+  return fallbacksAfter(here.list, exercise.id, here.byId, here.available)
+}
+
+/** Whether the program writes anything after this exercise on the slot's list, here or not. */
+function writtenAfter(here: Here, exercise: Exercise): boolean {
+  const order = slotOrder(here.list)
+  return order.indexOf(exercise.id) < order.length - 1
+}
+
+const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1)
+
+/** "Bosu isn’t marked here", "Mats aren’t marked here": what a gym lacks, in the program's plain words. */
+function notMarkedHere(missing: readonly Requirement[], names: ReadonlyMap<EquipmentId, string> | undefined): string {
+  const name = (id: EquipmentId) => names?.get(id) ?? id.replace(/-/g, ' ')
+  const [only] = missing
+  if (missing.length === 1 && typeof only === 'string') return capitalize(`${name(only)} ${/[^s]s$/i.test(name(only)) ? 'aren’t' : 'isn’t'} marked here`)
+  if (missing.length === 1 && only !== undefined && typeof only !== 'string') return capitalize(`neither ${only.anyOf.map(name).join(' nor ')} is marked here`)
+  return capitalize(`${missing.map((r) => (typeof r === 'string' ? name(r) : r.anyOf.map(name).join(' or '))).join(' and ')} aren’t marked here`)
+}
+
 /** Rule 4: the next prescription for one slot, per side, injured side first. */
 export function prescribe(raw: PrescriptionInput): Prescription[] {
   // The slot as it applies to the exercise actually run: after a swap, units, targets and rule follow it.
   const input: PrescriptionInput = { ...raw, slot: effectiveSlot(raw.slot, raw.exercise) }
+  const here = hereFor(raw)
   const sides = sidesFor(input.slot, input.injuredSide)
-  const out: Prescription[] = []
+  const out = toRack(here, raw.exercise, offTheLadder(here, raw.exercise, sides.map((side) => prescribeSide(input, here, side))))
   let injuredTarget: number | undefined
-  for (const side of sides) {
-    const p = prescribeSide(input, side)
-    if (side !== 'both' && side !== input.injuredSide && injuredTarget !== undefined) {
+  for (const p of out) {
+    if (p.side !== 'both' && p.side !== input.injuredSide && injuredTarget !== undefined) {
       p.repsTarget = injuredTarget
       p.budgetFromInjured = true
     }
-    if (side === input.injuredSide) injuredTarget = p.repsTarget
-    out.push(p)
+    if (p.side === input.injuredSide) injuredTarget = p.repsTarget
   }
-  return out
+  const knee = (p: Prescription) => (raw.wholeKnee && p.basis === 'back-off' ? `${WHOLE_KNEE_NOTE} ${p.note}` : p.note)
+  const lead = raw.placement?.note
+  return out.map((p) => ({ ...p, note: lead === undefined ? knee(p) : `${lead} ${knee(p)}` }))
 }
 
-function prescribeSide(input: PrescriptionInput, side: SetSide): Prescription {
+/** One side's prescription, its stage held at the last one this gym can run. */
+function prescribeSide(input: PrescriptionInput, here: Here, side: SetSide): Prescription {
+  const p = prescribeSideAnywhere(input, here, side)
+  const { exercise } = input
+  const ceiling = stageCeiling(exercise, here.available)
+  const stages = exercise.stages ?? []
+  if (ceiling === null || ceiling < 0 || p.stage === undefined || p.stage <= ceiling) return p
+  const lastStage = input.lastSets.filter((s) => s.side === side).sort((a, b) => a.setNumber - b.setNumber)[0]?.stage ?? 0
+  const missing = missingFor(exercise.stageRequires?.[ceiling + 1] ?? [], here.available)
+  const held = `${notMarkedHere(missing, here.names)}; ${lastStage > ceiling ? 'back to' : 'staying at'} ${stages[ceiling] ?? 'the start'}.`
+  if (p.basis === 'progress-stage') return { ...p, stage: ceiling, basis: 'at-top', note: held }
+  if (p.basis === 'back-off') return { ...p, stage: ceiling, note: `Back off: ${held}` }
+  return { ...p, stage: ceiling, note: `${p.note} ${held}` }
+}
+
+function prescribeSideAnywhere(input: PrescriptionInput, here: Here, side: SetSide): Prescription {
   const { slot, exercise, week } = input
   const sets = prescribedSets(slot.sets, week)
   const deload = isDeloadWeek(week)
@@ -199,13 +377,16 @@ function prescribeSide(input: PrescriptionInput, side: SetSide): Prescription {
   if (deload) return repeat('deload', `Deload week: ${sets} sets instead of ${slot.sets}, same loads and reps, no progression.`)
   if (input.redFlagActive) return repeat('suspended', 'Red-flag state: progression is suspended; repeat the last session exactly.')
 
-  switch (effectiveReading(input.readings)) {
+  // The whole knee backs the slot off whatever its own readings say (PROGRAM-QUESTIONS 6).
+  switch (input.wholeKnee ? 'back-off' : effectiveReading(input.readings)) {
     case 'none':
       return repeat('repeat', 'No reading for the last session, and unknown is not clean: repeat it exactly.')
     case 'hold':
       return repeat('repeat', 'Hold: repeat the last session’s loads and reps exactly.')
     case 'back-off':
-      return capDumbbells(input, backOff(input, carried, lastLoad, lastHeight, lastStage, lastTarget, sets))
+      // Back from the easier version after two cleans on it (PROGRAM-QUESTIONS 55): the back-off that moved the slot is served.
+      if (input.placement?.returned && !input.wholeKnee) return repeat('repeat', 'Same loads and reps as its last session.')
+      return backOff(input, here, carried, lastLoad, lastHeight, lastStage, lastTarget, sets, phaseOneFloor(input, side, first?.loadUnit))
     case 'clean-once':
       return { ...carried, load: lastLoad, repsTarget: lastTarget, basis: 'same', note: 'Clean once: same load, same target; clean again to progress.' }
     case 'clean-twice':
@@ -222,7 +403,7 @@ function prescribeSide(input: PrescriptionInput, side: SetSide): Prescription {
       note: `Clean twice: same load, every set to ${slot.repsMax} ${slot.repUnit}${needsRpe}, then the load moves.`,
     }
   }
-  return capDumbbells(input, progress(input, carried, lastLoad, lastHeight, lastStop, lastStage, lastTarget))
+  return progress(input, carried, lastLoad, lastHeight, lastStop, lastStage, lastTarget)
 }
 
 function progress(
@@ -284,55 +465,141 @@ function progress(
 
 function backOff(
   input: PrescriptionInput,
+  here: Here,
   carried: Omit<Prescription, 'load' | 'repsTarget' | 'basis' | 'note'>,
   lastLoad: number,
   lastHeight: number | undefined,
   lastStage: number,
   lastTarget: number,
   sets: number,
+  /** The last Phase 1 load for this side, from Phase 2 on after a morning that read back-off (PROGRAM-QUESTIONS 6). */
+  floor: number | undefined,
 ): Prescription {
   const { slot, exercise } = input
   const inc = exercise.increment
   const result = (p: Partial<Prescription> & { note: string }): Prescription => ({ ...carried, load: lastLoad, repsTarget: lastTarget, basis: 'back-off', ...p })
 
-  if (exercise.loadDirection === 'down') {
-    return result({ load: lastLoad + inc, note: 'Back off: one plate more assist.' })
-  }
-  if (slot.progressionRule === 'stage') {
-    const stages = exercise.stages ?? []
-    const stage = Math.max(0, lastStage - 1)
-    return result({ stage, note: `Back off: back a stage, to ${stages[stage] ?? 'the start'}.` })
-  }
-  if (slot.progressionRule === 'time') {
-    return result({ repsTarget: Math.max(slot.repsMin, lastTarget - 5), note: 'Back off: 5 s less per set.' })
-  }
-  if (exercise.loadType === 'step-height') {
-    const floor = slot.heightIn ?? 0
-    const heightInc = exercise.heightIncrementIn ?? inc
-    if (lastHeight !== undefined && lastHeight - heightInc >= floor) {
-      return result({ heightIn: lastHeight - heightInc, note: `Back off: step down ${heightInc} in. to ${lastHeight - heightInc} in., same load.` })
+  switch (backOffStep(slot, exercise, lastLoad, lastHeight)) {
+    case 'more-assist':
+      return result({ load: lastLoad + inc, note: 'Back off: one plate more assist.' })
+    case 'stage-down': {
+      const stages = exercise.stages ?? []
+      const stage = Math.max(0, lastStage - 1)
+      return result({ stage, note: `Back off: back a stage, to ${stages[stage] ?? 'the start'}.` })
     }
-    if (lastLoad > 0) {
-      const load = backOffLoad(lastLoad, HELD_LOAD_INCREMENT_LB)
-      return result({ load, note: `Back off: ${load} lb in the hands at the starting height.` })
+    case 'less-time':
+      return result({ repsTarget: Math.max(slot.repsMin, lastTarget - 5), note: 'Back off: 5 s less per set.' })
+    case 'step-down': {
+      const heightInc = exercise.heightIncrementIn ?? inc
+      const height = (lastHeight ?? 0) - heightInc
+      return result({ heightIn: height, note: `Back off: step down ${heightInc} in. to ${height} in., same load.` })
+    }
+    case 'lighter-in-hands': {
+      const cut = cutLoad(lastLoad, HELD_LOAD_INCREMENT_LB, 'lb', floor)
+      const held = `Back off: ${cut.load} lb in the hands at the starting height`
+      return result({ load: cut.load, note: floor === undefined ? `${held}.` : `${held}; ${cut.why}.` })
+    }
+    case 'easier-version': {
+      // The easier version is the next one on the slot's list that is here: never the exercise itself, never one before it.
+      const sub = fallbacks(here, exercise)[0]
+      if (sub) return { ...firstOn(here, sub, carried.side), basis: 'back-off', note: `Back off: the easier version, ${sub.name}.` }
+      const fewer = Math.max(1, Math.floor(sets * 0.75))
+      const lighter = writtenAfter(here, exercise) ? 'nothing lighter on the list is here' : 'nothing lighter is written'
+      return result({ sets: fewer, note: `Back off: ${fewer} sets instead of ${sets}; ${lighter}.` })
+    }
+    case 'lighter-load': {
+      const cut = cutLoad(lastLoad, inc, exercise.loadUnit, floor)
+      return result({ load: cut.load, note: `Back off: ${cut.why}.` })
     }
   }
-  if (exercise.loadType === 'bodyweight' || exercise.loadType === 'step-height' || lastLoad <= 0) {
-    const sub = nextSubstitution(exercise, input.substitutions)
-    if (sub) return result({ exerciseId: sub.id, load: startLoad(sub), note: `Back off: the easier version, ${sub.name}.` })
-    const fewer = Math.max(1, Math.floor(sets * 0.75))
-    return result({ sets: fewer, note: `Back off: ${fewer} sets instead of ${sets}; nothing lighter is written.` })
-  }
-  const load = backOffLoad(lastLoad, inc)
-  return result({ load, note: `Back off: load × 0.75, rounded down to ${load} ${exercise.loadUnit}.` })
 }
 
-/** The dumbbell cap (PROGRAM-QUESTIONS 9): past the rack, the slot moves to its next substitution. */
-function capDumbbells(input: PrescriptionInput, p: Prescription): Prescription {
-  const { exercise } = input
-  const holdsDumbbells = DUMBBELL_TYPES.has(exercise.loadType) || (exercise.holdsLoad !== undefined && DUMBBELL_TYPES.has(exercise.holdsLoad))
-  if (!holdsDumbbells || p.load === null || p.load <= input.dumbbellMax || p.exerciseId !== exercise.id) return p
-  const sub = nextSubstitution(exercise, input.substitutions)
-  if (!sub) return { ...p, load: input.dumbbellMax, note: `${p.note} The rack stops at ${input.dumbbellMax} lb and nothing is written to swap to.` }
-  return { ...p, exerciseId: sub.id, load: null, note: `${p.note} That is past the rack’s ${input.dumbbellMax} lb dumbbells: swap to ${sub.name} and pick its load.` }
+/**
+ * The side's last Phase 1 load when the whole knee backed the slot off from Phase 2 on: that side's,
+ * or with none logged for it, the lightest any side logged. Only a load in the unit the last session
+ * was logged in counts.
+ */
+function phaseOneFloor(input: PrescriptionInput, side: SetSide, unit: LoadUnit | undefined): number | undefined {
+  const loads = input.wholeKnee?.phaseOneLoads
+  if (loads === undefined || unit === undefined) return undefined
+  const own = loads[side]
+  const logged: (LoggedLoad | undefined)[] = own ? [own] : Object.values(loads)
+  const fits = logged.flatMap((l) => (l !== undefined && l.loadUnit === unit ? [l.load] : []))
+  return fits.length > 0 ? Math.min(...fits) : undefined
+}
+
+/** Load × 0.75 rounded down to the increment, or the last Phase 1 load when that is lighter (PROGRAM-QUESTIONS 6), and which won, in words. */
+function cutLoad(lastLoad: number, increment: number, unit: LoadUnit, floor: number | undefined): { load: number; why: string } {
+  const cut = backOffLoad(lastLoad, increment)
+  if (floor === undefined) return { load: cut, why: `load × 0.75, rounded down to ${cut} ${unit}` }
+  if (floor < cut) return { load: floor, why: `the last Phase 1 load, ${floor} ${unit}, is lighter than load × 0.75 (${cut} ${unit}), so it wins` }
+  if (floor > cut) return { load: cut, why: `load × 0.75, rounded down to ${cut} ${unit}, is lighter than the last Phase 1 load (${floor} ${unit}), so it wins` }
+  return { load: cut, why: `load × 0.75 and the last Phase 1 load are both ${cut} ${unit}` }
+}
+
+/**
+ * Where a slot moved to another exercise on its list starts: that exercise's first session on this
+ * side, with its own units, targets and ladder (its lightest version in a deload week). The caller
+ * gives the reason it moved.
+ */
+function firstOn(here: Here, to: Exercise, side: SetSide): Prescription {
+  return prescribeSide({ ...here.raw, slot: effectiveSlot(here.raw.slot, to), exercise: to, readings: [], lastSets: [] }, here, side)
+}
+
+/**
+ * The dumbbell cap (PROGRAM-QUESTIONS 9) on every basis: a load past this gym's rack moves the slot,
+ * every side, to the next exercise on its list that is here. With nothing to move to, each side past
+ * the rack runs at the rack's heaviest dumbbell, rack-capped (Shawn's Nov 1 answer 5).
+ */
+function toRack(here: Here, exercise: Exercise, out: Prescription[]): Prescription[] {
+  const rack = here.rackLb
+  const over = (p: Prescription) => p.exerciseId === exercise.id && p.load !== null && (p.load > rack || (p.perSet ?? []).some((s) => s.load > rack))
+  if (!holdsDumbbells(exercise) || !out.some(over)) return out
+  const sub = fallbacks(here, exercise)[0]
+  if (sub) {
+    return out.map((p) => {
+      if (p.exerciseId !== exercise.id) return p
+      const moved = firstOn(here, sub, p.side)
+      const why =
+        rack <= 0
+          ? `There are no dumbbells here: swap to ${sub.name}.`
+          : over(p)
+            ? `That is past the rack’s ${rack} lb dumbbells: swap to ${sub.name}.`
+            : `The other side is past the rack’s ${rack} lb dumbbells, so the slot swaps to ${sub.name}.`
+      // The moved prescription keeps its own note, as offTheLadder's does: how the exercise moved to starts.
+      return { ...moved, basis: p.basis, note: `${p.note} ${why} ${moved.note}` }
+    })
+  }
+  const nothing = writtenAfter(here, exercise) ? 'nothing written to swap to is here' : 'nothing is written to swap to'
+  const stops = rack > 0 ? `The rack stops at ${rack} lb and ${nothing}: ${rack} lb, rack-capped` : `There are no dumbbells here and ${nothing}: bodyweight, rack-capped`
+  return out.map((p) =>
+    over(p) && p.load !== null
+      ? {
+          ...p,
+          // Ascending sets: a first set already under the rack stays where it was; only what is past it comes down.
+          load: Math.min(p.load, rack),
+          ...(p.perSet ? { perSet: p.perSet.map((s) => ({ ...s, load: Math.min(s.load, rack) })) } : {}),
+          rackCapped: true,
+          note: `${p.note} ${stops}, so the session won’t count as clean.`,
+        }
+      : p,
+  )
+}
+
+/**
+ * A ladder whose first stage this gym can't run (a bosu and no mat, PROGRAM-QUESTIONS 76): the slot
+ * moves to the next exercise on its list that is here, never starting on the harder surface ahead
+ * of the stages below it. With nothing to move to it runs as prescribed, and the note says so.
+ */
+function offTheLadder(here: Here, exercise: Exercise, out: Prescription[]): Prescription[] {
+  if (stageCeiling(exercise, here.available) !== -1) return out
+  const firstStage = exercise.stages?.[0] ?? 'the first stage'
+  const missing = notMarkedHere(missingFor(exercise.stageRequires?.[0] ?? [], here.available), here.names)
+  const sub = fallbacks(here, exercise)[0]
+  return out.map((p) => {
+    if (p.exerciseId !== exercise.id) return p
+    if (!sub) return { ...p, note: `${p.note} ${missing}, so not even ${firstStage} runs as written, and nothing else on the list is here.` }
+    const moved = firstOn(here, sub, p.side)
+    return { ...moved, note: `${missing}, and the first stage is ${firstStage}: ${sub.name} instead. ${moved.note}` }
+  })
 }

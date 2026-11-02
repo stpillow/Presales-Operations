@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Exercise, Slot } from '../schema/index.ts'
 import { effectiveSlot } from './effectiveSlot.ts'
 
-const ex = (over: Partial<Exercise>): Exercise => ({ id: 'x', name: 'X', pattern: 'squat', equipment: '', loadType: 'stack', loadUnit: 'plate', increment: 1, loadDirection: 'up', unilateral: false, ...over })
+const ex = (over: Partial<Exercise>): Exercise => ({ id: 'x', name: 'X', pattern: 'squat', equipment: '', loadType: 'stack', loadUnit: 'plate', increment: 1, loadDirection: 'up', unilateral: false, requires: [], ...over })
 const slot = (over: Partial<Slot>): Slot => ({ id: 's', order: 1, label: '1', exerciseId: 'own', sets: 2, repsMin: 15, repsMax: 15, repUnit: 'reps', unilateral: false, injuredOnly: false, prescriptionText: '', cues: [], progressionRule: 'double-progression', substitutionIds: [], optional: false, ...over })
 
 describe('effectiveSlot', () => {

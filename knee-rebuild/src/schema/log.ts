@@ -1,13 +1,25 @@
 import { z } from 'zod'
 import { Day, Effort, IsoDate, IsoDateTime, LoadUnit, Pain, ReadingResult, Rpe, RunType, SetSide, Side, StopReason, WorkoutStatus } from './enums.ts'
+import { EquipmentId } from './program.ts'
 
 const id = z.string().min(1)
+
+/** The gym every install starts at, and where a workout with no `locationId` happened (M4b). */
+export const PLANET_FITNESS_LOCATION_ID = 'planet-fitness'
+
+/** The two items program.md says to bring (its "Bring" row); a seed test keeps this in step with the list. */
+export const DEFAULT_KIT: readonly EquipmentId[] = ['ankle-strap', 'mini-band']
+
+const uniqueIds = (ids: readonly string[]) => new Set(ids).size === ids.length
 
 /** One row, held in Dexie. Also carries the export and import controls' state. */
 export const Settings = z.strictObject({
   injuredSide: Side,
   startDate: IsoDate,
-  /** Heaviest dumbbell on the rack. Presets 60, 75, 80. */
+  /**
+   * Heaviest dumbbell on the rack. Presets 60, 75, 80. Frozen from M4b: each gym's own
+   * `Location.dumbbellMaxLb` takes over, and the home gym is first written from this value.
+   */
   dumbbellMax: z.number().int().positive(),
   restTimerSeconds: z.number().int().positive(),
   /** Pain per set when true; once per exercise when false. */
@@ -26,8 +38,35 @@ export const Settings = z.strictObject({
       clearNote: z.string().optional(),
     })
     .default({ active: false, items: [] }),
+  /** The gym Today plans for; it stays until Shawn changes it (M4b). */
+  activeLocationId: id.default(PLANET_FITNESS_LOCATION_ID),
+  /** What Shawn carries to every gym, as equipment ids. */
+  kit: z.array(EquipmentId).refine(uniqueIds, 'kit lists each item once').default(() => [...DEFAULT_KIT]),
 })
 export type Settings = z.infer<typeof Settings>
+
+/**
+ * A gym Shawn trains at (M4b, design section 2). `present` holds what is there; dumbbells are the
+ * max, not an item (0 means none); things typed that program.md doesn't name are `extras`, kept
+ * as text for the next program update and never treated as equipment.
+ */
+export const Location = z.strictObject({
+  id,
+  name: z.string().trim().min(1).max(60),
+  present: z.array(EquipmentId).refine(uniqueIds, 'present lists each item once'),
+  /** Heaviest dumbbell on the rack, in pounds; 0 means no dumbbells. */
+  dumbbellMaxLb: z.number().int().nonnegative(),
+  startedFrom: z.enum(['planet-fitness', 'empty']),
+  /** Program.equipmentListVersion when this gym's list was made; items added to the program's list later are new to it. */
+  listVersion: z.number().int().positive(),
+  extras: z.array(z.strictObject({ id, text: z.string().trim().min(1), addedOn: IsoDate })),
+  /** Items marked not here from the runner or Today, and since when. */
+  markedOff: z.array(z.strictObject({ id: EquipmentId, on: IsoDate })),
+  createdOn: IsoDate,
+  /** Archived gyms leave the list but stay stored: workouts point at them. */
+  archived: z.boolean(),
+})
+export type Location = z.infer<typeof Location>
 
 /** One per lift day. */
 export const Workout = z.strictObject({
@@ -42,6 +81,8 @@ export const Workout = z.strictObject({
   maxPainDuring: Pain.optional(),
   notes: z.string().optional(),
   status: WorkoutStatus,
+  /** The gym, stamped at Start. Absent means Planet Fitness: every workout before M4b was there. */
+  locationId: id.optional(),
 })
 export type Workout = z.infer<typeof Workout>
 
@@ -66,6 +107,8 @@ export const SetLog = z.strictObject({
   rangeStopDeg: z.number().positive().optional(),
   /** Index into the exercise's stages for the `stage` rule. */
   stage: z.number().int().nonnegative().optional(),
+  /** The gym's rack stopped the load short of the prescription; such a set never counts as clean. */
+  rackCapped: z.boolean().optional(),
   loggedAt: IsoDateTime.optional(),
 }).refine((set) => (set.reps === undefined) !== (set.seconds === undefined), {
   message: 'a set logs reps or seconds, exactly one of them',
@@ -105,6 +148,8 @@ export const Run = z.strictObject({
   /** https and strava.com only: this gets rendered as a link. */
   stravaUrl: z.url({ protocol: /^https$/, hostname: /^(www\.)?strava\.com$/ }).optional(),
   notes: z.string().optional(),
+  /** Where a swap (elliptical or rower) was done. Absent means Planet Fitness, or a run outside. */
+  locationId: id.optional(),
 })
 export type Run = z.infer<typeof Run>
 

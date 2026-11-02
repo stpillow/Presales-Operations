@@ -63,10 +63,10 @@ export function loadStep(exercise: Exercise): number {
   return exercise.increment > 0 ? exercise.increment : 1
 }
 
-/** The dumbbell rack caps the load field; nothing else does. */
-export function loadMax(exercise: Exercise, dumbbellMax: number): number {
+/** The gym's dumbbell rack caps the load field; nothing else does. */
+export function loadMax(exercise: Exercise, rackLb: number): number {
   const dumbbells = exercise.loadType === 'dumbbell-each' || exercise.loadType === 'dumbbell-single' || exercise.holdsLoad !== undefined
-  return dumbbells ? dumbbellMax : 2000
+  return dumbbells ? rackLb : 2000
 }
 
 export function loadLabel(exercise: Exercise): string {

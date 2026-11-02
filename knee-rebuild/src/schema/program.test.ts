@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
+import programMd from '../../docs/program.md?raw'
 import raw from '../../data/program.json'
 import { program, templateFor } from '../program/program.ts'
 import { DELOAD_WEEKS } from '../rules/calendar.ts'
-import { Program } from './program.ts'
+import { DEFAULT_KIT } from './log.ts'
+import { Equipment, Exercise, Program, Requirement } from './program.ts'
 
 describe('data/program.json', () => {
   it('validates against the Program schema', () => {
@@ -96,5 +98,222 @@ describe('data/program.json', () => {
     const p3a1 = templateFor(3, 'A').slots.find((s) => s.label === '1')
     expect(p3a1?.prescriptionText).toBe('4 × 6–8, RPE 8')
     expect(templateFor(3, 'C').slots.find((s) => s.label === '6')?.exerciseId).toBe('walking-lunge')
+  })
+})
+
+describe('equipment schema (M4b)', () => {
+  const balance = {
+    id: 'balance', name: 'Balance', pattern: 'balance', equipment: 'Folded mat or bosu', loadType: 'time', loadUnit: 's', increment: 5, unilateral: true,
+    stages: ['folded mat', 'bosu'], requires: [{ anyOf: ['mats', 'bosu'] }], stageRequires: [['mats'], ['bosu']],
+  } as const
+  it('a requirement is one id, or anyOf two or more ids', () => {
+    expect(Requirement.safeParse('mats').success).toBe(true)
+    expect(Requirement.safeParse({ anyOf: ['mats', 'bosu'] }).success).toBe(true)
+    expect(Requirement.safeParse({ anyOf: ['mats'] }).success).toBe(false)
+    expect(Requirement.safeParse({ anyOf: ['mats', 'bosu'], allOf: [] }).success).toBe(false)
+    expect(Requirement.safeParse('Folded mat').success).toBe(false)
+  })
+  it('exercises must say what they require, even when it is nothing', () => {
+    expect(Exercise.safeParse(balance).success).toBe(true)
+    expect(Exercise.safeParse({ ...balance, requires: [] }).success).toBe(true)
+    const { requires: _requires, ...without } = balance
+    expect(Exercise.safeParse(without).success).toBe(false)
+  })
+  it('stageRequires has one entry per stage, and needs stages', () => {
+    expect(Exercise.safeParse({ ...balance, stageRequires: [['mats']] }).success).toBe(false)
+    expect(Exercise.safeParse({ ...balance, stageRequires: [['mats'], ['bosu'], []] }).success).toBe(false)
+    const { stages: _stages, ...noStages } = balance
+    expect(Exercise.safeParse(noStages).success).toBe(false)
+    const { stageRequires: _sr, ...noStageRequires } = balance
+    expect(Exercise.safeParse(noStageRequires).success).toBe(true)
+  })
+  it('an equipment item is strict', () => {
+    const mats = { id: 'mats', name: 'Mats', group: 'Balance and plyos', source: 'Mats', aliases: ['mat'], carried: false, hedged: false, addedIn: 1 }
+    expect(Equipment.safeParse(mats).success).toBe(true)
+    expect(Equipment.safeParse({ ...mats, addedIn: 0 }).success).toBe(false)
+    expect(Equipment.safeParse({ ...mats, id: 'Mats' }).success).toBe(false)
+    expect(Equipment.safeParse({ ...mats, weightLb: 2 }).success).toBe(false)
+  })
+})
+
+describe('data/program.json equipment (M4b)', () => {
+  const vocabulary = new Map(program.equipment.map((e) => [e.id, e]))
+  const idsIn = (requirements: readonly Requirement[]) => requirements.flatMap((r) => (typeof r === 'string' ? [r] : r.anyOf))
+  const allRequirements = (e: Exercise) => [...e.requires, ...(e.stageRequires ?? []).flat()]
+  const needs = (e: Exercise, id: string) => idsIn(allRequirements(e)).includes(id)
+  const normalize = (text: string) => text.trim().toLowerCase()
+
+  it('every exercise carries requires, all 71 of them', () => {
+    expect(raw.exercises).toHaveLength(71)
+    for (const e of raw.exercises) expect(Array.isArray((e as { requires?: unknown }).requires), e.id).toBe(true)
+  })
+
+  it('ids are unique, and every requirement and Planet Fitness id is on the list', () => {
+    expect(vocabulary.size).toBe(program.equipment.length)
+    for (const e of program.exercises) for (const id of idsIn(allRequirements(e))) expect(vocabulary.has(id), `${e.id} needs ${id}`).toBe(true)
+    for (const id of program.planetFitness) expect(vocabulary.has(id), `planetFitness ${id}`).toBe(true)
+    expect(new Set(program.planetFitness).size).toBe(program.planetFitness.length)
+  })
+
+  it('names and aliases are unique across the list once lowercased and trimmed', () => {
+    const seen = new Map<string, string>()
+    for (const e of program.equipment) {
+      for (const text of [e.name, ...e.aliases]) {
+        const key = normalize(text)
+        expect(seen.get(key), `"${text}" on ${e.id} is also on ${seen.get(key)}`).toBeUndefined()
+        seen.set(key, e.id)
+      }
+    }
+  })
+
+  it('every source is copied verbatim from docs/program.md', () => {
+    expect(programMd.length).toBeGreaterThan(1000)
+    for (const e of program.equipment) expect(programMd, `${e.id} source "${e.source}"`).toContain(e.source)
+  })
+
+  it('groups are program.md\'s "Program slot" rows, or Bring for exactly the carried items', () => {
+    const rows = new Set(program.equipmentBySlot.map((r) => r.slot))
+    for (const e of program.equipment) {
+      expect(e.group === 'Bring' || rows.has(e.group), `${e.id} group ${e.group}`).toBe(true)
+      expect(e.carried, `${e.id} carried`).toBe(e.group === 'Bring')
+    }
+    expect(program.equipment.filter((e) => e.carried).map((e) => e.id)).toEqual([...DEFAULT_KIT])
+  })
+
+  it('items no "Program slot" row lists sit under the row of what they are used for; the pinned eight', () => {
+    // PROGRAM-QUESTIONS 63. program.md names these outside the slot table, so their sources are not in it.
+    const unlisted: Record<string, string> = {
+      'leg-extension-machine': 'Squat pattern',
+      'weight-plate': 'Hinge pattern',
+      stair: 'Single-leg',
+      'stability-ball': 'Hamstrings',
+      'rear-delt-machine': 'Upper body',
+      'adjustable-bench': 'Upper body',
+      'medicine-ball': 'Balance and plyos',
+      'tape-measure': 'Balance and plyos',
+    }
+    const table = normalize(program.equipmentBySlot.map((r) => r.equipment).join('\n'))
+    for (const [id, group] of Object.entries(unlisted)) {
+      const item = vocabulary.get(id)
+      expect(item?.group, id).toBe(group)
+      expect(table, `${id} source`).not.toContain(normalize(item?.source ?? id))
+    }
+  })
+
+  it('only the bosu is hedged, as program.md hedges it', () => {
+    const hedged = program.equipment.filter((e) => e.hedged)
+    expect(hedged.map((e) => e.id)).toEqual(['bosu'])
+    expect(hedged[0]?.source).toContain('if your club has one')
+  })
+
+  it('is list version 1, and every item was added in it', () => {
+    expect(program.equipmentListVersion).toBe(1)
+    for (const e of program.equipment) expect(e.addedIn, e.id).toBe(1)
+  })
+
+  it('dumbbells are required wherever they are the movement; the pinned load-only exercises run at bodyweight', () => {
+    // Design section 8: step-ups, split squats, the back extension and the Phase 2 calf raise run at
+    // bodyweight; dumbbells only add load there (PROGRAM-QUESTIONS 64).
+    const loadOnly = ['back-extension-45', 'bulgarian-split-squat', 'single-leg-calf-raise-step', 'split-squat', 'step-up', 'step-up-stair']
+    const holdsDumbbells = (e: Exercise) =>
+      e.loadType === 'dumbbell-each' || e.loadType === 'dumbbell-single' || e.holdsLoad === 'dumbbell-each' || e.holdsLoad === 'dumbbell-single'
+    const dumbbellExercises = program.exercises.filter(holdsDumbbells)
+    expect(dumbbellExercises.filter((e) => !e.requires.includes('dumbbells')).map((e) => e.id).sort()).toEqual(loadOnly)
+    for (const e of program.exercises) if (needs(e, 'dumbbells')) expect(holdsDumbbells(e), `${e.id} needs dumbbells but holds none`).toBe(true)
+    for (const e of program.exercises.filter((x) => loadOnly.includes(x.id))) expect(needs(e, 'dumbbells'), e.id).toBe(false)
+  })
+
+  it('stageRequires runs alongside the stages of both balance exercises', () => {
+    const staged = program.exercises.filter((e) => e.stages)
+    expect(staged.map((e) => e.id).sort()).toEqual(['balance-mat-bosu', 'single-leg-balance'])
+    for (const e of staged) expect(e.stageRequires?.length, e.id).toBe(e.stages?.length)
+    expect(program.exercises.filter((e) => e.stageRequires && !e.stages)).toEqual([])
+    const stagesNeeding = (id: string, item: string) => {
+      const e = program.exercises.find((x) => x.id === id)
+      return (e?.stages ?? []).filter((_, i) => idsIn(e?.stageRequires?.[i] ?? []).includes(item))
+    }
+    expect(stagesNeeding('single-leg-balance', 'mats')).toEqual(['on a folded mat'])
+    expect(stagesNeeding('balance-mat-bosu', 'mats')).toEqual(['folded mat', 'folded mat, slow head turns', 'folded mat, eyes closed'])
+    expect(stagesNeeding('balance-mat-bosu', 'bosu')).toEqual(['bosu', 'bosu, slow head turns', 'bosu, eyes closed'])
+    expect(stagesNeeding('single-leg-balance', 'bosu')).toEqual([])
+  })
+
+  it('anyOf appears only where program.md says "or", and where Shawn said so; the pinned four', () => {
+    const withAnyOf = program.exercises.filter((e) => allRequirements(e).some((r) => typeof r !== 'string'))
+    expect(Object.fromEntries(withAnyOf.map((e) => [e.id, e.requires.filter((r) => typeof r !== 'string')]))).toEqual({
+      // "Standing calf raise on the leg press or Smith"; the seed has two leg presses.
+      'standing-calf-raise': [{ anyOf: ['seated-leg-press', 'leg-press-45', 'smith-machine'] }],
+      // "Single-leg calf raise on a step": the lowest stair counts as its step (Shawn, Nov 2; PROGRAM-QUESTIONS 68).
+      'single-leg-calf-raise-step': [{ anyOf: ['step-platforms', 'stair'] }],
+      // "Balance on a folded mat or bosu"
+      'balance-mat-bosu': [{ anyOf: ['mats', 'bosu'] }],
+      // The lat pulldown thigh pad; "The back extension bench's foot plates work too."
+      'nordic-negatives': [{ anyOf: ['lat-pulldown', 'back-extension-bench'] }],
+    })
+    // The lateral step-down still needs the step platforms; the stair is its substitution's.
+    expect(program.exercises.find((e) => e.id === 'lateral-step-down')?.requires).toEqual(['step-platforms'])
+  })
+
+  it('floor and space are assumed; a mat is needed only to balance on or under Nordic knees', () => {
+    expect(program.exercises.filter((e) => needs(e, 'mats')).map((e) => e.id).sort()).toEqual(['balance-mat-bosu', 'nordic-negatives', 'single-leg-balance'])
+    expect(program.exercises.find((e) => e.id === 'single-leg-balance')?.requires).toEqual([])
+    for (const id of ['dead-bug', 'side-plank', 'wall-sit', 'split-squat', 'snap-down', 'pogo-hops', 'change-of-direction-45']) {
+      expect(program.exercises.find((e) => e.id === id)?.requires, id).toEqual([])
+    }
+  })
+
+  it('program.md\'s words over catalog strings: no rope, the incline press\'s own bench, the 45° and seated presses apart', () => {
+    const requiresOf = (id: string) => program.exercises.find((e) => e.id === id)?.requires
+    expect(requiresOf('face-pull')).toEqual(['cable-station'])
+    // Shawn, Nov 2 (PROGRAM-QUESTIONS 66): the two incline-bench exercises need an adjustable bench, sourced from "Incline dumbbell press".
+    expect(requiresOf('incline-db-press')).toEqual(['dumbbells', 'adjustable-bench'])
+    expect(requiresOf('chest-supported-db-row')).toEqual(['dumbbells', 'adjustable-bench'])
+    expect(vocabulary.get('adjustable-bench')).toMatchObject({ name: 'Adjustable bench', group: 'Upper body', source: 'Incline dumbbell press', carried: false, hedged: false })
+    expect(program.equipment.some((e) => /rope/i.test(`${e.id} ${e.name} ${e.aliases.join(' ')}`))).toBe(false)
+    expect(program.equipment.filter((e) => /incline/i.test(`${e.id} ${e.name} ${e.aliases.join(' ')}`)).map((e) => e.id)).toEqual(['adjustable-bench'])
+    expect(requiresOf('leg-press')).toEqual(['seated-leg-press'])
+    expect(requiresOf('single-leg-leg-press')).toEqual(['seated-leg-press'])
+    expect(requiresOf('leg-press-45')).toEqual(['leg-press-45'])
+    expect(requiresOf('cable-hip-abduction')).toEqual(['cable-station', 'ankle-strap'])
+    expect(requiresOf('lateral-band-walk')).toEqual(['mini-band'])
+  })
+
+  it('the flat bench covers every bench but the incline ones; the pinned eleven and two', () => {
+    // PROGRAM-QUESTIONS 66 lists these for Shawn; a new bench exercise has to be added there too.
+    expect(program.exercises.filter((e) => needs(e, 'flat-bench')).map((e) => e.id).sort()).toEqual([
+      'bulgarian-split-squat',
+      'copenhagen-plank-long',
+      'copenhagen-plank-short',
+      'db-bench-press',
+      'db-hip-thrust',
+      'goblet-squat-bench',
+      'seated-db-shoulder-press',
+      'single-leg-hip-thrust',
+      'smith-bench-press',
+      'smith-box-squat',
+      'smith-hip-thrust',
+    ])
+    expect(program.exercises.filter((e) => needs(e, 'adjustable-bench')).map((e) => e.id).sort()).toEqual(['chest-supported-db-row', 'incline-db-press'])
+  })
+
+  it('items no exercise needs stay on the list for typed matching; the pinned set', () => {
+    const used = new Set(program.exercises.flatMap((e) => idsIn(allRequirements(e))))
+    const unused = program.equipment.filter((e) => !used.has(e.id)).map((e) => e.id).sort()
+    expect(unused).toEqual(['cable-crossover', 'floor-tape', 'medicine-ball', 'rower', 'shoulder-press-machine', 'stair-climber', 'tape-measure', 'treadmill', 'upright-bike', 'weight-plate'])
+  })
+
+  it('planetFitness: program.md\'s club with Shawn\'s Nov 1 answers; nothing carried, no dumbbells, no lying leg curl', () => {
+    const pf = new Set(program.planetFitness)
+    for (const id of ['bosu', 'stability-ball', 'stair', 'seated-leg-press', 'rower', 'smith-machine', 'step-platforms', 'cable-station', 'adjustable-bench']) expect(pf.has(id), id).toBe(true)
+    expect(pf.has('lying-leg-curl')).toBe(false)
+    expect(pf.has('dumbbells')).toBe(false)
+    for (const e of program.equipment.filter((x) => x.carried)) expect(pf.has(e.id), e.id).toBe(false)
+    expect(program.equipment.filter((e) => !pf.has(e.id)).map((e) => e.id).sort()).toEqual(
+      ['ankle-strap', 'dumbbells', 'leg-press-45', 'lying-leg-curl', 'medicine-ball', 'mini-band', 'tape-measure'],
+    )
+  })
+
+  it('machines keep pounds in 5 lb steps alongside their requirements (Shawn, Nov 1)', () => {
+    for (const e of program.exercises.filter((x) => x.loadType === 'stack')) expect([e.loadUnit, e.increment], e.id).toEqual(['lb', 5])
   })
 })

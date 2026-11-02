@@ -61,6 +61,8 @@ const settings = (over: Partial<Settings> = {}): Settings => ({
   currentPhase: 1,
   phaseEnteredWeek: 1,
   redFlag: { active: false, items: [] },
+  activeLocationId: 'planet-fitness',
+  kit: ['ankle-strap', 'mini-band'],
   ...over,
 })
 const history = (over: Partial<HistoryLike> = {}): HistoryLike => ({ workouts: [], setLogs: [], morningChecks: [], runs: [], sessionMoves: [], ...over })

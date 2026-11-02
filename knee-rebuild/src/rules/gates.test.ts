@@ -58,6 +58,18 @@ describe('evaluateGate (rule 8)', () => {
     expect(evaluateGate(gate1, ctx({ readings: [...twoCleanWeeks, reading('2026-11-05', 'back-off')] })).items[0]?.pass).toBe(true)
   })
 
+  it('clean weeks leave a rack-capped clean out: it neither counts as clean nor breaks the streak (Shawn, Nov 2)', () => {
+    const capped = (date: string, result: SubjectReading['result'] = 'clean'): SubjectReading => ({ ...reading(date, result), rackCapped: true })
+    const withCapped = evaluateGate(gate1, ctx({ readings: [...twoCleanWeeks, capped('2026-11-16')] })).items[0]
+    expect(withCapped).toMatchObject({ pass: true, detail: '6 readings in the last 14 days, all clean (1 rack-capped session left out)' })
+    // A capped clean is not a session for "both weeks" either.
+    const onlyCapped = evaluateGate(gate1, ctx({ readings: [...twoCleanWeeks.slice(0, 3), capped('2026-11-17'), capped('2026-11-19')] })).items[0]
+    expect(onlyCapped).toMatchObject({ pass: false, detail: 'needs sessions in both of the last two weeks (3 readings so far, 2 rack-capped sessions left out)' })
+    // A capped hold or back-off still breaks it.
+    expect(evaluateGate(gate1, ctx({ readings: [...twoCleanWeeks, capped('2026-11-16', 'hold')] })).items[0]?.pass).toBe(false)
+    expect(evaluateGate(gate1, ctx({ readings: [...twoCleanWeeks, capped('2026-11-16', 'back-off')] })).items[0]?.pass).toBe(false)
+  })
+
   it('symmetry reads the latest test for the item against the gate line', () => {
     expect(evaluateGate(gate1, ctx({ gateTests: [test({ valueInjured: 7, valueOther: 10 })] })).items[1]).toMatchObject({ pass: false, detail: expect.stringContaining('70%') })
     expect(evaluateGate(gate1, ctx({ gateTests: [test({ date: '2026-11-10', valueInjured: 7 }), test({ date: '2026-11-20', valueInjured: 9 })] })).items[1]?.pass).toBe(true)

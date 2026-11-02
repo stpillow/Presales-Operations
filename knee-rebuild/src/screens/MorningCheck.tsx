@@ -1,19 +1,19 @@
 import { useState, type ReactNode } from 'react'
 import { checkLink } from '../rules/morningLink.ts'
 import { navigate } from '../app/router.ts'
-import { PROGRAM, planSession } from '../app/session.ts'
+import { PROGRAM, planSession, type Gym } from '../app/session.ts'
 import { useToday } from '../app/today.ts'
 import { Button } from '../components/Button.tsx'
 import { ReadingWord, readingSentence } from '../components/ReadingWord.tsx'
 import { Screen } from '../components/Screen.tsx'
 import { Stepper } from '../components/Stepper.tsx'
 import { Tap } from '../components/Tap.tsx'
-import { useHistory, useSettings } from '../db/hooks.ts'
+import { useActiveLocation, useHistory, useSettings } from '../db/hooks.ts'
 import { addMorningCheck, saveSettings, type History } from '../db/repo.ts'
 import { addDays, isDeloadWeek } from '../rules/calendar.ts'
 import { morningReading } from '../rules/reading.ts'
 import { stopMessage } from '../rules/redFlags.ts'
-import type { IsoDate, MorningCheck as CheckRecord, Settings } from '../schema/index.ts'
+import type { IsoDate, Location, MorningCheck as CheckRecord, Settings } from '../schema/index.ts'
 import {
   PAIN_CHANGE_MAX,
   PAIN_CHANGE_MIN,
@@ -53,17 +53,19 @@ export function MorningCheck() {
   const today = useToday()
   const settings = useSettings()
   const history = useHistory()
+  // The next session is planned at the gym Today plans for (M4b).
+  const activeLocation = useActiveLocation()
   const [saved, setSaved] = useState<Saved | null>(null)
   const [view, setView] = useState<'form' | 'result'>('form')
 
-  if (settings === undefined || history === undefined) {
+  if (settings === undefined || history === undefined || activeLocation === undefined || (settings !== null && activeLocation === null)) {
     return (
       <Screen title={TITLE} lead="Opening storage…">
         <p className="text-body text-on-dark-dim">Yesterday's session and the red-flag state load from the phone.</p>
       </Screen>
     )
   }
-  if (settings === null) {
+  if (settings === null || activeLocation === null) {
     return (
       <Screen title={TITLE} lead="No settings yet.">
         <p className="text-body text-on-dark-dim">Open the app from Today once so it can seed its settings, then come back.</p>
@@ -72,7 +74,7 @@ export function MorningCheck() {
   }
 
   if (view === 'result' && saved) {
-    return <Result saved={saved} onChange={() => setView('form')} />
+    return <Result saved={saved} location={activeLocation} onChange={() => setView('form')} />
   }
 
   const yesterday = addDays(today, -1)
@@ -215,7 +217,7 @@ function CheckFormScreen({
   )
 }
 
-function Result({ saved, onChange }: { saved: Saved; onChange: () => void }) {
+function Result({ saved, location, onChange }: { saved: Saved; location: Location; onChange: () => void }) {
   const { check, subject, settings, history } = saved
   const reading = morningReading(check)
   const stop = stopMessage(settings.redFlag, PROGRAM.redFlags)
@@ -254,7 +256,7 @@ function Result({ saved, onChange }: { saved: Saved; onChange: () => void }) {
       ) : null}
 
       <Section label="Next time">
-        <NextTime subject={subject} settings={settings} history={history} />
+        <NextTime subject={subject} settings={settings} history={history} gym={{ location, kit: settings.kit }} />
       </Section>
 
       <div className="flex flex-col gap-3">
@@ -270,7 +272,7 @@ function Result({ saved, onChange }: { saved: Saved; onChange: () => void }) {
 }
 
 /** For yesterday's lift: one sentence per exercise from the engine, planned with the new history. */
-function NextTime({ subject, settings, history }: { subject: CheckSubject | null; settings: Settings; history: History }) {
+function NextTime({ subject, settings, history, gym }: { subject: CheckSubject | null; settings: Settings; history: History; gym: Gym }) {
   if (!subject) {
     return <p className="text-body text-on-dark-dim">No session was logged for yesterday, so this check changes nothing on its own.</p>
   }
@@ -285,7 +287,7 @@ function NextTime({ subject, settings, history }: { subject: CheckSubject | null
   const week = nextWeekFor(workout, settings.startDate)
   let sentences: ExerciseSentence[]
   try {
-    sentences = exerciseSentences(planSession({ template, week, settings, history }), settings.injuredSide)
+    sentences = exerciseSentences(planSession({ template, week, settings, history, gym }), settings.injuredSide)
   } catch (e) {
     return <p className="text-body text-on-dark-dim">The next session could not be planned ({errorWords(e)}).</p>
   }
