@@ -93,3 +93,43 @@ describe('cleanWindow', () => {
     for (const bad of [WINDOW_MIN - 1, WINDOW_MAX + 1, NaN, Infinity, '40', null, undefined]) expect(cleanWindow(bad)).toBeNull()
   })
 })
+
+describe('more time than the session takes', () => {
+  const own = ['a', 'b'].map((id) => lift(id)) // 6 min each: 12 min
+  const extras = (ids: string[], over: Partial<WindowSlot> = {}) => ids.map((id) => lift(id, { extra: true, ...over }))
+
+  it('adds from the front of the pool while the next one still fits, and counts only the session’s own as the full session', () => {
+    const fit = fitToWindow([...own, ...extras(['x', 'y', 'z'])], 26, REST)
+    expect(fit.added).toEqual(['x', 'y'])
+    expect(fit.keep).toEqual(['a', 'b', 'x', 'y'])
+    expect(fit.fullMinutes).toBe(12)
+    expect(fit.keptMinutes).toBe(24)
+    expect(fit.dropped).toEqual([])
+    expect(fit.fits).toBe(true)
+  })
+
+  it('skips one that is too long and takes a shorter one behind it, to use the time', () => {
+    const long = lift('long', { extra: true, sides: [{ sets: 6, repsTarget: 20, repUnit: 'reps' }] })
+    const fit = fitToWindow([...own, long, ...extras(['short'])], 20, REST)
+    expect(fit.added).toEqual(['short'])
+  })
+
+  it('adds nothing for the full session, for exactly the time it takes, or when the session had to be cut', () => {
+    expect(fitToWindow([...own, ...extras(['x'])], null, REST).added).toEqual([])
+    expect(fitToWindow([...own, ...extras(['x'])], 12, REST).added).toEqual([])
+    expect(fitToWindow([...own, ...extras(['x'])], 8, REST)).toMatchObject({ added: [], dropped: ['b'] })
+  })
+
+  it('never adds more than the most extras take, nor one the gym can’t run', () => {
+    const many = extras(['e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8'])
+    expect(fitToWindow([...own, ...many], 120, REST).added).toEqual(['e1', 'e2', 'e3', 'e4', 'e5', 'e6'])
+    const gym = [lift('x', { extra: true, eligible: false }), lift('y', { extra: true })]
+    expect(fitToWindow([...own, ...gym], 30, REST).added).toEqual(['y'])
+  })
+
+  it('keeps an extra that is already logged, even where the minutes would not have added it', () => {
+    const fit = fitToWindow([...own, ...extras(['x']), lift('y', { extra: true, logged: true })], 12, REST)
+    expect(fit.added).toEqual(['y'])
+    expect(fit.keep).toEqual(['a', 'b', 'y'])
+  })
+})

@@ -80,11 +80,11 @@ export function addedPrescriptionText(added: Pick<AddedSlot, 'sets' | 'repsMin' 
 }
 
 /** The slot an added exercise becomes, `position` (1-based) among the template's added slots and `order` after the template's own. */
-export function slotFromAdded(added: AddedSlot, exercise: Exercise, position: number, order: number): Slot {
+export function slotFromAdded(added: Pick<AddedSlot, 'id' | 'sets' | 'repsMin' | 'repsMax'>, exercise: Exercise, position: number, order: number, label: string = `+${position}`): Slot {
   return Slot.parse({
     id: added.id,
     order,
-    label: `+${position}`,
+    label,
     exerciseId: exercise.id,
     sets: added.sets,
     repsMin: added.repsMin,

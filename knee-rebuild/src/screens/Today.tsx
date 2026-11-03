@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
 import { navigate } from '../app/router.ts'
-import { PROGRAM, availableAt, planSession, windowFit } from '../app/session.ts'
+import { PROGRAM, availableAt, planSession, sessionExtensions, windowFit } from '../app/session.ts'
 import { useToday } from '../app/today.ts'
 import { Button } from '../components/Button.tsx'
 import { ReadingWord, readingSentence } from '../components/ReadingWord.tsx'
 import { TimeWindow } from '../components/TimeWindow.tsx'
+import { isExtraSlotId } from '../rules/extensions.ts'
 import { Screen } from '../components/Screen.tsx'
 import { useActiveLocation, useHistory, useLocations, useSettings } from '../db/hooks.ts'
 import { clearMarkOff, putWorkout, reopenWorkout, setActiveLocation, writeWindow, type History } from '../db/repo.ts'
@@ -438,10 +439,11 @@ function FitBlock({
   minutes: number | null
   onChange: (minutes: number | null) => void
 }) {
-  const plans = useMemo(() => planSession({ template, week, settings, history, gym: { location: gym, kit: settings.kit }, before }), [template, week, settings, history, gym, before])
+  const extend = useMemo(() => sessionExtensions(template, history, settings, week), [template, history, settings, week])
+  const plans = useMemo(() => planSession({ template, week, settings, history, gym: { location: gym, kit: settings.kit }, before, extend }), [template, week, settings, history, gym, before, extend])
   const fit = windowFit(plans, settings.restTimerSeconds, minutes)
   const nameOf = (slotId: string) => plans.find((p) => p.slot.id === slotId)?.exercise.name ?? slotId
-  return <TimeWindow minutes={minutes} onChange={onChange} lines={windowWords(fit, minutes, plans.length, nameOf)} />
+  return <TimeWindow minutes={minutes} onChange={onChange} lines={windowWords(fit, minutes, plans.filter((p) => !isExtraSlotId(p.slot.id)).length, nameOf)} />
 }
 
 function FinishedBlock({ body }: { body: Lift }) {

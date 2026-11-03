@@ -2,6 +2,7 @@ import { exerciseById, program, templateFor } from '../program/program.ts'
 import { availableEquipment, type Available, type SlotRoute } from '../rules/equipment.ts'
 import { attachChecks, recordsBefore, type WorkoutRecord } from '../rules/history.ts'
 import { isAddedSlotId, withAddedSlots } from '../rules/addedSlots.ts'
+import { extensionPool, isExtraSlotId } from '../rules/extensions.ts'
 import { fitToWindow, type Fit, type WindowSlot } from '../rules/fitWindow.ts'
 import { applyOverrides, overridesBySlot } from '../rules/overrides.ts'
 import { prescribe, type GymHere, type Prescription } from '../rules/prescription.ts'
@@ -69,6 +70,8 @@ export function planSession(input: {
   gym: Gym
   /** A swap made for this session, by slot id. */
   chosenExercise?: Record<string, string | undefined>
+  /** Exercises added for extra time (`extensionPool`), after the template's own and Shawn's added ones; the minutes decide which of them run (`windowFit`). */
+  extend?: readonly Slot[]
   /** Plan only from sessions dated before this day: the session being run, and any earlier attempt that day, never plan it. */
   before?: IsoDate
 }): SlotPlan[] {
@@ -80,7 +83,7 @@ export function planSession(input: {
   const gym = gymHere(input.gym)
   const overrides = overridesBySlot(history.programOverrides ?? [])
   // Shawn's added exercises go after the template's own slots; the seed template is never written.
-  return slotsForPhaseWeek(withAdded(template, history), phaseWeek).map((written) => {
+  return [...slotsForPhaseWeek(withAdded(template, history), phaseWeek), ...(input.extend ?? [])].map((written) => {
     // Shawn's edits laid over program.md's slot before anything routes or prescribes from it; the seed is never written.
     const slot = applyOverrides(written, overrides.get(written.id), CATALOG)
     const own = exerciseById(slot.exerciseId)
@@ -112,6 +115,21 @@ export function planSession(input: {
 }
 
 /**
+ * What can be added to this session for extra time: the phase's other sessions' exercises, then
+ * upper-body work (`extensionPool`). Worked out from the same inputs each time, never stored.
+ */
+export function sessionExtensions(template: SessionTemplate, history: Pick<History, 'addedSlots'>, settings: Settings, week: number): Slot[] {
+  const phaseWeek = phaseWeekOf(Math.max(week, settings.phaseEnteredWeek), settings.phaseEnteredWeek)
+  return extensionPool({ template: withAdded(template, history), templates: program.templates, phaseWeek, catalog: CATALOG })
+}
+
+/** The session with its extension slots after its own, so a Summary can name every slot a set was logged on. */
+export function withExtensions(template: SessionTemplate, history: Pick<History, 'addedSlots'>, extensions: readonly Slot[]): SessionTemplate {
+  const own = withAdded(template, history)
+  return { ...own, slots: [...own.slots, ...extensions] }
+}
+
+/**
  * Which of a session's slots fit the minutes Shawn has (`fitToWindow`): the plan's sets, reps and
  * the Settings rest, in session order. A slot with a set already logged is never dropped. Null
  * minutes is the full session.
@@ -121,6 +139,9 @@ export function windowFit(plans: readonly SlotPlan[], restSeconds: number, minut
     slotId: p.slot.id,
     ...(p.slot.groupId ? { groupId: p.slot.groupId } : {}),
     added: isAddedSlotId(p.slot.id),
+    extra: isExtraSlotId(p.slot.id),
+    // An extra the gym can't run as it stands (a machine that isn't here) is never added for time.
+    eligible: p.route.kind === 'own',
     optional: p.slot.optional,
     logged: loggedSlots.has(p.slot.id),
     sides: p.prescriptions.map((x) => ({ sets: x.sets, repsTarget: x.repsTarget, repUnit: x.repUnit })),

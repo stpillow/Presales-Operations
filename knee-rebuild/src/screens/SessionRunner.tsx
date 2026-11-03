@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { navigate } from '../app/router.ts'
-import { availableAt, planSession, PROGRAM, windowFit, withAdded, type Gym, type SlotPlan } from '../app/session.ts'
+import { availableAt, planSession, PROGRAM, sessionExtensions, windowFit, withExtensions, type Gym, type SlotPlan } from '../app/session.ts'
+import { isExtraSlotId } from '../rules/extensions.ts'
 import { TimeWindow } from '../components/TimeWindow.tsx'
 import { useToday } from '../app/today.ts'
 import { Button } from '../components/Button.tsx'
@@ -141,7 +142,7 @@ export function SessionRunner({ workoutId }: { workoutId: string }) {
   if (workout.status === 'finished' || workout.status === 'abandoned') {
     return (
       <Screen title={`Session ${template.letter}`} lead={lead}>
-        <Summary workout={workout} template={withAdded(template, history)} sets={sets} injuredSide={settings.injuredSide} />
+        <Summary workout={workout} template={withExtensions(template, history, sessionExtensions(template, history, settings, workout.week))} sets={sets} injuredSide={settings.injuredSide} />
       </Screen>
     )
   }
@@ -207,7 +208,10 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
   const gym = useMemo<Gym>(() => ({ location, kit: settings.kit }), [location, settings.kit])
   const available = useMemo(() => availableAt(gym), [gym])
   const planInput = { template, week: workout.week, settings, history, gym, before: workout.date }
-  const everySlot = useMemo(() => planSession(planInput), [template, workout.week, workout.date, settings, history, gym])
+  // The pool for extra time, worked out from the same inputs each time: which of it runs is the minutes' call (`windowFit`).
+  const extend = useMemo(() => sessionExtensions(template, history, settings, workout.week), [template, history, settings, workout.week])
+  const everySlot = useMemo(() => planSession({ ...planInput, extend }), [template, workout.week, workout.date, settings, history, gym, extend])
+  const ownCount = useMemo(() => everySlot.filter((p) => !isExtraSlotId(p.slot.id)).length, [everySlot])
   // What the minutes leave out is decided on the unswapped plan, so a Swap never changes which exercises run; a slot with a set logged always stays.
   const loggedForFit = useMemo(() => new Set(sets.map((s) => s.slotId)), [sets])
   const fit = useMemo(() => windowFit(everySlot, settings.restTimerSeconds, minutes, loggedForFit), [everySlot, settings.restTimerSeconds, minutes, loggedForFit])
@@ -223,7 +227,7 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
     setStored(next)
     writeStored(storageKey, Object.keys(next).length > 0 ? next : null)
   }, [stored, everySlot, storageKey])
-  const plans = useMemo(() => planSession({ ...planInput, chosenExercise: chosen }).filter((p) => fit.keep.includes(p.slot.id)), [template, workout.week, workout.date, settings, history, gym, chosen, fit])
+  const plans = useMemo(() => planSession({ ...planInput, chosenExercise: chosen, extend }).filter((p) => fit.keep.includes(p.slot.id)), [template, workout.week, workout.date, settings, history, gym, chosen, fit, extend])
   const steps = useMemo(
     () => sessionSteps(plans.map((p) => ({ slotId: p.slot.id, ...(p.slot.groupId ? { groupId: p.slot.groupId } : {}), optional: p.slot.optional, sides: p.prescriptions.map((x) => ({ side: x.side, sets: x.sets })) }))),
     [plans],
@@ -579,10 +583,10 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
             setMinutes(m)
             writeWindow(workout.id, m)
           }}
-          lines={windowWords(fit, minutes, everySlot.length, (slotId) => everySlot.find((p) => p.slot.id === slotId)?.exercise.name ?? slotId)}
+          lines={windowWords(fit, minutes, ownCount, (slotId) => everySlot.find((p) => p.slot.id === slotId)?.exercise.name ?? slotId)}
         />
       ) : minutes !== null ? (
-        <p className="text-small text-on-dark-dim">{`Fitted to ${minutes} min: ${fit.keep.length} of ${everySlot.length} exercises.`}</p>
+        <p className="text-small text-on-dark-dim">{`${fit.added.length > 0 ? `Fitted to ${minutes} min: all ${ownCount} exercises, and ${fit.added.length} added.` : `Fitted to ${minutes} min: ${fit.keep.length} of ${ownCount} exercises.`}`}</p>
       ) : null}
       {settings.redFlag.active ? <p className="text-body text-on-dark">Red-flag state: progression is suspended; loads repeat the last session.</p> : null}
       {staleDay ? (

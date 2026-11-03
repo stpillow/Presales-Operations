@@ -1,4 +1,5 @@
 import type { RepUnit } from '../schema/index.ts'
+import { EXTENSION_MAX } from './extensions.ts'
 
 /*
  * "I have 40 minutes": how much of a session fits the time he has. Shawn gives the minutes; this
@@ -6,7 +7,10 @@ import type { RepUnit } from '../schema/index.ts'
  * exercises, never trims a set, until the rest fits. What goes first: the exercises he added, then
  * the ones program.md marks optional, then program.md's own from the end of the session backwards,
  * so the work the program leads with (the prep, the main lifts) is what stays. An exercise already
- * logged, and the session's first, are never dropped; a superset goes or stays as one. The estimate
+ * logged, and the session's first, are never dropped; a superset goes or stays as one. With more
+ * time than the session takes, it goes the other way: exercises from the pool in src/rules/extensions.ts
+ * are added, in order, while the next one still fits (never more than EXTENSION_MAX, and only ones the
+ * gym can run). The estimate
  * is a plain one (4 s a rep, 20 s to set up and log a set, the Settings rest after each); it is a
  * guide to what fits, not a promise.
  */
@@ -39,6 +43,10 @@ export interface WindowSlot {
   logged: boolean
   /** One per side, injured side first. */
   sides: readonly WindowSide[]
+  /** Part of the pool for extra time, not the session: it runs only if added for the minutes. */
+  extra?: boolean
+  /** An extra the gym can run as it stands; one it can't is never added. Absent means it can. */
+  eligible?: boolean
 }
 
 /** The minutes as stored: whole minutes in range, or null for the full session. */
@@ -111,6 +119,8 @@ export function minutesOf(seconds: number): number {
 export interface Fit {
   /** The slots that run, in session order. */
   keep: string[]
+  /** The extras added for the minutes, in the order they were taken. */
+  added: string[]
   /** The slots left out, in the order they were dropped. */
   dropped: string[]
   /** The estimate for the full session and for what is kept, in minutes. */
@@ -120,9 +130,11 @@ export interface Fit {
   fits: boolean
 }
 
-/** Which slots fit `minutes` (null: the full session). */
+/** Which slots fit `minutes` (null: the full session): some left out, or, with time to spare, extras added. */
 export function fitToWindow(slots: readonly WindowSlot[], minutes: number | null, restSeconds: number): Fit {
-  const all = units(slots, restSeconds)
+  const base = slots.filter((s) => !s.extra)
+  const pool = slots.filter((s) => s.extra)
+  const all = units(base, restSeconds)
   const full = all.reduce((sum, u) => sum + u.seconds, 0)
   const limit = minutes === null ? Infinity : minutes * 60
   const dropOrder = all
@@ -139,9 +151,29 @@ export function fitToWindow(slots: readonly WindowSlot[], minutes: number | null
     total -= unit.seconds
   }
   const dropped = [...gone].sort((a, b) => dropOrder.indexOf(a) - dropOrder.indexOf(b)).flatMap((u) => u.slots.map((s) => s.slotId))
-  const droppedIds = new Set(dropped)
+
+  // An extra already logged stays, as any logged exercise does; with the session whole and time left, the pool is taken from the front.
+  const added: string[] = []
+  for (const slot of pool.filter((s) => s.logged)) {
+    added.push(slot.slotId)
+    total += slotWork(slot).work + slotWork(slot).rounds * restSeconds
+  }
+  if (minutes !== null && dropped.length === 0) {
+    for (const slot of pool) {
+      if (added.length >= EXTENSION_MAX) break
+      if (slot.logged || slot.eligible === false) continue
+      const { work, rounds } = slotWork(slot)
+      const seconds = work + rounds * restSeconds
+      if (total + seconds > limit) continue
+      added.push(slot.slotId)
+      total += seconds
+    }
+  }
+  const out = new Set([...dropped])
+  const addedIds = new Set(added)
   return {
-    keep: slots.filter((s) => !droppedIds.has(s.slotId)).map((s) => s.slotId),
+    keep: slots.filter((s) => (s.extra ? addedIds.has(s.slotId) : !out.has(s.slotId))).map((s) => s.slotId),
+    added: slots.filter((s) => addedIds.has(s.slotId)).map((s) => s.slotId),
     dropped,
     fullMinutes: minutesOf(full),
     keptMinutes: minutesOf(total),
