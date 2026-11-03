@@ -1,6 +1,7 @@
 import { daysBetween, todayIn } from './calendar.ts'
 import type { RedFlagState } from './redFlags.ts'
 import {
+  AddedSlot,
   GateTest,
   IsoDateTime,
   Location,
@@ -28,7 +29,7 @@ export const BACKUP_APP = 'knee-rebuild'
  * The shape of the file's tables: the Dexie version they were read from (src/db/db.ts). A test in
  * src/db/backup.test.ts holds the two together, so a new Dexie version has to bring a step here.
  */
-export const BACKUP_SCHEMA_VERSION = 4
+export const BACKUP_SCHEMA_VERSION = 5
 
 /**
  * The oldest shape a file can be carried forward from. Version 1 was the empty M0 database. No file
@@ -41,7 +42,7 @@ export const OLDEST_SCHEMA_VERSION = 2
 export const BACKUP_MAX_BYTES = 10 * 1024 * 1024
 
 /** The tables a file carries besides settings, in the order the file lists them. */
-export const BACKUP_TABLES = ['workouts', 'setLogs', 'morningChecks', 'runs', 'gateTests', 'sessionMoves', 'locations', 'programOverrides'] as const
+export const BACKUP_TABLES = ['workouts', 'setLogs', 'morningChecks', 'runs', 'gateTests', 'sessionMoves', 'locations', 'programOverrides', 'addedSlots'] as const
 export type BackupTable = (typeof BACKUP_TABLES)[number]
 
 /** Settings as a file carries them: every field but `lastExportedAt`, which is the phone's own (an import stamps the file's `exportedAt`). */
@@ -57,6 +58,7 @@ export interface BackupTables {
   sessionMoves: SessionMove[]
   locations: Location[]
   programOverrides: ProgramOverride[]
+  addedSlots: AddedSlot[]
 }
 
 /** The file, in the order its keys are written. */
@@ -85,6 +87,7 @@ export const TABLE_WORDS: Record<BackupTable, { many: string; one: string }> = {
   sessionMoves: { many: 'session moves', one: 'session move' },
   locations: { many: 'gyms', one: 'gym' },
   programOverrides: { many: 'Program edits', one: 'Program edit' },
+  addedSlots: { many: 'added exercises', one: 'added exercise' },
 }
 
 interface Issue {
@@ -109,6 +112,7 @@ const TABLES: { [K in BackupTable]: { schema: RowSchema<BackupTables[K][number]>
   sessionMoves: { schema: SessionMove, key: (r) => r.id },
   locations: { schema: Location, key: (r) => r.id },
   programOverrides: { schema: ProgramOverride, key: (r) => r.slotId },
+  addedSlots: { schema: AddedSlot, key: (r) => r.id },
 }
 
 /** A row's stored key (its id, or a Program edit's slot id). */
@@ -201,6 +205,7 @@ export function buildBackup(stored: StoredContents, exportedAt: IsoDateTime): Ex
     sessionMoves: table('sessionMoves'),
     locations: table('locations'),
     programOverrides: table('programOverrides'),
+    addedSlots: table('addedSlots'),
   }
   return { backup, unreadable }
 }
@@ -236,12 +241,14 @@ export function sizeProblem(bytes: number): string | null {
 /**
  * One step per older version, each carrying a file one version forward. Version 2's tables are
  * version 3's without the gyms (the home gym is written at launch, as on a phone that ran version
- * 2); version 3's are version 4's without the Program screen's edits. A list the file already has
+ * 2); version 3's are version 4's without the Program screen's edits; version 4's are version 5's
+ * without the exercises Shawn adds to a session. A list the file already has
  * is left for the schema to judge, never replaced.
  */
 export const MIGRATIONS: Readonly<Record<number, (file: FileObject) => FileObject>> = {
   2: (file) => ({ ...withList(file, 'locations'), schemaVersion: 3 }),
   3: (file) => ({ ...withList(file, 'programOverrides'), schemaVersion: 4 }),
+  4: (file) => ({ ...withList(file, 'addedSlots'), schemaVersion: 5 }),
 }
 
 function withList(file: FileObject, key: BackupTable): FileObject {
@@ -329,6 +336,7 @@ export function backupFrom(raw: unknown): BackupRead {
     sessionMoves: tables.sessionMoves ?? [],
     locations: tables.locations ?? [],
     programOverrides: tables.programOverrides ?? [],
+    addedSlots: tables.addedSlots ?? [],
   }
   return { ok: true, backup, migratedFrom: version === BACKUP_SCHEMA_VERSION ? null : version }
 }

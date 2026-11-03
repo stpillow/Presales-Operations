@@ -1,8 +1,8 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from './db.ts'
-import { getLocations, getProgramOverrides, getSettings, loadHistory, type History } from './repo.ts'
+import { getAddedSlots, getLocations, getProgramOverrides, getSettings, loadHistory, type History } from './repo.ts'
 import { locationOrHome } from '../rules/locations.ts'
-import type { Location, ProgramOverride, SetLog, Settings, Workout } from '../schema/index.ts'
+import type { AddedSlot, Location, ProgramOverride, SetLog, Settings, Workout } from '../schema/index.ts'
 
 /** Undefined while loading; null when no settings row exists yet. */
 export function useSettings(): Settings | null | undefined {
@@ -47,4 +47,9 @@ export function useActiveLocation(): Location | null | undefined {
 /** The Program screen's edits, one row per edited slot (`applyOverrides` lays them over program.md's). Undefined while loading. */
 export function useProgramOverrides(): ProgramOverride[] | undefined {
   return useLiveQuery(() => getProgramOverrides(), [])
+}
+
+/** The exercises Shawn added to a session (`withAddedSlots` lays them after a template's own). Undefined while loading. */
+export function useAddedSlots(): AddedSlot[] | undefined {
+  return useLiveQuery(() => getAddedSlots(), [])
 }

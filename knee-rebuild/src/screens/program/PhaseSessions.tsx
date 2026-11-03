@@ -1,14 +1,15 @@
 import { useEffect, useLayoutEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { Button } from '../../components/Button.tsx'
 import { overridesBySlot, withPutBack } from '../../rules/overrides.ts'
-import type { IsoDate, ProgramOverride } from '../../schema/index.ts'
+import type { AddedSlot, IsoDate, ProgramOverride } from '../../schema/index.ts'
 import { editorView, unaddedCueWords, type PhaseScreen, type SlotRow } from '../Program.helpers.ts'
 import { keepSlotDraft, slotDraft, type SlotDraft } from './drafts.ts'
 import { HEADING, LABEL, Note, Problem } from './parts.tsx'
+import { AddedExercises } from './AddedExercises.tsx'
 import { SlotEditor, editFailedWords, saveSlotEdit } from './SlotEditor.tsx'
 
 /** The current phase's sessions, A then B then C, each slot read-only with an Edit that opens its editor in place. */
-export function PhaseSessions({ screen, overrides, today }: { screen: PhaseScreen; overrides: readonly ProgramOverride[]; today: IsoDate }) {
+export function PhaseSessions({ screen, overrides, added, today }: { screen: PhaseScreen; overrides: readonly ProgramOverride[]; added: readonly AddedSlot[]; today: IsoDate }) {
   // One editor open at a time; leaving a cue's field saves it, and a new cue not yet added stays with its slot, so opening another loses nothing.
   const [open, setOpen] = useState<string | null>(null)
   const bySlot = overridesBySlot(overrides)
@@ -25,6 +26,7 @@ export function PhaseSessions({ screen, overrides, today }: { screen: PhaseScree
               <SlotCard key={row.id} row={row} override={bySlot.get(row.id)} today={today} open={open === row.id} onToggle={() => setOpen((o) => (o === row.id ? null : row.id))} />
             ))}
           </ol>
+          <AddedExercises templateId={session.templateId} heading={session.heading} added={added} today={today} />
         </section>
       ))}
     </div>

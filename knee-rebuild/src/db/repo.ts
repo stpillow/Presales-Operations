@@ -15,8 +15,11 @@ import {
   type Extra,
   type NewLocationInput,
 } from '../rules/locations.ts'
+import { addedSlotProblem, phaseExerciseIds } from '../rules/addedSlots.ts'
+import { cleanWindow } from '../rules/fitWindow.ts'
 import { overrideProblems } from '../rules/overrides.ts'
 import {
+  AddedSlot,
   GateTest,
   Location,
   MorningCheck,
@@ -392,6 +395,33 @@ export async function clearProgramOverride(slotId: string): Promise<void> {
   await db.programOverrides.delete(slotId)
 }
 
+/** The exercises Shawn added to a session, one row each. */
+export async function getAddedSlots(): Promise<AddedSlot[]> {
+  return (await db.addedSlots.toArray()).map((row) => AddedSlot.parse(row))
+}
+
+/**
+ * Stores an exercise added to a session: checked first (`addedSlotProblem`: in the catalog, one a
+ * session can take, room on the template), then parsed. A refusal throws one sentence and writes
+ * nothing. The seed is never written; the engine lays the slot after the template's own.
+ */
+export async function saveAddedSlot(added: AddedSlot, seed: Pick<Program, 'templates' | 'exercises'>): Promise<AddedSlot> {
+  const template = seed.templates.find((t) => t.id === added.templateId)
+  if (!template) throw new Error(`No session ${String(added.templateId)} in the program.`)
+  const parsed = AddedSlot.safeParse(added)
+  if (!parsed.success) throw new Error(`That can’t be added: ${parsed.error.issues[0]?.message ?? 'it is not an exercise with sets and reps'}.`)
+  const already = await db.addedSlots.where('templateId').equals(added.templateId).filter((row) => row.id !== added.id).count()
+  const problem = addedSlotProblem(parsed.data, seed.exercises.find((e) => e.id === added.exerciseId), already, phaseExerciseIds(seed.templates, template.phase))
+  if (problem) throw new Error(problem)
+  await db.addedSlots.put(parsed.data)
+  return parsed.data
+}
+
+/** Takes an added exercise off its session. Sets already logged for it stay in the history. */
+export async function removeAddedSlot(id: string): Promise<void> {
+  await db.addedSlots.delete(id)
+}
+
 export interface History {
   workouts: Workout[]
   setLogs: SetLog[]
@@ -404,11 +434,13 @@ export interface History {
    * a history built by hand (a test fixture) reads as no edits: every slot as program.md writes it.
    */
   programOverrides?: ProgramOverride[]
+  /** The exercises Shawn added to a session (Dexie version 5), which `planSession` lays after a template's own slots. Optional for the same reason. */
+  addedSlots?: AddedSlot[]
 }
 
 /** Everything the engine reads, in one go. The tables are small: one person, twelve weeks. */
 export async function loadHistory(): Promise<History> {
-  const [workouts, setLogs, morningChecks, runs, gateTests, sessionMoves, programOverrides] = await Promise.all([
+  const [workouts, setLogs, morningChecks, runs, gateTests, sessionMoves, programOverrides, addedSlots] = await Promise.all([
     db.workouts.toArray(),
     db.setLogs.toArray(),
     db.morningChecks.toArray(),
@@ -416,8 +448,9 @@ export async function loadHistory(): Promise<History> {
     db.gateTests.toArray(),
     db.sessionMoves.toArray(),
     db.programOverrides.toArray(),
+    db.addedSlots.toArray(),
   ])
-  return { workouts, setLogs, morningChecks, runs, gateTests, sessionMoves, programOverrides }
+  return { workouts, setLogs, morningChecks, runs, gateTests, sessionMoves, programOverrides, addedSlots }
 }
 
 /** The prefix the Session runner stores a workout's swaps under in local storage. */
@@ -438,6 +471,30 @@ export async function resetAll(defaults: Settings, lists: HomeLists, createdOn: 
     await writeHome(lists, createdOn)
   })
   forgetSwaps()
+}
+
+/**
+ * The minutes Shawn said he has for a session, kept beside its swaps (so Reset and an import take
+ * it out with them): null, or nothing stored, is the full session. The fit itself is
+ * `fitToWindow` (src/rules/fitWindow.ts); this only remembers the number.
+ */
+export function readWindow(workoutId: string): number | null {
+  try {
+    const raw = window.localStorage.getItem(`${SWAP_KEY_PREFIX}${workoutId}:window`)
+    return raw === null ? null : cleanWindow(JSON.parse(raw))
+  } catch {
+    return null
+  }
+}
+
+export function writeWindow(workoutId: string, minutes: number | null): void {
+  try {
+    const key = `${SWAP_KEY_PREFIX}${workoutId}:window`
+    if (minutes === null) window.localStorage.removeItem(key)
+    else window.localStorage.setItem(key, JSON.stringify(minutes))
+  } catch {
+    // Private browsing: the session runs in full.
+  }
 }
 
 /**

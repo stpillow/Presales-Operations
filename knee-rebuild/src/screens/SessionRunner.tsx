@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { navigate } from '../app/router.ts'
-import { availableAt, planSession, PROGRAM, type Gym, type SlotPlan } from '../app/session.ts'
+import { availableAt, planSession, PROGRAM, windowFit, withAdded, type Gym, type SlotPlan } from '../app/session.ts'
+import { TimeWindow } from '../components/TimeWindow.tsx'
 import { useToday } from '../app/today.ts'
 import { Button } from '../components/Button.tsx'
 import { RestTimer } from '../components/RestTimer.tsx'
 import { Screen } from '../components/Screen.tsx'
 import { useHistory, useLocation, useLocations, useSetsFor, useSettings, useWorkout } from '../db/hooks.ts'
-import { deleteSet, deleteWorkout, markOff, setActiveLocation, setDumbbellMax, setPresent, setWorkoutLocation, SWAP_KEY_PREFIX, updateWorkout, upsertSet, type History } from '../db/repo.ts'
+import { deleteSet, deleteWorkout, markOff, setActiveLocation, setDumbbellMax, setPresent, setWorkoutLocation, readWindow, SWAP_KEY_PREFIX, updateWorkout, upsertSet, writeWindow, type History } from '../db/repo.ts'
 import { exerciseById } from '../program/program.ts'
 import { effectiveSlot } from '../rules/effectiveSlot.ts'
 import { WARM_UP_BIKE } from '../rules/equipment.ts'
@@ -23,6 +24,7 @@ import { GymLine } from './session/GymLine.tsx'
 import type { GymAction, RackAsk } from './session/GymNotes.tsx'
 import { SlotList } from './session/SlotList.tsx'
 import { Summary } from './session/Summary.tsx'
+import { windowWords } from './Window.helpers.ts'
 import {
   buildSet,
   doneWords,
@@ -139,7 +141,7 @@ export function SessionRunner({ workoutId }: { workoutId: string }) {
   if (workout.status === 'finished' || workout.status === 'abandoned') {
     return (
       <Screen title={`Session ${template.letter}`} lead={lead}>
-        <Summary workout={workout} template={template} sets={sets} injuredSide={settings.injuredSide} />
+        <Summary workout={workout} template={withAdded(template, history)} sets={sets} injuredSide={settings.injuredSide} />
       </Screen>
     )
   }
@@ -166,6 +168,8 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
   const anywayKey = `${storageKey}:anyway`
   const locations = useLocations()
   const [stored, setStored] = useState<Record<string, string | null>>(() => readStoredSwaps(storageKey))
+  /** The minutes Shawn has for this session, from Start or changed here; null is the full session (`fitToWindow` drops whole exercises, never a set). */
+  const [minutes, setMinutes] = useState<number | null>(() => readWindow(workout.id))
   /** Slots Shawn picked Do it anyway on: nothing on their list is here, and they run regardless. */
   const [runAnyway, setRunAnyway] = useState<string[]>(() => readStoredSlotIds(anywayKey))
   /** What the last Swap pick offers to mark at this gym, for its slot (`swapOffer`, made at the pick, read against what is here now). */
@@ -203,19 +207,23 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
   const gym = useMemo<Gym>(() => ({ location, kit: settings.kit }), [location, settings.kit])
   const available = useMemo(() => availableAt(gym), [gym])
   const planInput = { template, week: workout.week, settings, history, gym, before: workout.date }
-  const unswapped = useMemo(() => planSession(planInput), [template, workout.week, workout.date, settings, history, gym])
+  const everySlot = useMemo(() => planSession(planInput), [template, workout.week, workout.date, settings, history, gym])
+  // What the minutes leave out is decided on the unswapped plan, so a Swap never changes which exercises run; a slot with a set logged always stays.
+  const loggedForFit = useMemo(() => new Set(sets.map((s) => s.slotId)), [sets])
+  const fit = useMemo(() => windowFit(everySlot, settings.restTimerSeconds, minutes, loggedForFit), [everySlot, settings.restTimerSeconds, minutes, loggedForFit])
+  const unswapped = useMemo(() => everySlot.filter((p) => fit.keep.includes(p.slot.id)), [everySlot, fit])
   const engineBySlot = useMemo(() => new Map(unswapped.map((p) => [p.slot.id, p.exercise.id])), [unswapped])
   // Only picks on their slot's list as it runs now: a Program edit mid-session can take one off, and the engine then runs the slot's history.
   const chosen = useMemo(() => picksOnList(withoutEnginePicks(mergeSwaps(swapsFromSets(unswapped, sets), stored), engineBySlot), unswapped), [unswapped, sets, stored, engineBySlot])
   // A stored swap taken off its slot's list is forgotten, so putting the exercise back on the list later doesn't bring the old pick back with it.
   useEffect(() => {
-    const stale = staleStoredSwaps(stored, unswapped)
+    const stale = staleStoredSwaps(stored, everySlot)
     if (stale.length === 0) return
     const next = Object.fromEntries(Object.entries(stored).filter(([slotId]) => !stale.includes(slotId)))
     setStored(next)
     writeStored(storageKey, Object.keys(next).length > 0 ? next : null)
-  }, [stored, unswapped, storageKey])
-  const plans = useMemo(() => planSession({ ...planInput, chosenExercise: chosen }), [template, workout.week, workout.date, settings, history, gym, chosen])
+  }, [stored, everySlot, storageKey])
+  const plans = useMemo(() => planSession({ ...planInput, chosenExercise: chosen }).filter((p) => fit.keep.includes(p.slot.id)), [template, workout.week, workout.date, settings, history, gym, chosen, fit])
   const steps = useMemo(
     () => sessionSteps(plans.map((p) => ({ slotId: p.slot.id, ...(p.slot.groupId ? { groupId: p.slot.groupId } : {}), optional: p.slot.optional, sides: p.prescriptions.map((x) => ({ side: x.side, sets: x.sets })) }))),
     [plans],
@@ -460,6 +468,7 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
         await deleteWorkout(workout.id)
         writeStored(storageKey, null)
         writeStored(anywayKey, null)
+        writeWindow(workout.id, null)
       },
       () => navigate({ name: 'today' }),
     )
@@ -563,6 +572,18 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
         </Button>
         {workout.isDeload ? <span className="font-mono text-small uppercase tracking-[0.22em] text-on-dark">Deload week: fewer sets, same loads</span> : null}
       </div>
+      {sets.length === 0 && workout.status === 'in-progress' ? (
+        <TimeWindow
+          minutes={minutes}
+          onChange={(m) => {
+            setMinutes(m)
+            writeWindow(workout.id, m)
+          }}
+          lines={windowWords(fit, minutes, everySlot.length, (slotId) => everySlot.find((p) => p.slot.id === slotId)?.exercise.name ?? slotId)}
+        />
+      ) : minutes !== null ? (
+        <p className="text-small text-on-dark-dim">{`Fitted to ${minutes} min: ${fit.keep.length} of ${everySlot.length} exercises.`}</p>
+      ) : null}
       {settings.redFlag.active ? <p className="text-body text-on-dark">Red-flag state: progression is suspended; loads repeat the last session.</p> : null}
       {staleDay ? (
         <div className="flex flex-col gap-2">

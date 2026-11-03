@@ -105,6 +105,10 @@ function tables(): BackupTables {
       { slotId: 'p1a-2', substitutionIds: ['box-step-up', 'split-squat'], editedOn: '2026-11-17' },
       { slotId: 'p1b-1', cues: ['Slow down'], substitutionIds: [], editedOn: '2026-11-18' },
     ],
+    addedSlots: [
+      { id: 'added-a1', templateId: 'p1-a', exerciseId: 'db-bench-press', sets: 3, repsMin: 8, repsMax: 10, addedOn: '2026-11-18' },
+      { id: 'added-a2', templateId: 'p1-b', exerciseId: 'wall-sit', sets: 2, repsMin: 30, repsMax: 45, addedOn: '2026-11-19' },
+    ],
   }
 }
 
@@ -153,7 +157,7 @@ describe('the export file', () => {
 
   it('is two-space JSON with a final newline, named for the day it is written', () => {
     const text = backupText(built())
-    expect(text.startsWith('{\n  "app": "knee-rebuild",\n  "schemaVersion": 4,\n  "exportedAt": "2026-11-21T14:05:00.000Z",\n')).toBe(true)
+    expect(text.startsWith('{\n  "app": "knee-rebuild",\n  "schemaVersion": 5,\n  "exportedAt": "2026-11-21T14:05:00.000Z",\n')).toBe(true)
     expect(text.endsWith('}\n')).toBe(true)
     expect(backupFileName('2026-11-21')).toBe('knee-rebuild-2026-11-21.json')
   })
@@ -180,10 +184,10 @@ describe('reading a file back', () => {
   })
 
   it('refuses a newer schema version, saying how to get an app that reads it, in the update prompt’s own words', () => {
-    expect(parseBackup(fileText({ ...built(), schemaVersion: 5 }))).toEqual({
+    expect(parseBackup(fileText({ ...built(), schemaVersion: 6 }))).toEqual({
       ok: false,
       refusal:
-        'This backup is from a newer version of the app (schema version 5; this one reads up to 4). Open the app with a signal and tap Reload now when “A new version is ready” shows, then import it again. Nothing was imported.',
+        'This backup is from a newer version of the app (schema version 6; this one reads up to 5). Open the app with a signal and tap Reload now when “A new version is ready” shows, then import it again. Nothing was imported.',
     })
     // The prompt the refusal sends Shawn to is the one the app shows (src/App.tsx): its sentence and its button.
     expect(appSource).toContain('<span>A new version is ready. It will not reload on its own.</span>')
@@ -315,9 +319,10 @@ describe('older files carried forward', () => {
     for (let v = OLDEST_SCHEMA_VERSION; v < BACKUP_SCHEMA_VERSION; v++) expect(MIGRATIONS[v], `version ${v}`).toBeTypeOf('function')
   })
 
-  it('version 2 gains an empty gyms list, version 3 an empty Program edits list', () => {
+  it('version 2 gains an empty gyms list, version 3 an empty Program edits list, version 4 an empty added exercises list', () => {
     expect(MIGRATIONS[2]?.(v2())).toEqual({ ...v2(), schemaVersion: 3, locations: [] })
     expect(MIGRATIONS[3]?.(v3())).toEqual({ ...v3(), schemaVersion: 4, programOverrides: [] })
+    expect(MIGRATIONS[4]?.({ ...v3(), schemaVersion: 4, programOverrides: [] })).toEqual({ ...v3(), schemaVersion: 5, programOverrides: [], addedSlots: [] })
   })
 
   it('a step leaves a list the file already has for the schema to judge', () => {
@@ -334,24 +339,25 @@ describe('older files carried forward', () => {
     expect(read.backup.settings).toEqual({ ...m3Settings, activeLocationId: 'planet-fitness', kit: ['ankle-strap', 'mini-band'] })
     expect(read.backup.locations).toEqual([])
     expect(read.backup.programOverrides).toEqual([])
+    expect(read.backup.addedSlots).toEqual([])
     expect(read.backup.setLogs).toEqual(v2().setLogs)
   })
 
   it('reads a version 3 file with its gyms and no edits', () => {
     const read = parseBackup(fileText(v3()))
-    expect(read).toMatchObject({ ok: true, migratedFrom: 3, backup: { locations: tables().locations, programOverrides: [] } })
+    expect(read).toMatchObject({ ok: true, migratedFrom: 3, backup: { locations: tables().locations, programOverrides: [], addedSlots: [] } })
   })
 
   it('a version with no step can’t be carried', () => {
     expect(() => migrateForward({ schemaVersion: 1 })).toThrow('no step carries a version 1 backup forward')
-    expect(migrateForward({ schemaVersion: 4, a: 1 })).toEqual({ schemaVersion: 4, a: 1 })
+    expect(migrateForward({ schemaVersion: 5, a: 1 })).toEqual({ schemaVersion: 5, a: 1 })
   })
 })
 
 describe('what a file holds', () => {
   it('counts each table, the archived gyms, and the days logged', () => {
     expect(summarize(tables())).toEqual({
-      counts: { workouts: 2, setLogs: 5, morningChecks: 2, runs: 2, gateTests: 2, sessionMoves: 1, locations: 3, programOverrides: 3 },
+      counts: { workouts: 2, setLogs: 5, morningChecks: 2, runs: 2, gateTests: 2, sessionMoves: 1, locations: 3, programOverrides: 3, addedSlots: 2 },
       archivedGyms: 1,
       first: '2026-11-02',
       last: '2026-11-14',
