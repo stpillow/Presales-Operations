@@ -100,6 +100,7 @@ Done when export, wipe, import restores everything, and a full Session B gets lo
 - [x] Lighthouse PWA audit (Lighthouse 11: PWA 100, accessibility 100 on every screen, performance 86; the manual checklist in `e2e/pwa.spec.ts`; `docs/pwa-audit.md`)
 - [ ] Shawn: offline QA at the gym, a full Session B on cellular with the screen locked between sets
 - [x] Export, wipe, import restores everything (the round-trip test in `src/db/backup.test.ts`: two exports the same bytes apart from `exportedAt`)
+- [x] Added exercises on A, B and C (Program screen, Dexie v5, backup schema 5) and "Time you have" on Today and in the runner: the app leaves out whole exercises until the session fits (PROGRAM-QUESTIONS 136, 137; `src/rules/addedSlots.ts`, `src/rules/fitWindow.ts`). Not yet reviewed adversarially
 - [ ] Adversarial review: the surviving findings fixed with tests first (PROGRAM-QUESTIONS 128 to 133; the screen ones also in `e2e/program.spec.ts`, `e2e/settings.spec.ts` and `e2e/app.spec.ts`, run by `npm run e2e`; npm audit's build-time advisories explained in `docs/pwa-audit.md` finding 10), re-check to come
 
 **Definition of done for v1:** Shawn runs week 1 of the program entirely from the app, on his phone, with morning check-ins deciding the loads for week 2.

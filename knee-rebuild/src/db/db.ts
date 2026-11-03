@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable, type Table } from 'dexie'
-import type { GateTest, IsoDateTime, Location, MorningCheck, ProgramOverride, Run, SessionMove, SetLog, Settings, Workout } from '../schema/index.ts'
+import type { AddedSlot, GateTest, IsoDateTime, Location, MorningCheck, ProgramOverride, Run, SessionMove, SetLog, Settings, Workout } from '../schema/index.ts'
 
 /**
  * The settings row, keyed so there is exactly one. It never holds `lastExportedAt`: the build
@@ -20,7 +20,8 @@ export interface ExportStampRow {
  * Version 1 (M0) was empty; version 2 (M3) adds the log tables; version 3 (M4b) adds the gyms,
  * with no upgrade callback, so no version 2 row is rewritten (the home gym is written at launch by
  * `ensureLocations`); version 4 (M6) adds the Program screen's edits, one row per edited slot, keyed
- * by its id, again with no upgrade callback, so no version 3 row is rewritten. Never edit a shipped
+ * by its id, again with no upgrade callback, so no version 3 row is rewritten; version 5 adds the exercises
+ * Shawn adds to a session, one row each, again with no upgrade callback. Never edit a shipped
  * version; add the next one, and keep every change additive.
  */
 export class KneeRebuildDb extends Dexie {
@@ -34,6 +35,7 @@ export class KneeRebuildDb extends Dexie {
   sessionMoves!: EntityTable<SessionMove, 'id'>
   locations!: EntityTable<Location, 'id'>
   programOverrides!: EntityTable<ProgramOverride, 'slotId'>
+  addedSlots!: EntityTable<AddedSlot, 'id'>
 
   constructor() {
     super('knee-rebuild')
@@ -49,6 +51,7 @@ export class KneeRebuildDb extends Dexie {
     })
     this.version(3).stores({ locations: 'id' })
     this.version(4).stores({ programOverrides: 'slotId' })
+    this.version(5).stores({ addedSlots: 'id, templateId' })
   }
 }
 

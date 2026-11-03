@@ -1,6 +1,8 @@
 import { exerciseById, program, templateFor } from '../program/program.ts'
 import { availableEquipment, type Available, type SlotRoute } from '../rules/equipment.ts'
 import { attachChecks, recordsBefore, type WorkoutRecord } from '../rules/history.ts'
+import { isAddedSlotId, withAddedSlots } from '../rules/addedSlots.ts'
+import { fitToWindow, type Fit, type WindowSlot } from '../rules/fitWindow.ts'
 import { applyOverrides, overridesBySlot } from '../rules/overrides.ts'
 import { prescribe, type GymHere, type Prescription } from '../rules/prescription.ts'
 import { phaseWeekOf, slotsForPhaseWeek } from '../rules/session.ts'
@@ -46,6 +48,11 @@ export function gymHere(gym: Gym): GymHere {
   return { available: availableAt(gym), dumbbellMaxLb: gym.location.dumbbellMaxLb, names: EQUIPMENT_NAMES }
 }
 
+/** The template with the exercises Shawn added after its own slots: what a session's slots, and its summary, are read from. */
+export function withAdded(template: SessionTemplate, history: Pick<History, 'addedSlots'>): SessionTemplate {
+  return withAddedSlots(template, history.addedSlots ?? [], CATALOG, program.templates)
+}
+
 /**
  * Assembles the engine's inputs from stored history and the gym, and asks it for every slot's
  * prescription. Composition only: which slots run, what the last session was, what the readings
@@ -72,7 +79,8 @@ export function planSession(input: {
   const morning = kneeMorning(history.morningChecks, history.workouts, input.before)
   const gym = gymHere(input.gym)
   const overrides = overridesBySlot(history.programOverrides ?? [])
-  return slotsForPhaseWeek(template, phaseWeek).map((written) => {
+  // Shawn's added exercises go after the template's own slots; the seed template is never written.
+  return slotsForPhaseWeek(withAdded(template, history), phaseWeek).map((written) => {
     // Shawn's edits laid over program.md's slot before anything routes or prescribes from it; the seed is never written.
     const slot = applyOverrides(written, overrides.get(written.id), CATALOG)
     const own = exerciseById(slot.exerciseId)
@@ -101,6 +109,23 @@ export function planSession(input: {
     })
     return { slot, exercise, substitutions, prescriptions, route }
   })
+}
+
+/**
+ * Which of a session's slots fit the minutes Shawn has (`fitToWindow`): the plan's sets, reps and
+ * the Settings rest, in session order. A slot with a set already logged is never dropped. Null
+ * minutes is the full session.
+ */
+export function windowFit(plans: readonly SlotPlan[], restSeconds: number, minutes: number | null, loggedSlots: ReadonlySet<string> = new Set()): Fit {
+  const slots: WindowSlot[] = plans.map((p) => ({
+    slotId: p.slot.id,
+    ...(p.slot.groupId ? { groupId: p.slot.groupId } : {}),
+    added: isAddedSlotId(p.slot.id),
+    optional: p.slot.optional,
+    logged: loggedSlots.has(p.slot.id),
+    sides: p.prescriptions.map((x) => ({ sets: x.sets, repsTarget: x.repsTarget, repUnit: x.repUnit })),
+  }))
+  return fitToWindow(slots, minutes, restSeconds)
 }
 
 /** The template for a session letter in the phase the app is currently in. */

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useToday } from '../app/today.ts'
 import { Screen } from '../components/Screen.tsx'
-import { useProgramOverrides, useSettings } from '../db/hooks.ts'
+import { useAddedSlots, useProgramOverrides, useSettings } from '../db/hooks.ts'
 import { REFERENCE_LEAD, VIEW_CHOICES, phaseScreen, type ProgramView } from './Program.helpers.ts'
 import { PhaseSessions } from './program/PhaseSessions.tsx'
 import { Choice } from './program/parts.tsx'
@@ -17,10 +17,11 @@ import { Reference } from './program/Reference.tsx'
 export function Program() {
   const settings = useSettings()
   const overrides = useProgramOverrides()
+  const added = useAddedSlots()
   const today = useToday()
   const [view, setView] = useState<ProgramView>('phase')
 
-  if (settings === undefined || overrides === undefined) {
+  if (settings === undefined || overrides === undefined || added === undefined) {
     return (
       <Screen title="Program" lead="Opening storage…">
         <p className="text-body text-on-dark-dim">The program loads from the phone.</p>
@@ -45,7 +46,7 @@ export function Program() {
       </div>
       {/* This phase stays mounted behind the reference, so an open editor and what it holds are there on the way back. */}
       <div hidden={view !== 'phase'}>
-        <PhaseSessions screen={screen} overrides={overrides} today={today} />
+        <PhaseSessions screen={screen} overrides={overrides} added={added} today={today} />
       </div>
       {view === 'reference' ? <Reference /> : null}
     </Screen>

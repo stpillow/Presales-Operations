@@ -5,6 +5,7 @@ import { BACKUP_SCHEMA_VERSION, BACKUP_TABLES, backupText, parseBackup, type Bac
 import { addDays, dateOf } from '../rules/calendar.ts'
 import { afterMorningCheck, stopMessage } from '../rules/redFlags.ts'
 import {
+  AddedSlot,
   GateTest,
   Location,
   MorningCheck,
@@ -39,6 +40,7 @@ import {
   markOff,
   putWorkout,
   resetAll,
+  saveAddedSlot,
   saveProgramOverride,
   saveSettings,
   setDumbbellMax,
@@ -251,6 +253,7 @@ async function seedHistory(): Promise<void> {
   await saveProgramOverride({ slotId: 'p2a-1', cues: ['Feet high on the plate', 'Knee tracks over the 2nd toe — “slow”'], substitutionIds: ['leg-press', 'leg-press-45'], editedOn: '2026-11-30' } as ProgramOverride, program)
   await saveProgramOverride({ slotId: 'p2c-1', substitutionIds: [], editedOn: '2026-12-01' } as ProgramOverride, program)
   await saveProgramOverride({ slotId: 'p2b-7', cues: ['Hips forward'], editedOn: '2026-12-02' } as ProgramOverride, program)
+  await saveAddedSlot({ id: 'added-k1', templateId: 'p2-a', exerciseId: 'db-bench-press', sets: 3, repsMin: 8, repsMax: 10, addedOn: '2026-12-03' }, program)
 }
 
 /** The keys every row of a table uses, across the table: every field of the schema shows up somewhere. */
@@ -266,6 +269,7 @@ const SHAPES: Record<keyof BackupTables, readonly string[]> = {
   sessionMoves: Object.keys(SessionMove.shape),
   locations: Object.keys(Location.shape),
   programOverrides: Object.keys(ProgramOverride.shape),
+  addedSlots: Object.keys(AddedSlot.shape),
 }
 
 describe('the backup carries the whole database', () => {
@@ -341,8 +345,8 @@ describe('import is all or nothing', () => {
     await seedHistory()
     const { backup } = await exportBackup(T1)
     const before = await rawDump()
-    const newer = { ...backup, schemaVersion: 5 } as unknown as Backup
-    await expect(replaceAll(newer, program, TODAY)).rejects.toThrow('This backup is from a newer version of the app (schema version 5; this one reads up to 4).')
+    const newer = { ...backup, schemaVersion: 6 } as unknown as Backup
+    await expect(replaceAll(newer, program, TODAY)).rejects.toThrow('This backup is from a newer version of the app (schema version 6; this one reads up to 5).')
     const twice = { ...backup, runs: [...backup.runs, ...backup.runs.slice(0, 1)] }
     await expect(replaceAll(twice, program, TODAY)).rejects.toThrow('twice')
     expect(await rawDump()).toEqual(before)

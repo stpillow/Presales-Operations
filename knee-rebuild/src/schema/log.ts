@@ -250,3 +250,26 @@ export const ProgramOverride = z
   })
   .refine((o) => o.cues !== undefined || o.substitutionIds !== undefined, { message: 'an override edits the cues, the substitutions, or both' })
 export type ProgramOverride = z.infer<typeof ProgramOverride>
+
+/** The most exercises Shawn can add to one session, and the most sets one added exercise takes. */
+export const ADDED_SLOTS_MAX = 6
+export const ADDED_SETS_MAX = 6
+
+/**
+ * An exercise Shawn added to a session (Dexie version 5): the template it joins (a phase's A, B or
+ * C), the catalog exercise and the sets and rep range he chose. Whether the exercise can be added,
+ * and the slot it becomes (rule, units, order), is `slotFromAdded` in src/rules/addedSlots.ts;
+ * the seed is never written, the engine lays the slot after the template's own.
+ */
+export const AddedSlot = z
+  .strictObject({
+    id: Slot.shape.id,
+    templateId: id,
+    exerciseId: Slot.shape.exerciseId,
+    sets: z.number().int().min(1).max(ADDED_SETS_MAX),
+    repsMin: Slot.shape.repsMin,
+    repsMax: Slot.shape.repsMax,
+    addedOn: IsoDate,
+  })
+  .refine((a) => a.repsMax >= a.repsMin, { message: 'the top of the range is not below the bottom', path: ['repsMax'] })
+export type AddedSlot = z.infer<typeof AddedSlot>

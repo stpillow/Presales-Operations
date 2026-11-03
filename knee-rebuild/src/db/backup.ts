@@ -30,6 +30,7 @@ export async function readStored(): Promise<StoredContents> {
       sessionMoves: await db.sessionMoves.toArray(),
       locations: await db.locations.toArray(),
       programOverrides: await db.programOverrides.toArray(),
+      addedSlots: await db.addedSlots.toArray(),
     }
   })
 }

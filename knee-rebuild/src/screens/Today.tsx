@@ -1,17 +1,19 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { navigate } from '../app/router.ts'
-import { PROGRAM, availableAt, planSession } from '../app/session.ts'
+import { PROGRAM, availableAt, planSession, windowFit } from '../app/session.ts'
 import { useToday } from '../app/today.ts'
 import { Button } from '../components/Button.tsx'
 import { ReadingWord, readingSentence } from '../components/ReadingWord.tsx'
+import { TimeWindow } from '../components/TimeWindow.tsx'
 import { Screen } from '../components/Screen.tsx'
 import { useActiveLocation, useHistory, useLocations, useSettings } from '../db/hooks.ts'
-import { clearMarkOff, putWorkout, reopenWorkout, setActiveLocation, type History } from '../db/repo.ts'
+import { clearMarkOff, putWorkout, reopenWorkout, setActiveLocation, writeWindow, type History } from '../db/repo.ts'
 import { addDays, nextLiftDate, scheduledSession } from '../rules/calendar.ts'
 import { liftGym } from '../rules/gymDay.ts'
 import type { EquipmentId, IsoDate, Location, Settings } from '../schema/index.ts'
 import { nextLiftWords } from './Preview.helpers.ts'
 import { openSettingsAtExport } from './Settings.tsx'
+import { windowWords } from './Window.helpers.ts'
 import {
   NEW_LOCATION_HASH,
   atGymWords,
@@ -276,6 +278,8 @@ function LiftBlock({
 }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  /** The minutes Shawn says he has; null is the full session. Remembered for the session at Start. */
+  const [minutes, setMinutes] = useState<number | null>(null)
   const { template, workout, label, letter } = body
   // A session already started stays at its own gym; one still to start runs at the active gym.
   const gym = liftGym(workout, active, locations)
@@ -292,6 +296,7 @@ function LiftBlock({
       setError(null)
       try {
         await reopenWorkout(workout.id)
+        writeWindow(workout.id, minutes)
         navigate({ name: 'session', workoutId: workout.id })
       } catch (e: unknown) {
         setError(`Could not reopen today’s session: ${e instanceof Error ? e.message : String(e)}.`)
@@ -316,6 +321,7 @@ function LiftBlock({
           locationId: active.id,
         }),
       )
+      writeWindow(id, minutes)
       navigate({ name: 'session', workoutId: id })
     } catch (e: unknown) {
       setError(`Could not save today’s session: ${e instanceof Error ? e.message : String(e)}.`)
@@ -355,6 +361,9 @@ function LiftBlock({
             <Button variant="quiet" onClick={() => navigate({ name: 'preview', date: today })}>
               See the session first
             </Button>
+          ) : null}
+          {workout?.status !== 'in-progress' ? (
+            <FitBlock template={template} week={workout?.week ?? body.week} before={workout?.date ?? today} gym={gym} settings={settings} history={history} minutes={minutes} onChange={setMinutes} />
           ) : null}
           <Button variant="primary" wide className="wrap-anywhere" disabled={busy} onClick={() => void start()}>
             {busy ? 'Saving…' : startWords(label, workout, gym, active)}
@@ -407,6 +416,32 @@ function MovesBlock({
       ) : null}
     </div>
   )
+}
+
+/** "Time you have" before Start: the plan's estimate and what fits (`windowFit`), in words. */
+function FitBlock({
+  template,
+  week,
+  before,
+  gym,
+  settings,
+  history,
+  minutes,
+  onChange,
+}: {
+  template: NonNullable<Lift['template']>
+  week: number
+  before: IsoDate
+  gym: Location
+  settings: Settings
+  history: History
+  minutes: number | null
+  onChange: (minutes: number | null) => void
+}) {
+  const plans = useMemo(() => planSession({ template, week, settings, history, gym: { location: gym, kit: settings.kit }, before }), [template, week, settings, history, gym, before])
+  const fit = windowFit(plans, settings.restTimerSeconds, minutes)
+  const nameOf = (slotId: string) => plans.find((p) => p.slot.id === slotId)?.exercise.name ?? slotId
+  return <TimeWindow minutes={minutes} onChange={onChange} lines={windowWords(fit, minutes, plans.length, nameOf)} />
 }
 
 function FinishedBlock({ body }: { body: Lift }) {
