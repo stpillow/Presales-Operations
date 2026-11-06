@@ -3,7 +3,7 @@ import { homeLocation } from '../db/migrations.ts'
 import type { History } from '../db/repo.ts'
 import { program, templateFor } from '../program/program.ts'
 import { DEFAULT_KIT, Settings, type AddedSlot } from '../schema/index.ts'
-import { planSession, type Gym } from './session.ts'
+import { planSession, sessionExtensions, windowFit, type Gym } from './session.ts'
 
 // planSession with exercises Shawn added to a session (Dexie version 5): they run after the template's
 // own slots, prescribe and log like any slot, and program.md's template is never written.
@@ -44,5 +44,46 @@ describe('planSession with added exercises', () => {
   it('a deload week takes fewer sets of an added exercise, as it does of every slot', () => {
     const deload = plan(historyOf({ addedSlots: [added({ sets: 3 })] }), 4)
     expect(deload.at(-1)?.prescriptions[0]?.sets).toBe(2)
+  })
+})
+
+describe('extra time, through the real program', () => {
+  const week = 2
+  const template = templateFor(1, 'A')
+  const pool = sessionExtensions(template, historyOf(), settings, week)
+  const withPool = (history: History) => planSession({ template, week, settings, history, gym: home, extend: pool })
+
+  it('offers the other sessions’ exercises first and then upper-body work, none of it already in the session or any jumping, step-height, carry or cardio work', () => {
+    const own = new Set(template.slots.map((s) => s.exerciseId))
+    const ids = pool.map((s) => s.exerciseId)
+    expect(ids.length).toBeGreaterThan(6)
+    expect(new Set(ids).size).toBe(ids.length)
+    for (const id of ids) expect(own.has(id), id).toBe(false)
+    const byId = new Map(program.exercises.map((e) => [e.id, e]))
+    for (const id of ids) expect(['plyo', 'carry', 'cardio']).not.toContain(byId.get(id)?.pattern)
+    // The first of it is from B or C (the label says which); the last is upper-body work.
+    expect(pool[0]?.label).toMatch(/^\+[BC]/)
+    expect(pool.at(-1)?.label).toMatch(/^\+U/)
+  })
+
+  it('plans them as ordinary slots after the session’s own, with a prescription, and changes nothing before them', () => {
+    const own = planSession({ template, week, settings, history: historyOf(), gym: home })
+    const plans = withPool(historyOf())
+    expect(plans.slice(0, own.length)).toEqual(own)
+    expect(plans.slice(own.length).map((p) => p.slot.id)).toEqual(pool.map((s) => s.id))
+    for (const p of plans.slice(own.length)) expect(p.prescriptions.length).toBeGreaterThan(0)
+  })
+
+  it('windowFit adds some for 90 minutes, leaves the session whole for 20 and takes none of them', () => {
+    const plans = withPool(historyOf())
+    const long = windowFit(plans, 60, 90)
+    expect(long.added.length).toBeGreaterThan(0)
+    expect(long.added.length).toBeLessThanOrEqual(6)
+    expect(long.dropped).toEqual([])
+    expect(long.keptMinutes).toBeLessThanOrEqual(90)
+    const short = windowFit(plans, 60, 20)
+    expect(short.added).toEqual([])
+    expect(short.dropped.length).toBeGreaterThan(0)
+    expect(windowFit(plans, 60, null).added).toEqual([])
   })
 })
