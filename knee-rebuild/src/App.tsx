@@ -15,6 +15,7 @@ import { Locations } from './screens/Locations.tsx'
 import { MorningCheck } from './screens/MorningCheck.tsx'
 import { More } from './screens/More.tsx'
 import { NextUpdate } from './screens/NextUpdate.tsx'
+import { Strava } from './screens/Strava.tsx'
 import { Program } from './screens/Program.tsx'
 import { Preview } from './screens/Preview.tsx'
 import { Progress } from './screens/Progress.tsx'
@@ -131,6 +132,8 @@ function Shell({ updateReady }: { updateReady: boolean }) {
               return <Gates />
             case 'program':
               return <Program />
+            case 'strava':
+              return <Strava result={route.result} />
           }
         })()}
       </ErrorBoundary>

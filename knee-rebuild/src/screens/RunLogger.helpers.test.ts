@@ -16,6 +16,7 @@ import {
   loggerView,
   milesWords,
   MILES_STEP,
+  formFromDraft,
   joinTime,
   splitTime,
   timeWords,
@@ -411,6 +412,13 @@ describe('milesWords', () => {
     expect(milesWords(2.5)).toBe('2.5 miles')
     expect(milesWords(0.25)).toBe('0.25 miles')
     expect(milesWords(10)).toBe('10 miles')
+  })
+})
+
+describe('formFromDraft (Strava import)', () => {
+  it('opens on the activity with max pain unrated, so Save waits on it', () => {
+    const form = formFromDraft({ date: '2026-11-05', type: 'easy', miles: 3.11, minutes: 27.25, effort: null, stravaUrl: 'https://www.strava.com/activities/1', notes: 'Morning Run' })
+    expect(form).toMatchObject({ date: '2026-11-05', type: 'easy', miles: 3.11, minutes: 27.25, effort: 'easy', maxPain: null, stravaUrl: 'https://www.strava.com/activities/1', notes: 'Morning Run', strides: null, tempo: null })
   })
 })
 

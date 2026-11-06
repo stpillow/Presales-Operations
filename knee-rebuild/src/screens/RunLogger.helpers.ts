@@ -370,6 +370,15 @@ export function openForm(today: IsoDate): RunForm {
   return { ...emptyForm(), date: today }
 }
 
+/**
+ * The form opened from a Strava activity (src/rules/stravaImport.ts): its day, type, miles, time,
+ * effort when Strava had one, link and name, with max pain left unrated so Save waits on it, and
+ * strides and tempo following the type as on any run.
+ */
+export function formFromDraft(draft: { date: IsoDate; type: RunType; miles: number; minutes: number; effort: Effort | null; stravaUrl: string; notes: string }): RunForm {
+  return { ...emptyForm(), date: draft.date, type: draft.type, miles: draft.miles, minutes: draft.minutes, effort: draft.effort ?? 'easy', stravaUrl: draft.stravaUrl, notes: draft.notes }
+}
+
 /** The form with every "follow" filled in: what the screen shows and what Save would log. */
 export interface ResolvedForm {
   date: IsoDate

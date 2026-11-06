@@ -21,6 +21,8 @@ export type Route =
   | { name: 'next-update' }
   /** A read-only look at one day's session before it comes round (`#/preview/2026-11-05`). */
   | { name: 'preview'; date: string }
+  /** Strava import (Nov 6): connect, then pick activities to log. The function's redirect lands here with `?result=`. */
+  | { name: 'strava'; result?: string }
 
 /** The editor's id segment that means a gym not made yet. Stored gyms are `planet-fitness` and `loc-N` (src/rules/locations.ts), never this. */
 const NEW = 'new'
@@ -45,7 +47,8 @@ function isCalendarDate(text: string): boolean {
 }
 
 export function parseHash(hash: string): Route {
-  const parts = hash.replace(/^#\/?/, '').split('/').filter(Boolean)
+  const [path = '', query = ''] = hash.replace(/^#\/?/, '').split('?')
+  const parts = path.split('/').filter(Boolean)
   const [head, arg] = parts
   switch (head) {
     case 'session': {
@@ -73,6 +76,10 @@ export function parseHash(hash: string): Route {
     case 'locations':
     case 'next-update':
       return { name: head }
+    case 'strava': {
+      const result = new URLSearchParams(query).get('result')
+      return result ? { name: 'strava', result } : { name: 'strava' }
+    }
     default:
       return { name: 'today' }
   }

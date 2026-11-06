@@ -20,6 +20,7 @@ export const SCREEN_NAMES: Readonly<Record<Route['name'], string>> = {
   'new-location': 'New location',
   'next-update': 'For the next program update',
   preview: 'Session preview',
+  strava: 'Import from Strava',
 }
 
 export interface CrashWords {

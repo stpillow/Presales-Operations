@@ -17,7 +17,9 @@ Single-user PWA that runs Shawn's 12-week knee return-to-sport program on his iP
 
 Vite 8 · React 19 · TypeScript 7 (strict, `noUncheckedIndexedAccess`) · Tailwind 4 (spdc tokens in `src/index.css`) · vite-plugin-pwa (offline-first service worker, update on prompt) · Dexie (IndexedDB, local-first, no server) · Zod (schemas, from M1) · Vitest · Playwright (one smoke test, M6) · oxlint.
 
-Dependencies: only what PROMPT section 2 names plus small, well-maintained utilities. No analytics, no telemetry, no external calls at runtime. Fonts are vendored through fontsource for that reason.
+Dependencies: only what PROMPT section 2 names plus small, well-maintained utilities. No analytics, no telemetry, no external calls at runtime, except the app's own `/api/strava` function on Shawn's tap (Nov 6). Fonts are vendored through fontsource for that reason.
+
+Server: `api/strava.ts` is the one Vercel function: self-contained (no imports from `src/`), typechecked through tsconfig.node.json, tested by `api/strava.test.ts`. It keeps no data; Strava's tokens live in one encrypted HttpOnly cookie. Its secrets are Vercel environment variables, never in the bundle. See docs/integrations.md.
 
 ## Commands
 

@@ -4,6 +4,9 @@ import { parseHash, routeHash, type Route } from './router.ts'
 describe('parseHash', () => {
   it('reads routes and session ids', () => {
     expect(parseHash('#/week')).toEqual({ name: 'week' })
+    expect(parseHash('#/strava')).toEqual({ name: 'strava' })
+    expect(parseHash('#/strava?result=connected')).toEqual({ name: 'strava', result: 'connected' })
+    expect(parseHash('#/week?x=1')).toEqual({ name: 'week' })
     expect(parseHash('#/session/2026-11-03-p1-a')).toEqual({ name: 'session', workoutId: '2026-11-03-p1-a' })
     expect(parseHash('')).toEqual({ name: 'today' })
     expect(parseHash('#/nonsense')).toEqual({ name: 'today' })

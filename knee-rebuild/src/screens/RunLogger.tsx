@@ -1,6 +1,7 @@
 import { useId, useState, type ReactNode } from 'react'
 import { navigate } from '../app/router.ts'
 import { PROGRAM, availableAt } from '../app/session.ts'
+import { takeDraft } from '../app/strava.ts'
 import { useToday } from '../app/today.ts'
 import { Button } from '../components/Button.tsx'
 import { PAIN_SCALE, ScalePicker } from '../components/ScalePicker.tsx'
@@ -35,6 +36,7 @@ import {
   loggerView,
   newRunId,
   noSuggestionWords,
+  formFromDraft,
   openForm,
   reasonSentence,
   resolveForm,
@@ -95,7 +97,11 @@ export function RunLogger() {
 
 function Logger({ today, settings, history, active, locations }: { today: IsoDate; settings: Settings; history: History; active: Location; locations: Location[] }) {
   // The date is pinned when the logger opens: useToday() moves at midnight, and the form must not move with it.
-  const [form, setForm] = useState<RunForm>(() => openForm(today))
+  // Opened from the Strava screen, the form starts from that activity (max pain still to rate); otherwise empty for today.
+  const [form, setForm] = useState<RunForm>(() => {
+    const draft = takeDraft()
+    return draft ? formFromDraft(draft) : openForm(today)
+  })
   const [saved, setSaved] = useState<Run | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)

@@ -37,13 +37,15 @@ export default defineConfig({
         // Offline-first: everything the shell needs is precached on first visit, fonts included.
         globPatterns: ['**/*.{js,css,html,woff2,png,svg,ico}'],
         navigateFallback: '/index.html',
+        // The Strava function's redirects are page loads: the service worker must let them reach the server.
+        navigateFallbackDenylist: [/^\/api\//],
         cleanupOutdatedCaches: true,
       },
     }),
   ],
   test: {
     environment: 'node',
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'api/**/*.test.ts'],
     // The guards (src/rules/guard.test.ts, src/db/dumbbellMax.guard.test.ts) glob the sources; a
     // cached transform keeps the old list, so a file added since the last run would pass them.
     fsModuleCache: false,
