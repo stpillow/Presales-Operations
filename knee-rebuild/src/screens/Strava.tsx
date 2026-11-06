@@ -10,7 +10,7 @@ import { scheduledSession } from '../rules/calendar.ts'
 import { candidates, importedStravaIds, stravaActivityUrl, syncAfter, type Candidate } from '../rules/stravaImport.ts'
 import { runTypeFor } from '../rules/weekPlan.ts'
 import { dateChoices } from './RunLogger.helpers.ts'
-import { candidateWords, resultWords } from './Strava.helpers.ts'
+import { candidateWords, disconnectWords, resultWords } from './Strava.helpers.ts'
 
 const LABEL = 'font-mono text-small uppercase tracking-[0.22em] text-on-dark-muted'
 
@@ -28,6 +28,7 @@ export function Strava({ result }: { result?: string | undefined }) {
   const [list, setList] = useState<Candidate[] | null>(null)
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
+  const [left, setLeft] = useState<string | null>(null)
 
   // Again on each `result`: the consent page lands back here, and the status changed on the way.
   useEffect(() => {
@@ -76,7 +77,7 @@ export function Strava({ result }: { result?: string | undefined }) {
     setBusy(true)
     setProblem(null)
     try {
-      await stravaDisconnect()
+      setLeft(disconnectWords(await stravaDisconnect()))
       setStatus({ configured: true, connected: false })
       setList(null)
     } catch (e: unknown) {
@@ -90,6 +91,7 @@ export function Strava({ result }: { result?: string | undefined }) {
   return (
     <Screen title="Import from Strava" lead="Bring in runs, elliptical and rowing sessions you recorded on Strava.">
       {came ? <p className="text-body text-on-dark">{came}</p> : null}
+      {left ? <p className="text-body text-on-dark">{left}</p> : null}
       {!status.configured ? (
         <p className="text-body text-on-dark-dim">Strava isn’t set up on this deployment yet. It needs a Strava API app and three settings in Vercel (docs/integrations.md).</p>
       ) : !status.connected ? (

@@ -20,12 +20,18 @@ export function resultWords(result: string | undefined): string | null {
   }
 }
 
-/** "Max pain and effort to fill in", the fields only Shawn can give. */
-export function needsWords(needs: readonly string[]): string {
-  if (needs.length === 0) return 'Nothing to fill in.'
-  const [first, ...rest] = needs
-  const list = rest.length === 0 ? first : `${needs.slice(0, -1).join(', ')} and ${needs.at(-1)}`
-  return `${list!.charAt(0).toUpperCase()}${list!.slice(1)} to fill in before it saves.`
+/** What Save waits on, and what was filled in by default for him to check. */
+export function needsWords(needs: readonly string[], guessed: readonly ('type' | 'effort')[] = []): string {
+  const waits = needs.length === 0 ? 'Nothing to fill in.' : `${needs.join(' and ').replace(/^./, (c) => c.toUpperCase())} to rate before it saves.`
+  const checks = guessed.map((g) => (g === 'type' ? 'the run type is a guess' : 'effort is set to easy'))
+  return checks.length === 0 ? waits : `${waits} Check it: ${checks.join(' and ')}.`
+}
+
+/** After Disconnect: whether Strava confirmed it, and where to remove the app by hand when it didn't. */
+export function disconnectWords(revoked: boolean): string {
+  return revoked
+    ? 'Disconnected: this app can no longer read your Strava.'
+    : 'Disconnected here, but Strava did not confirm it. To be sure, remove the app under Strava, Settings, My Apps.'
 }
 
 /** One line for an activity: its day, its name, and what it would log as. */
@@ -34,7 +40,7 @@ export function candidateWords(c: Candidate): { title: string; detail: string } 
     case 'run': {
       const d = c.draft
       const what = d.miles > 0 ? `${runLabel(d.type)}, ${milesWords(d.miles)}, ${timeWords(d.minutes)}` : `${runLabel(d.type)}, ${timeWords(d.minutes)}`
-      return { title: `${shortDateWords(d.date)} · ${d.notes || 'Strava activity'}`, detail: `${what}. ${needsWords(c.needs)}` }
+      return { title: `${shortDateWords(d.date)} · ${d.notes || 'Strava activity'}`, detail: `${what}. ${needsWords(c.needs, c.guessed)}` }
     }
     case 'lift':
       return { title: `${shortDateWords(c.date)} · ${c.name}`, detail: 'A strength session: log it from that day’s preview, with its sets.' }

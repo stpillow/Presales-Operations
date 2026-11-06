@@ -39,8 +39,10 @@ export async function stravaActivities(after: number): Promise<StravaActivity[]>
   return (await readJson<{ activities: StravaActivity[] }>(res)).activities
 }
 
-export async function stravaDisconnect(): Promise<void> {
-  await readJson(await fetch(`${BASE}?action=disconnect`, { method: 'POST', credentials: 'same-origin' }))
+/** Disconnects; true when Strava confirmed the revoke, false when only this phone's cookie went. */
+export async function stravaDisconnect(): Promise<boolean> {
+  const body = await readJson<{ revoked?: boolean }>(await fetch(`${BASE}?action=disconnect`, { method: 'POST', credentials: 'same-origin' }))
+  return body.revoked === true
 }
 
 /** Hands one activity to the run logger: kept for this visit only, and taken once. */

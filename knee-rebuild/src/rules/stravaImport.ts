@@ -75,8 +75,11 @@ export interface RunDraft {
 }
 
 export type Candidate =
-  /** A run, elliptical or rowing session for the run logger; `needs` names what only Shawn can fill in. */
-  | { kind: 'run'; activityId: string; draft: RunDraft; needs: ('max pain' | 'the run type' | 'effort')[] }
+  /**
+   * A run, elliptical or rowing session for the run logger. `needs` is what Save waits on (max pain,
+   * which only Shawn knows); `guessed` is what the draft filled in by default, for him to check.
+   */
+  | { kind: 'run'; activityId: string; draft: RunDraft; needs: 'max pain'[]; guessed: ('type' | 'effort')[] }
   /** A strength activity: logged as a session after the fact, from that day's preview. */
   | { kind: 'lift'; activityId: string; date: IsoDate; name: string }
   /** Not something the program logs, or outside the days that can be logged. */
@@ -97,16 +100,17 @@ export function classify(activity: StravaActivity, ctx: ClassifyContext): Candid
   const sport = activity.sport_type ?? activity.type ?? ''
   const label = name || sport || 'An activity'
   const isRun = RUNS.has(sport)
-  const swap: RunType | null = sport === 'Elliptical' ? 'elliptical-swap' : sport === 'Rowing' ? 'rower-swap' : null
+  const swap: RunType | null = sport === 'Elliptical' ? 'elliptical-swap' : sport === 'Rowing' || sport === 'VirtualRow' ? 'rower-swap' : null
   if (LIFTS.has(sport)) return { kind: 'lift', activityId, date, name: label }
   if (!isRun && swap === null) return { kind: 'skip', activityId, date, name: label, reason: `${sport || 'This activity'} isn’t a run, swap or lift the program logs.` }
   if (!ctx.dates.includes(date)) return { kind: 'skip', activityId, date, name: label, reason: 'It is older than the days a run can be logged for.' }
   const scheduled = ctx.scheduledRun(date)
   const type: RunType = swap ?? (activity.workout_type === 2 ? 'long' : (scheduled ?? 'easy'))
   const effort = effortFromExertion(activity.perceived_exertion)
-  const needs: ('max pain' | 'the run type' | 'effort')[] = ['max pain']
-  if (isRun && activity.workout_type !== 2 && scheduled === null) needs.push('the run type')
-  if (effort === null) needs.push('effort')
+  const guessed: ('type' | 'effort')[] = []
+  if (isRun && activity.workout_type !== 2 && scheduled === null) guessed.push('type')
+  // Strava's activity list carries no exertion (only a detailed activity does), so effort is nearly always the logger's default.
+  if (effort === null) guessed.push('effort')
   return {
     kind: 'run',
     activityId,
@@ -119,7 +123,8 @@ export function classify(activity: StravaActivity, ctx: ClassifyContext): Candid
       stravaUrl: stravaActivityUrl(activityId),
       notes: name,
     },
-    needs,
+    needs: ['max pain'],
+    guessed,
   }
 }
 

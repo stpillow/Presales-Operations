@@ -39,18 +39,20 @@ describe('classify', () => {
       kind: 'run',
       activityId: '1234567890',
       draft: { date: '2026-11-05', type: 'mbr', miles: 3.11, minutes: 1633 / 60, effort: null, stravaUrl: 'https://www.strava.com/activities/1234567890', notes: 'Morning Run' },
-      needs: ['max pain', 'effort'],
+      needs: ['max pain'],
+      guessed: ['effort'],
     })
   })
 
   it('takes Strava’s long-run mark, and on a day with no run planned guesses easy and asks the type', () => {
-    expect(classify(act({ workout_type: 2, start_date_local: '2026-11-06T07:00:00Z' }), ctx)).toMatchObject({ draft: { type: 'long' }, needs: ['max pain', 'effort'] })
-    expect(classify(act({ start_date_local: '2026-11-06T07:00:00Z', perceived_exertion: 5 }), ctx)).toMatchObject({ draft: { type: 'easy', effort: 'moderate' }, needs: ['max pain', 'the run type'] })
+    expect(classify(act({ workout_type: 2, start_date_local: '2026-11-06T07:00:00Z' }), ctx)).toMatchObject({ draft: { type: 'long' }, needs: ['max pain'], guessed: ['effort'] })
+    expect(classify(act({ start_date_local: '2026-11-06T07:00:00Z', perceived_exertion: 5 }), ctx)).toMatchObject({ draft: { type: 'easy', effort: 'moderate' }, needs: ['max pain'], guessed: ['type'] })
   })
 
   it('makes elliptical and rowing the swaps, at no miles', () => {
     expect(classify(act({ sport_type: 'Elliptical', distance: 4000 }), ctx)).toMatchObject({ kind: 'run', draft: { type: 'elliptical-swap', miles: 0 } })
     expect(classify(act({ sport_type: 'Rowing' }), ctx)).toMatchObject({ kind: 'run', draft: { type: 'rower-swap', miles: 0 } })
+    expect(classify(act({ sport_type: 'VirtualRow' }), ctx)).toMatchObject({ kind: 'run', draft: { type: 'rower-swap', miles: 0 } })
   })
 
   it('reads the older type field when sport_type is absent, and treadmill and trail runs as runs', () => {

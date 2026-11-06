@@ -184,26 +184,40 @@ export async function handle(request: Request, env: Env, now: () => number = () 
       } catch {
         return json({ error: 'Strava would not renew access; connect again.' }, 401, { 'Set-Cookie': cookie(AUTH_COOKIE, '', 0) })
       }
-      const activities: Record<string, unknown>[] = []
-      for (let page = 1; page <= MAX_PAGES; page++) {
-        const res = await fetcher(`${STRAVA_API}/athlete/activities?after=${after}&per_page=${PER_PAGE}&page=${page}`, { headers: { Authorization: `Bearer ${current.tokens.access_token}` } })
-        if (res.status === 429) return json({ error: 'Strava’s rate limit is reached; try again in 15 minutes.' }, 429)
-        if (!res.ok) return json({ error: `Strava answered ${res.status}.` }, 502)
-        const batch = (await res.json()) as Record<string, unknown>[]
-        activities.push(...batch.map(trim))
-        if (batch.length < PER_PAGE) break
-      }
+      // A renewal rotates the refresh token and kills the old one, so the new tokens go back in the cookie on every answer from here, failures included.
       const headers: Record<string, string> = current.refreshed ? { 'Set-Cookie': cookie(AUTH_COOKIE, await seal(current.tokens, env.STRAVA_COOKIE_KEY), AUTH_MAX_AGE) } : {}
+      const activities: Record<string, unknown>[] = []
+      try {
+        for (let page = 1; page <= MAX_PAGES; page++) {
+          const res = await fetcher(`${STRAVA_API}/athlete/activities?after=${after}&per_page=${PER_PAGE}&page=${page}`, { headers: { Authorization: `Bearer ${current.tokens.access_token}` } })
+          if (res.status === 429) return json({ error: 'Strava’s rate limit is reached; try again in 15 minutes.' }, 429, headers)
+          if (!res.ok) return json({ error: `Strava answered ${res.status}.` }, 502, headers)
+          const batch = (await res.json()) as Record<string, unknown>[]
+          if (!Array.isArray(batch)) return json({ error: 'Strava sent an unreadable list.' }, 502, headers)
+          activities.push(...batch.map(trim))
+          if (batch.length < PER_PAGE) break
+        }
+      } catch {
+        return json({ error: 'Strava could not be reached, or sent something unreadable.' }, 502, headers)
+      }
       return json({ activities }, 200, headers)
     }
 
     case 'disconnect': {
       if (request.method !== 'POST') return json({ error: 'Use POST.' }, 405)
+      // The cookie goes either way; `revoked` says whether Strava took the revoke, which needs a live token, so an expired one is renewed first.
+      // oauth/deauthorize is announced to give way to oauth/revoke in 2027.
+      let revoked = false
       if (auth) {
-        // Best effort: the cookie goes either way. oauth/deauthorize is announced to give way to oauth/revoke in 2027.
-        await fetcher(`${STRAVA_OAUTH}/deauthorize`, { method: 'POST', headers: { Authorization: `Bearer ${auth.access_token}` } }).catch(() => undefined)
+        try {
+          const { tokens: live } = await fresh(env, auth, now(), fetcher)
+          const res = await fetcher(`${STRAVA_OAUTH}/deauthorize`, { method: 'POST', headers: { Authorization: `Bearer ${live.access_token}` } })
+          revoked = res.ok
+        } catch {
+          revoked = false
+        }
       }
-      return json({ connected: false }, 200, { 'Set-Cookie': cookie(AUTH_COOKIE, '', 0) })
+      return json({ connected: false, revoked }, 200, { 'Set-Cookie': cookie(AUTH_COOKIE, '', 0) })
     }
 
     default:

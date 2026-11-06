@@ -1,2 +1,0 @@
-# The Strava function's tests run in Vitest; every file left in api/ would deploy as a Vercel Function.
-api/*.test.ts

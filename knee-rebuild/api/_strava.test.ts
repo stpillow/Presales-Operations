@@ -130,12 +130,43 @@ describe('the flow', () => {
     expect(res.headers.get('set-cookie')).toContain('Max-Age=0')
   })
 
+  it('keeps a renewed token in the cookie even when the page that follows fails (Strava rotates the refresh token)', async () => {
+    const expired = await seal(tokens({ expires_at: NOW - 10 }), ENV.STRAVA_COOKIE_KEY)
+    const renewed = tokens({ access_token: 'a2', refresh_token: 'r2', expires_at: NOW + 21600 })
+    const keeps = async (fetcher: typeof fetch, status: number) => {
+      const res = await handle(req('/api/strava?action=activities&after=0', { cookies: `kr_strava=${expired}` }), ENV, () => NOW, fetcher)
+      expect(res.status).toBe(status)
+      const set = res.headers.getSetCookie().find((c) => c.startsWith('kr_strava='))
+      expect(set, `status ${status}`).toBeDefined()
+      expect(await unseal(set!.split(';')[0]!.slice('kr_strava='.length), ENV.STRAVA_COOKIE_KEY)).toEqual(renewed)
+    }
+    const page = 'https://www.strava.com/api/v3/athlete/activities'
+    await keeps(fakeStrava({ 'https://www.strava.com/oauth/token': tokenResponse(renewed), [page]: () => new Response('', { status: 429 }) }).fetcher, 429)
+    await keeps(fakeStrava({ 'https://www.strava.com/oauth/token': tokenResponse(renewed), [page]: () => new Response('', { status: 503 }) }).fetcher, 502)
+    await keeps(fakeStrava({ 'https://www.strava.com/oauth/token': tokenResponse(renewed), [page]: () => new Response('not json', { status: 200 }) }).fetcher, 502)
+  })
+
+  it('disconnect renews an expired token before revoking, and says when Strava did not take the revoke', async () => {
+    const expired = await seal(tokens({ expires_at: NOW - 10 }), ENV.STRAVA_COOKIE_KEY)
+    const renewed = tokens({ access_token: 'a2', refresh_token: 'r2', expires_at: NOW + 21600 })
+    const ok = fakeStrava({ 'https://www.strava.com/oauth/token': tokenResponse(renewed), 'https://www.strava.com/oauth/deauthorize': () => new Response('{}') })
+    const res = await handle(req('/api/strava?action=disconnect', { method: 'POST', cookies: `kr_strava=${expired}` }), ENV, () => NOW, ok.fetcher)
+    expect(await res.json()).toEqual({ connected: false, revoked: true })
+    const revoke = ok.calls.find((c) => c.url.endsWith('/oauth/deauthorize'))
+    expect((revoke?.init?.headers as Record<string, string> | undefined)?.Authorization).toBe('Bearer a2')
+    const refused = fakeStrava({ 'https://www.strava.com/oauth/deauthorize': () => new Response('', { status: 401 }) })
+    const fresh = await seal(tokens(), ENV.STRAVA_COOKIE_KEY)
+    const res2 = await handle(req('/api/strava?action=disconnect', { method: 'POST', cookies: `kr_strava=${fresh}` }), ENV, () => NOW, refused.fetcher)
+    expect(await res2.json()).toEqual({ connected: false, revoked: false })
+    expect(res2.headers.get('set-cookie')).toContain('kr_strava=; ')
+  })
+
   it('disconnect takes POST only, tells Strava, and clears the cookie', async () => {
     const sealed = await seal(tokens(), ENV.STRAVA_COOKIE_KEY)
     const { fetcher, calls } = fakeStrava({ 'https://www.strava.com/oauth/deauthorize': () => new Response('{}') })
     expect((await handle(req('/api/strava?action=disconnect', { cookies: `kr_strava=${sealed}` }), ENV, () => NOW, fetcher)).status).toBe(405)
     const res = await handle(req('/api/strava?action=disconnect', { method: 'POST', cookies: `kr_strava=${sealed}` }), ENV, () => NOW, fetcher)
-    expect(await res.json()).toEqual({ connected: false })
+    expect(await res.json()).toEqual({ connected: false, revoked: true })
     expect(res.headers.get('set-cookie')).toContain('kr_strava=; ')
     expect(calls).toHaveLength(1)
   })

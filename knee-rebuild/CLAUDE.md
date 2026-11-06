@@ -19,7 +19,7 @@ Vite 8 · React 19 · TypeScript 7 (strict, `noUncheckedIndexedAccess`) · Tailw
 
 Dependencies: only what PROMPT section 2 names plus small, well-maintained utilities. No analytics, no telemetry, no external calls at runtime, except the app's own `/api/strava` function on Shawn's tap (Nov 6). Fonts are vendored through fontsource for that reason.
 
-Server: `api/strava.ts` is the one Vercel function: self-contained (no imports from `src/`), typechecked through tsconfig.node.json, tested by `api/strava.test.ts`. It keeps no data; Strava's tokens live in one encrypted HttpOnly cookie. Its secrets are Vercel environment variables, never in the bundle. See docs/integrations.md.
+Server: `api/strava.ts` is the one Vercel function: self-contained (no imports from `src/`), typechecked through tsconfig.node.json, tested by `api/_strava.test.ts`. It keeps no data; Strava's tokens live in one encrypted HttpOnly cookie. Its secrets are Vercel environment variables, never in the bundle. See docs/integrations.md.
 
 ## Commands
 
