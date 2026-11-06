@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { Day, Effort, IsoDate, IsoDateTime, LoadUnit, Pain, ReadingResult, Rpe, RunType, SetSide, Side, StopReason, WorkoutStatus } from './enums.ts'
+import { Day, Effort, IsoDate, IsoDateTime, LoadUnit, Pain, ReadingResult, Rpe, RunType, SetSide, Side, StopReason, WholeRpe, WorkoutStatus } from './enums.ts'
 import { EquipmentId, Slot } from './program.ts'
 
 const id = z.string().min(1)
@@ -103,6 +103,10 @@ export const Location = z.strictObject({
 })
 export type Location = z.infer<typeof Location>
 
+/** A session's minutes as Finish, End or the Summary store them: the stepper's range, in whole minutes (metrics phase 1). */
+export const DURATION_MIN = 1
+export const DURATION_MAX = 300
+
 /** One per lift day. */
 export const Workout = z.strictObject({
   id,
@@ -114,6 +118,18 @@ export const Workout = z.strictObject({
   startedAt: IsoDateTime.optional(),
   finishedAt: IsoDateTime.optional(),
   maxPainDuring: Pain.optional(),
+  /**
+   * How hard the whole session was, 1 to 10, asked at Finish (metrics phase 1). Stored only when
+   * Shawn rated it; without it, training load reads the average of the sets' RPE
+   * (src/rules/trainingLoad.ts). Reopen clears it.
+   */
+  sessionRpe: WholeRpe.optional(),
+  /**
+   * How long the session took, in whole minutes, from the stepper on Finish or End (preset from the
+   * sets' times, or an estimate for a late entry), or added later from the Summary. Not the runner's
+   * time window, which decides what runs. Reopen clears it.
+   */
+  durationMinutes: z.number().int().min(DURATION_MIN).max(DURATION_MAX).optional(),
   notes: z.string().optional(),
   status: WorkoutStatus,
   /** The gym, stamped at Start. Absent means Planet Fitness: every workout before M4b was there. */
@@ -176,7 +192,13 @@ export const Run = z.strictObject({
   type: RunType,
   miles: z.number().nonnegative(),
   minutes: z.number().nonnegative(),
+  /**
+   * The effort word: written by the run logger from `rpe` (1–3 easy, 4–6 moderate, 7–10 hard), and
+   * all a run logged before metrics phase 1 has, read then as RPE 3, 5 or 8.
+   */
   effort: Effort,
+  /** Effort as rated, 1 to 10 whole (metrics phase 1). Absent on runs logged before it. */
+  rpe: WholeRpe.optional(),
   maxPain: Pain,
   strides: z.boolean().default(false),
   tempo: z.boolean().default(false),

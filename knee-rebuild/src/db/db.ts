@@ -21,8 +21,10 @@ export interface ExportStampRow {
  * with no upgrade callback, so no version 2 row is rewritten (the home gym is written at launch by
  * `ensureLocations`); version 4 (M6) adds the Program screen's edits, one row per edited slot, keyed
  * by its id, again with no upgrade callback, so no version 3 row is rewritten; version 5 adds the exercises
- * Shawn adds to a session, one row each, again with no upgrade callback. Never edit a shipped
- * version; add the next one, and keep every change additive.
+ * Shawn adds to a session, one row each, again with no upgrade callback; version 6 (metrics phase 1)
+ * adds nothing to the store: runs may carry an RPE and workouts a session RPE and minutes, all
+ * optional and unindexed, and the bump keeps the backup's schema version in step with this one
+ * (src/db/backup.test.ts). Never edit a shipped version; add the next one, and keep every change additive.
  */
 export class KneeRebuildDb extends Dexie {
   /** The settings row and, once this phone has exported, the export stamp's row. */
@@ -52,6 +54,7 @@ export class KneeRebuildDb extends Dexie {
     this.version(3).stores({ locations: 'id' })
     this.version(4).stores({ programOverrides: 'slotId' })
     this.version(5).stores({ addedSlots: 'id, templateId' })
+    this.version(6).stores({})
   }
 }
 

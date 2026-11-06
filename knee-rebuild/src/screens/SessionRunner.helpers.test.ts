@@ -7,7 +7,7 @@ import { needsLoadPick } from '../rules/prefill.ts'
 import type { SlotRoute } from '../rules/equipment.ts'
 import type { Prescription } from '../rules/prescription.ts'
 import { asksForRack, notHereSlots, swapOffer } from '../rules/runnerGym.ts'
-import { DEFAULT_KIT, Settings, type Exercise, type SetLog, type Slot } from '../schema/index.ts'
+import { DEFAULT_KIT, Settings, type Exercise, type RepUnit, type SetLog, type Slot } from '../schema/index.ts'
 import {
   buildSet,
   countField,
@@ -59,6 +59,8 @@ import {
   todayGymWords,
   todayTooLabel,
   warmUpWords,
+  warmUpMinutes,
+  timedSets,
   withoutEnginePicks,
 } from './SessionRunner.helpers.ts'
 
@@ -291,6 +293,9 @@ describe('the gym in words (M4b, design section 4)', () => {
   it('the warm-up drops the bike where there is none, and says nothing else is written for it', () => {
     expect(warmUpWords(5, true)).toEqual({ line: 'Warm-up · bike 5 min · knee circuit 5 min', noBike: null })
     expect(warmUpWords(10, false)).toEqual({ line: 'Warm-up · knee circuit 10 min', noBike: 'No upright bike here; nothing else is written for it.' })
+    expect(warmUpMinutes(5, true)).toBe(10)
+    expect(warmUpMinutes(3, false)).toBe(3)
+    expect(warmUpMinutes(undefined, true)).toBe(10)
     expect(warmUpWords(undefined, true).line).toBe('Warm-up · bike 5 min · knee circuit 5 min')
   })
 
@@ -523,5 +528,24 @@ describe('a slot run at a gym with no dumbbells can always be logged (M4b review
     expect(RACK_ASK_LB).toEqual([25, 50, 60, 75, 80])
     expect(rackAskWords('Hampton Inn')).toBe('No dumbbells are set for Hampton Inn, so the load stops at 0 lb. Tap the heaviest one here, or set another weight in Where you train.')
     expect(rackSetWords('Hampton Inn', 25)).toBe('Dumbbells at Hampton Inn now go to 25 lb.')
+  })
+})
+
+describe('timedSets: the logged sets as the minutes stepper reads them', () => {
+  const base = { workoutId: 'w', exerciseId: 'x', setNumber: 1, side: 'both', load: 0, loadUnit: 'none', stopped: false } as const
+  it('carries each set’s count, its slot’s unit, its stamp and its RPE', () => {
+    const units: Record<string, RepUnit> = { a: 'reps', b: 'minutes' }
+    const sets: SetLog[] = [
+      { ...base, id: '1', slotId: 'a', reps: 10, rpe: 7, loggedAt: '2026-11-10T10:10:00.000Z' },
+      { ...base, id: '2', slotId: 'b', reps: 5 },
+      { ...base, id: '3', slotId: 'c', seconds: 30 },
+      { ...base, id: '4', slotId: 'gone', reps: 8 },
+    ]
+    expect(timedSets(sets, (slotId) => units[slotId])).toEqual([
+      { reps: 10, repUnit: 'reps', loggedAt: '2026-11-10T10:10:00.000Z', rpe: 7 },
+      { reps: 5, repUnit: 'minutes' },
+      { seconds: 30, repUnit: 'seconds' },
+      { reps: 8, repUnit: 'reps' },
+    ])
   })
 })

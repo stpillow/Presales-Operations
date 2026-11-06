@@ -8,6 +8,7 @@ import { isSwap } from '../rules/mileage.ts'
 import { morningCheckApplies, morningReading } from '../rules/reading.ts'
 import { progressionSuspended, stopMessage } from '../rules/redFlags.ts'
 import { phaseWeekOf } from '../rules/session.ts'
+import { EFFORT_RPE, effortFromRpe } from '../rules/trainingLoad.ts'
 import { runTypeFor, runsInWeek, suggestRun, weekMilesSummary, type RunSuggestion, type WeekMiles } from '../rules/weekPlan.ts'
 import { Effort, Run, RunType, type Day, type DaySession, type IsoDate, type MorningCheck, type Program, type ReadingResult, type Settings } from '../schema/index.ts'
 import { dateWords, noSwapMachineWords, runLabel, sessionLabel, shortDateWords } from './Today.helpers.ts'
@@ -24,7 +25,6 @@ export type ProgramLike = Pick<Program, 'weeklyTemplate' | 'weeklyTemplateRows' 
 
 /** The five types, in the order the screen offers them. */
 export const RUN_TYPES: readonly RunType[] = RunType.options
-export const EFFORTS: readonly Effort[] = Effort.options
 
 /** Distance in hundredths of a mile, as a watch reports it (Shawn, Nov 6). */
 export const MILES_STEP = 0.01
@@ -57,10 +57,12 @@ export function timeWords(minutes: number): string {
   return m >= 60 ? `${Math.floor(m / 60)}:${pad(m % 60)}:${pad(s)}` : `${m}:${pad(s)}`
 }
 
-const EFFORT_WORDS: Record<Effort, string> = { easy: 'Easy', moderate: 'Moderate', hard: 'Hard' }
+const BANDS = '1–3 easy, 4–6 moderate, 7–10 hard'
 
-export function effortWords(effort: Effort): string {
-  return EFFORT_WORDS[effort]
+/** The line under the effort picker: what the RPE reads as, the band in words (metrics phase 1). */
+export function rpeNote(rpe: number | null): string {
+  if (rpe === null) return 'Required. 1–3 reads easy, 4–6 moderate, 7–10 hard.'
+  return `RPE ${rpe} reads ${effortFromRpe(rpe)}. ${BANDS}.`
 }
 
 const SHORT_DAY: Record<Day, string> = { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' }
@@ -347,7 +349,8 @@ export interface RunForm {
   type: RunType | null
   miles: number | null
   minutes: number
-  effort: Effort
+  /** Effort as RPE 1 to 10; null until rated: like max pain, Save waits for it (metrics phase 1). */
+  rpe: number | null
   /** Null until rated: max pain is required, and unknown is not clean. */
   maxPain: number | null
   strides: boolean | null
@@ -359,7 +362,7 @@ export interface RunForm {
 }
 
 export function emptyForm(): RunForm {
-  return { date: null, type: null, miles: null, minutes: 0, effort: 'easy', maxPain: null, strides: null, tempo: null, stravaUrl: '', notes: '', gymPick: null }
+  return { date: null, type: null, miles: null, minutes: 0, rpe: null, maxPain: null, strides: null, tempo: null, stravaUrl: '', notes: '', gymPick: null }
 }
 
 /**
@@ -373,10 +376,12 @@ export function openForm(today: IsoDate): RunForm {
 /**
  * The form opened from a Strava activity (src/rules/stravaImport.ts): its day, type, miles, time,
  * effort when Strava had one, link and name, with max pain left unrated so Save waits on it, and
- * strides and tempo following the type as on any run.
+ * strides and tempo following the type as on any run. A draft a tab kept from before RPE carries an
+ * effort word instead (takeDraft doesn't validate): it opens on that word as 3, 5 or 8.
  */
-export function formFromDraft(draft: { date: IsoDate; type: RunType; miles: number; minutes: number; effort: Effort | null; stravaUrl: string; notes: string }): RunForm {
-  return { ...emptyForm(), date: draft.date, type: draft.type, miles: draft.miles, minutes: draft.minutes, effort: draft.effort ?? 'easy', stravaUrl: draft.stravaUrl, notes: draft.notes }
+export function formFromDraft(draft: { date: IsoDate; type: RunType; miles: number; minutes: number; rpe?: number | null; effort?: Effort | null; stravaUrl: string; notes: string }): RunForm {
+  const rpe = draft.rpe ?? (draft.effort ? EFFORT_RPE[draft.effort] : null)
+  return { ...emptyForm(), date: draft.date, type: draft.type, miles: draft.miles, minutes: draft.minutes, rpe, stravaUrl: draft.stravaUrl, notes: draft.notes }
 }
 
 /** The form with every "follow" filled in: what the screen shows and what Save would log. */
@@ -388,7 +393,9 @@ export interface ResolvedForm {
   swap: boolean
   miles: number
   minutes: number
-  effort: Effort
+  rpe: number | null
+  /** The RPE's band, for the words; null until rated. */
+  effort: Effort | null
   maxPain: number | null
   strides: boolean
   tempo: boolean
@@ -406,7 +413,8 @@ export function resolveForm(form: RunForm, view: { date: IsoDate; dateLost?: Iso
     swap,
     miles: swap ? 0 : (form.miles ?? view.suggestion?.miles ?? 0),
     minutes: form.minutes,
-    effort: form.effort,
+    rpe: form.rpe,
+    effort: form.rpe === null ? null : effortFromRpe(form.rpe),
     maxPain: form.maxPain,
     strides: swap ? false : (form.strides ?? view.suggestion?.strides ?? false),
     tempo: swap ? false : (form.tempo ?? view.suggestion?.tempo ?? false),
@@ -432,11 +440,14 @@ export type RunDraft = { ok: true; run: Run } | { ok: false; blocker: string }
  * outside stores none.
  */
 export function toRun(form: ResolvedForm, id: string, locationId: string): RunDraft {
-  const { type, maxPain } = form
+  const { type, maxPain, rpe } = form
   if (form.dateLost !== null) return { ok: false, blocker: 'Pick the day first' }
-  if (type === null && maxPain === null) return { ok: false, blocker: 'Pick the type and rate max pain first' }
-  if (maxPain === null) return { ok: false, blocker: 'Rate max pain first' }
-  if (type === null) return { ok: false, blocker: 'Pick the type first' }
+  if (type === null || maxPain === null || rpe === null) {
+    const rate = [maxPain === null ? 'max pain' : null, rpe === null ? 'effort' : null].filter((w): w is string => w !== null)
+    const steps = [type === null ? 'pick the type' : null, rate.length > 0 ? `rate ${rate.join(' and ')}` : null].filter((w): w is string => w !== null)
+    const joined = steps.length === 2 && rate.length === 2 ? `${steps[0]}, ${steps[1]}` : steps.join(' and ')
+    return { ok: false, blocker: `${joined.charAt(0).toUpperCase()}${joined.slice(1)} first` }
+  }
   // A swap logs no miles, so its minutes are all it measures: an untouched 0 would store a session as nothing.
   if (form.swap && form.minutes === 0) return { ok: false, blocker: 'Set the time first' }
   if (stravaProblem(form.stravaUrl)) return { ok: false, blocker: 'Fix or clear the Strava link first' }
@@ -450,7 +461,9 @@ export function toRun(form: ResolvedForm, id: string, locationId: string): RunDr
       type,
       miles: form.swap ? 0 : round2(form.miles),
       minutes: form.minutes,
-      effort: form.effort,
+      // The only writer of a run's effort: always the RPE's band, so the two never disagree.
+      effort: effortFromRpe(rpe),
+      rpe,
       maxPain,
       strides: form.swap ? false : form.strides,
       tempo: form.swap ? false : form.tempo,

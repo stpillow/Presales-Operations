@@ -127,3 +127,5 @@ export type Day = z.infer<typeof Day>
 
 export const Pain = z.number().int().min(0).max(10)
 export const Rpe = z.number().min(1).max(10)
+/** RPE as a whole number, 1 to 10: a run's and a whole session's (metrics phase 1). A set's RPE keeps its decimals (`Rpe`). */
+export const WholeRpe = z.number().int().min(1).max(10)

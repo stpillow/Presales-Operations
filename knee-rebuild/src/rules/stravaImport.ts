@@ -1,11 +1,12 @@
-import type { Effort, IsoDate, RunType } from '../schema/index.ts'
+import type { IsoDate, RunType } from '../schema/index.ts'
 
 /*
  * What an activity from Strava becomes in the app (Shawn's Nov 6 ask; PROGRAM-QUESTIONS 142). Strava
  * can supply the day, distance, time and a perceived effort; it can never supply max pain, which the
  * reading needs and which only Shawn knows, so an activity is never saved on its own: it opens the run
- * logger filled in, and Save waits on the pain like any run. Runs, elliptical and rowing map onto the
- * run logger; a strength activity points at "Log this session after the fact"; everything else is
+ * logger filled in, and Save waits on the pain like any run, and on the effort when Strava has none
+ * (it is never guessed: an unrated effort would read as a rated one in training load). Runs,
+ * elliptical and rowing map onto the run logger; a strength activity points at "Log this session after the fact"; everything else is
  * left out with the reason. An activity already logged (its Strava link on a run) is not offered again.
  */
 
@@ -52,12 +53,10 @@ export function activityDate(activity: Pick<StravaActivity, 'start_date_local'>)
   return activity.start_date_local.slice(0, 10)
 }
 
-/** 1–3 easy, 4–6 moderate, 7–10 hard; null when Strava has none. */
-export function effortFromExertion(exertion: number | null | undefined): Effort | null {
+/** Strava's perceived exertion as the run logger's whole RPE, rounded and kept from 1 to 10; null when Strava has none. */
+export function rpeFromExertion(exertion: number | null | undefined): number | null {
   if (exertion === null || exertion === undefined || !Number.isFinite(exertion) || exertion <= 0) return null
-  if (exertion <= 3) return 'easy'
-  if (exertion <= 6) return 'moderate'
-  return 'hard'
+  return Math.min(10, Math.max(1, Math.round(exertion)))
 }
 
 const RUNS = new Set(['Run', 'TrailRun', 'VirtualRun'])
@@ -69,7 +68,8 @@ export interface RunDraft {
   type: RunType
   miles: number
   minutes: number
-  effort: Effort | null
+  /** Effort as RPE 1 to 10, or null for Shawn to rate. */
+  rpe: number | null
   stravaUrl: string
   notes: string
 }
@@ -77,9 +77,10 @@ export interface RunDraft {
 export type Candidate =
   /**
    * A run, elliptical or rowing session for the run logger. `needs` is what Save waits on (max pain,
-   * which only Shawn knows); `guessed` is what the draft filled in by default, for him to check.
+   * which only Shawn knows, and the effort when Strava has none); `guessed` is what the draft filled
+   * in by default, for him to check.
    */
-  | { kind: 'run'; activityId: string; draft: RunDraft; needs: 'max pain'[]; guessed: ('type' | 'effort')[] }
+  | { kind: 'run'; activityId: string; draft: RunDraft; needs: ('max pain' | 'effort')[]; guessed: 'type'[] }
   /** A strength activity: logged as a session after the fact, from that day's preview. */
   | { kind: 'lift'; activityId: string; date: IsoDate; name: string }
   /** Not something the program logs, or outside the days that can be logged. */
@@ -106,11 +107,11 @@ export function classify(activity: StravaActivity, ctx: ClassifyContext): Candid
   if (!ctx.dates.includes(date)) return { kind: 'skip', activityId, date, name: label, reason: 'It is older than the days a run can be logged for.' }
   const scheduled = ctx.scheduledRun(date)
   const type: RunType = swap ?? (activity.workout_type === 2 ? 'long' : (scheduled ?? 'easy'))
-  const effort = effortFromExertion(activity.perceived_exertion)
-  const guessed: ('type' | 'effort')[] = []
+  const rpe = rpeFromExertion(activity.perceived_exertion)
+  const guessed: 'type'[] = []
   if (isRun && activity.workout_type !== 2 && scheduled === null) guessed.push('type')
-  // Strava's activity list carries no exertion (only a detailed activity does), so effort is nearly always the logger's default.
-  if (effort === null) guessed.push('effort')
+  // Strava's activity list carries no exertion (only a detailed activity does), so the effort nearly always waits for Shawn.
+  const needs: ('max pain' | 'effort')[] = rpe === null ? ['max pain', 'effort'] : ['max pain']
   return {
     kind: 'run',
     activityId,
@@ -119,11 +120,11 @@ export function classify(activity: StravaActivity, ctx: ClassifyContext): Candid
       type,
       miles: swap ? 0 : Math.round((activity.distance / METERS_PER_MILE) * 100) / 100,
       minutes: Math.round(activity.moving_time) / 60,
-      effort,
+      rpe,
       stravaUrl: stravaActivityUrl(activityId),
       notes: name,
     },
-    needs: ['max pain'],
+    needs,
     guessed,
   }
 }

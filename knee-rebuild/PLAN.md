@@ -103,12 +103,19 @@ Done when export, wipe, import restores everything, and a full Session B gets lo
 - [x] Added exercises on A, B and C (Program screen, Dexie v5, backup schema 5) and "Time you have" on Today and in the runner: the app leaves out whole exercises until the session fits, or with more time adds the phase's other sessions' exercises and then upper-body work (PROGRAM-QUESTIONS 136 to 138; `src/rules/addedSlots.ts`, `src/rules/fitWindow.ts`). Not yet reviewed adversarially
 - [ ] Adversarial review: the surviving findings fixed with tests first (PROGRAM-QUESTIONS 128 to 133; the screen ones also in `e2e/program.spec.ts`, `e2e/settings.spec.ts` and `e2e/app.spec.ts`, run by `npm run e2e`; npm audit's build-time advisories explained in `docs/pwa-audit.md` finding 10), re-check to come
 
+### Metrics, phase 1 · RPE and training load (docs/metrics-and-photos-plan.md)
+Done when a run is rated 1–10, a lift's Finish asks its RPE and minutes, and Progress shows weekly training load with its warning in words.
+
+- [x] Run RPE 1–10 on the run logger, unrated until tapped; session RPE (optional) and minutes on Finish, minutes on End, Add effort and minutes on the Summary; training load and the 7-days-through-yesterday warning on Progress (`src/rules/trainingLoad.ts`, Dexie v6, backup schema 6; PROGRAM-QUESTIONS 143 to 149)
+- [x] Adversarial review: three lenses (rules and data, screens, test honesty), two skeptics per finding; six candidates, none survived. `npm run e2e` 16 of 16. Checked in a browser at 390 px: Save waits on effort, a 28-minute RPE 4 run reads 112 on Progress
+
 **Definition of done for v1:** Shawn runs week 1 of the program entirely from the app, on his phone, with morning check-ins deciding the loads for week 2.
 
 ## Decisions log
 
 | Date | Decision | Why |
 |---|---|---|
+| 2026-11-06 | Metrics phase 1 adds fields only (Dexie v6 with no store change, backup schema 6); a session's minutes are a stored field (`durationMinutes`), and phase 3's `vo2Readings` takes Dexie v7 | Shawn delegated the open questions (PROGRAM-QUESTIONS 143 to 149). Older builds still open the database (149) |
 | 2026-11-06 | Strava import on tap, through one Vercel function (`api/strava.ts`) that holds the client secret and keeps nothing; logging after the fact up to 14 days back | Shawn's Nov 6 ask. Amends PROMPT sections 2, 7 and 8, CLAUDE.md and the review plan's security pass. Max pain is never imported: an activity opens the run logger filled in. Barriers and setup in docs/integrations.md |
 | 2026-11-02 | A read-only session preview (`#/preview/:date`): any day's session with the sets, reps and loads the engine would prescribe from what's logged so far, at the gym it would run at; from Week's lift days and Today | Shawn: "I want to be able to see the workouts before I get to them." It plans with the same `planSession` call the runner opens with, so its numbers are Start's if nothing is logged in between |
 | 2026-10-31 | The app lives in `knee-rebuild/` inside Presales-Operations, not in its own repo | This session can only push to this repo. `git subtree split --prefix=knee-rebuild` moves it out later with history intact. Shawn to confirm or ask for the split. |

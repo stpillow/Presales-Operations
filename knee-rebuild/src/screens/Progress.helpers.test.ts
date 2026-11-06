@@ -51,10 +51,20 @@ import {
   symmetryRefs,
   symmetryTable,
   textWidth,
+  trainingLoadAria,
+  trainingLoadNumber,
+  trainingLoadReadout,
+  trainingLoadTable,
+  trainingLoadView,
+  trainingLoadWarning,
+  notCountedLines,
+  ratioWords,
+  skewLines,
   visibleRows,
   waitingWords,
   type HistoryLike,
 } from './Progress.helpers.ts'
+import type { AcuteChronic, TrainingLoadEntry } from '../rules/trainingLoad.ts'
 
 const START = '2026-11-02'
 const workout = (id: string, date: string, status: Workout['status'] = 'finished', templateId = 'p2-b'): Workout => ({ id, date, templateId, phase: 2, week: 5, isDeload: false, status })
@@ -790,6 +800,7 @@ describe('progressView', () => {
     expect(view.refs).toHaveLength(2)
     expect(view.miles.current).toBe(0)
     expect(view.miles.weeks[0]?.actual).toBe(3)
+    expect(view.training.weeks[0]).toMatchObject({ week: 1, load: 30 * 3, sessions: 1, notCounted: 1 })
   })
 })
 
@@ -803,5 +814,146 @@ describe('the Progress screen’s text wears text tokens, never a data color', (
       expect(source, `${path} gives text a green class`).not.toMatch(/\btext-green/)
       for (const line of source.split('\n').filter((l) => l.includes('fill-green'))) expect(line, `${path}: green fill off a marker`).toContain('<circle')
     }
+  })
+})
+
+// ---------------------------------------------------------------------------------------------
+// 5. Weekly training load (metrics phase 1)
+// ---------------------------------------------------------------------------------------------
+
+const comparison = (over: Partial<AcuteChronic> = {}): AcuteChronic => ({
+  band: 'steady',
+  acuteFrom: '2026-12-08',
+  acuteTo: '2026-12-14',
+  chronicFrom: '2026-11-10',
+  chronicTo: '2026-12-07',
+  acute: 1430,
+  chronicWeek: 1300,
+  ratio: 1.1,
+  startsOn: null,
+  notCountedAcute: [],
+  notCountedChronic: [],
+  skews: [],
+  ...over,
+})
+
+describe('training load in words', () => {
+  it('prints numbers with a thousands separator, rounded', () => {
+    expect(trainingLoadNumber(2140.4)).toBe('2,140')
+    expect(trainingLoadNumber(336)).toBe('336')
+  })
+
+  it('prints the ratio to one decimal, and says just over or just under where that would read as the line itself', () => {
+    expect(ratioWords(1.6, 'high')).toBe('1.6×')
+    expect(ratioWords(1.53, 'high')).toBe('just over 1.5×')
+    expect(ratioWords(1.5, 'steady')).toBe('1.5×')
+    expect(ratioWords(1.47, 'steady')).toBe('just under 1.5×')
+    expect(ratioWords(0.78, 'low')).toBe('just under 0.8×')
+    expect(ratioWords(0.82, 'steady')).toBe('just over 0.8×')
+    expect(ratioWords(0.6, 'low')).toBe('0.6×')
+    expect(ratioWords(1, 'steady')).toBe('1×')
+  })
+
+  it('high is an up arrow and a word, says the 7 days through yesterday, and that nothing changes', () => {
+    expect(trainingLoadWarning(comparison({ band: 'high', acute: 2140, chronicWeek: 1330, ratio: 2140 / 1330 }))).toEqual({
+      mark: '↑ High',
+      text: 'The 7 days through yesterday carried 1.6× your average week of the 4 weeks before (2,140 against 1,330). A warning only: no session or run changes because of it.',
+    })
+  })
+
+  it('low is a down arrow, a drop, and a note only', () => {
+    expect(trainingLoadWarning(comparison({ band: 'low', acute: 780, chronicWeek: 1300, ratio: 0.6 }))).toEqual({
+      mark: '↓ Low',
+      text: 'The 7 days through yesterday carried 0.6× your average week of the 4 weeks before (780 against 1,300): a drop. A note only: nothing changes because of it.',
+    })
+  })
+
+  it('steady is a dash and a word', () => {
+    expect(trainingLoadWarning(comparison())).toEqual({ mark: '– Steady', text: 'The 7 days through yesterday carried 1.1× your average week of the 4 weeks before (1,430 against 1,300).' })
+  })
+
+  it('too early says when the comparison starts; with nothing logged it says so', () => {
+    expect(trainingLoadWarning(comparison({ band: 'too-early', ratio: null, chronicWeek: null, startsOn: '2026-12-07' }))).toEqual({
+      mark: null,
+      text: 'No comparison yet: it needs 4 weeks logged before the 7 days through yesterday. It starts Monday Dec 7.',
+    })
+    expect(trainingLoadWarning(comparison({ band: 'too-early', ratio: null, chronicWeek: null, startsOn: null }))).toEqual({
+      mark: null,
+      text: 'Nothing logged yet. The comparison starts 35 days after the first session or run.',
+    })
+  })
+
+  it('none says there is nothing to compare against', () => {
+    expect(trainingLoadWarning(comparison({ band: 'none', ratio: null, chronicWeek: 0 })).text).toBe('No training load is counted in the 4 weeks before the 7 days through yesterday, so there is nothing to compare against yet.')
+  })
+
+  it('says which way uncounted sessions and deload weeks push the ratio', () => {
+    const missing = (id: string, date: string): TrainingLoadEntry => ({ kind: 'run', id, date, runType: 'easy', rpe: 3, rpeSource: 'rated', minutes: null, load: null, missing: ['minutes'] })
+    const skewed = comparison({
+      notCountedAcute: [missing('a', '2026-12-09')],
+      notCountedChronic: [missing('b', '2026-11-12'), missing('c', '2026-11-13')],
+      skews: [
+        { why: 'not-counted', window: 'acute', reads: 'lower' },
+        { why: 'deload', window: 'acute', reads: 'lower' },
+        { why: 'not-counted', window: 'chronic', reads: 'higher' },
+        { why: 'deload', window: 'chronic', reads: 'higher' },
+      ],
+    })
+    expect(skewLines(skewed)).toEqual([
+      '1 session in the 7 days through yesterday isn’t counted, so the ratio reads lower than it is.',
+      'The 7 days through yesterday include deload days, planned lighter, so the ratio reads lower.',
+      '2 sessions in the 4 weeks before aren’t counted, so the ratio reads higher than it is.',
+      'The 4 weeks before include a deload week, planned lighter, so the ratio reads higher.',
+    ])
+  })
+
+  it('lists what isn’t counted, newest first, with why and what can fix it', () => {
+    const entries: TrainingLoadEntry[] = [
+      { kind: 'workout', id: 'w1', date: '2026-11-03', templateId: 'p2-b', rpe: null, rpeSource: null, minutes: 40, load: null, missing: ['rpe'] },
+      { kind: 'workout', id: 'w2', date: '2026-11-05', templateId: 'p1-a', rpe: 7, rpeSource: 'session', minutes: null, load: null, missing: ['minutes'] },
+      { kind: 'run', id: 'r1', date: '2026-11-06', runType: 'mbr', rpe: 3, rpeSource: 'rated', minutes: null, load: null, missing: ['minutes'] },
+      { kind: 'run', id: 'r2', date: '2026-11-07', runType: 'easy', rpe: 3, rpeSource: 'rated', minutes: 30, load: 90, missing: [] },
+    ]
+    expect(notCountedLines(entries, templates)).toEqual([
+      'Friday Nov 6 · Run: MBR · no time logged',
+      'Thursday Nov 5 · Session A · no minutes: add them from the session’s summary',
+      'Tuesday Nov 3 · Session B · no RPE (no set rated): add it from the session’s summary',
+    ])
+  })
+})
+
+describe('trainingLoadView', () => {
+  const twelve = (n: number) => Array.from({ length: n }, (_, i) => i + 1)
+  it('every program week 1 to 12, and on past 12 while the program runs on', () => {
+    const empty = trainingLoadView({ records: [], runs: [], startDate: START, today: '2026-11-05', templates })
+    expect(empty.weeks.map((w) => w.week)).toEqual(twelve(12))
+    expect(empty.current).toBe(0)
+    expect(empty.any).toBe(false)
+    expect(empty.warning.text).toBe('Nothing logged yet. The comparison starts 35 days after the first session or run.')
+    expect(trainingLoadView({ records: [], runs: [], startDate: START, today: '2027-02-10', templates }).weeks.map((w) => w.week)).toEqual(twelve(15))
+  })
+
+  it('sums each week, says where older runs’ words stand in, and gives the readout, the name and the table', () => {
+    const runs = [run('r1', '2026-11-02', 3), { ...run('r2', '2026-11-04', 3), rpe: 6 }, { ...run('r3', '2026-11-10', 3), minutes: 0 }]
+    const records = attachChecks([{ ...workout('w1', '2026-11-05', 'finished', 'p1-a'), sessionRpe: 7, durationMinutes: 50 }], [], [])
+    const view = trainingLoadView({ records, runs, startDate: START, today: '2026-11-11', templates })
+    expect(view.weeks.slice(0, 2)).toEqual([
+      { week: 1, load: 90 + 180 + 350, sessions: 3, notCounted: 0, isDeload: false },
+      { week: 2, load: 0, sessions: 0, notCounted: 1, isDeload: false },
+    ])
+    expect(view.current).toBe(1)
+    expect(view.any).toBe(true)
+    expect(view.olderRuns).toBe('Runs logged before effort was rated 1 to 10 read their effort word as RPE 3, 5 or 8.')
+    expect(view.notCounted).toEqual(['Tuesday Nov 10 · Run: easy · no time logged'])
+    expect(view.warning.text).toBe('No comparison yet: it needs 4 weeks logged before the 7 days through yesterday. It starts Monday Dec 7.')
+    expect(trainingLoadReadout(view, 0)).toEqual({ parts: [{ value: '620', name: 'training load', mark: 'column' }], when: 'Week 1, 3 counted' })
+    expect(trainingLoadReadout(view, 1)).toEqual({ parts: [{ value: '0', name: 'training load', mark: 'column' }], when: 'Week 2, 1 not counted, this week' })
+    expect(trainingLoadReadout(view, 3)?.when).toBe('Week 4, deload')
+    expect(trainingLoadAria(view)).toBe('Column chart of training load, RPE times minutes, each week, weeks 1 to 12; this week, week 2, 0.')
+    const table = trainingLoadTable(view)
+    expect(table.head).toEqual(['Week', 'Training load', 'Counted', 'Not counted', 'Note'])
+    expect(table.rows[0]).toEqual(['1', '620', '3', '0', ''])
+    expect(table.rows[1]).toEqual(['2', '0', '0', '1', 'this week'])
+    expect(table.rows[3]).toEqual(['4', '0', '0', '0', 'deload'])
   })
 })

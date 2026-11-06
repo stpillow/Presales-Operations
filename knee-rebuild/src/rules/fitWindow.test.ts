@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { WINDOW_MAX, WINDOW_MIN, cleanWindow, fitToWindow, minutesOf, type WindowSlot } from './fitWindow.ts'
+import { WINDOW_MAX, WINDOW_MIN, cleanWindow, fitToWindow, minutesOf, setWorkSeconds, type WindowSlot } from './fitWindow.ts'
 
 const REST = 60
 // 3 sets of 10 reps: 3 × (10 × 4 + 20) = 180 s of work + 3 × 60 s rest = 360 s = 6 min.
@@ -32,6 +32,14 @@ describe('the estimate', () => {
     const pair = [lift('a', { groupId: 'g' }), lift('b', { groupId: 'g' })]
     // 2 × 180 s work + 3 rounds × 60 s = 540 s = 9 min; apart they would be 12.
     expect(fitToWindow(pair, null, REST).fullMinutes).toBe(9)
+  })
+
+  it('one set’s work, by its unit: 4 s a rep, seconds as seconds, minutes as minutes, 2 s a yard or step, and 20 s to set up', () => {
+    expect(setWorkSeconds({ repsTarget: 10, repUnit: 'reps' })).toBe(60)
+    expect(setWorkSeconds({ repsTarget: 30, repUnit: 'seconds' })).toBe(50)
+    expect(setWorkSeconds({ repsTarget: 5, repUnit: 'minutes' })).toBe(320)
+    expect(setWorkSeconds({ repsTarget: 20, repUnit: 'yards' })).toBe(60)
+    expect(setWorkSeconds({ repsTarget: 20, repUnit: 'steps' })).toBe(60)
   })
 
   it('rounds minutes up', () => {

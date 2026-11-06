@@ -56,8 +56,8 @@ export function cleanWindow(value: unknown): number | null {
   return n >= WINDOW_MIN && n <= WINDOW_MAX ? n : null
 }
 
-/** The seconds of work in one set of a side, setting up and logging included. */
-function setWorkSeconds(side: WindowSide): number {
+/** The seconds of work in one set of a side, setting up and logging included. Training load's estimate of a late session's minutes reads it too. */
+export function setWorkSeconds(side: Pick<WindowSide, 'repsTarget' | 'repUnit'>): number {
   const count = side.repsTarget
   switch (side.repUnit) {
     case 'seconds':

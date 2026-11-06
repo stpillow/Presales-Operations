@@ -302,13 +302,16 @@ export async function putWorkout(workout: Workout): Promise<void> {
   await db.workouts.put(Workout.parse(workout))
 }
 
-/** Puts an abandoned (or finished) workout back in progress, keeping its sets: one workout per lift day. */
+/**
+ * Puts an abandoned (or finished) workout back in progress, keeping its sets: one workout per lift
+ * day. What Finish or End asked goes with the finish (max pain, and the session's RPE and minutes,
+ * metrics phase 1), so the next Finish asks them again and training load never reads a stale value.
+ */
 export async function reopenWorkout(id: string): Promise<void> {
   const current = await db.workouts.get(id)
   if (!current) throw new Error(`no workout ${id}`)
-  const { finishedAt: _f, maxPainDuring: _m, ...rest } = current
-  void _f
-  void _m
+  const { finishedAt: _f, maxPainDuring: _m, sessionRpe: _r, durationMinutes: _d, ...rest } = current
+  void [_f, _m, _r, _d]
   await db.workouts.put(Workout.parse({ ...rest, status: 'in-progress' }))
 }
 

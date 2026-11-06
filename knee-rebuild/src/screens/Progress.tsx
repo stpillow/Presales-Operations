@@ -21,10 +21,12 @@ import {
   type ExerciseView,
   type MilesView,
   type SymmetryRef,
+  type TrainingLoadView,
 } from './Progress.helpers.ts'
 import { LoadChart } from './progress/LoadChart.tsx'
 import { MilesChart } from './progress/MilesChart.tsx'
 import { SymmetryChart } from './progress/SymmetryChart.tsx'
+import { TrainingLoadChart } from './progress/TrainingLoadChart.tsx'
 
 const TITLE = 'Progress'
 const HEADING = 'font-sans text-h3 font-medium text-on-dark'
@@ -32,7 +34,8 @@ const SECTION = 'flex flex-col gap-3'
 
 /**
  * How the knee is coming along: the run of clean days, one exercise's load over time, its
- * symmetry when it is two-sided, and the weekly miles against the plan. Every number comes from
+ * symmetry when it is two-sided, the weekly miles against the plan, and the weekly training load
+ * with its warning in words. Every number comes from
  * src/rules through Progress.helpers; this file renders and takes the one tap that picks an exercise.
  */
 export function Progress() {
@@ -80,11 +83,12 @@ function ProgressBody({ today, settings, history }: { today: IsoDate; settings: 
   }
 
   return (
-    <Screen title={TITLE} lead="What is logged on this phone, over time: clean days, loads, symmetry and miles.">
+    <Screen title={TITLE} lead="What is logged on this phone, over time: clean days, loads, symmetry, miles and training load.">
       <CleanDays clean={view.clean} />
       <LoadSection rows={view.exercises} row={row} exercise={exercise} showAll={showAll} onShowAll={setShowAll} onPick={pick} chartRef={chartRef} />
       <SymmetrySection row={row} exercise={exercise} settings={settings} refs={view.refs} />
       <MilesSection miles={view.miles} />
+      <TrainingLoadSection training={view.training} />
     </Screen>
   )
 }
@@ -221,5 +225,54 @@ function MilesSection({ miles }: { miles: MilesView }) {
       </p>
       <MilesChart view={miles} />
     </section>
+  )
+}
+
+/**
+ * 5. Weekly training load (metrics phase 1): RPE × minutes for every session and run, by program
+ * week, and the warning when the 7 days through yesterday run well above or below the weeks before.
+ * The warning is a word with an arrow, never a color, and plain text (no live region: the history
+ * re-reads on every write, and a status line would announce again each time).
+ */
+function TrainingLoadSection({ training }: { training: TrainingLoadView }) {
+  return (
+    <section aria-label="Weekly training load" className={SECTION}>
+      <h2 className={HEADING}>Weekly training load</h2>
+      <p className="text-small text-on-dark-muted">
+        RPE × minutes for every session and run, swaps included, by program week. A warning only: nothing here changes a prescription.
+      </p>
+      <p className="text-body text-on-dark">
+        {training.warning.mark ? <span className="font-mono text-small uppercase tracking-[0.22em] text-on-dark">{training.warning.mark} · </span> : null}
+        {training.warning.text}
+      </p>
+      {training.skews.map((line) => (
+        <p key={line} className="text-small text-on-dark-dim">
+          {line}
+        </p>
+      ))}
+      {training.any ? (
+        <TrainingLoadChart view={training} />
+      ) : (
+        <p className="text-body text-on-dark-dim">Log a session or run to see this. Each one adds its RPE times its minutes to its week.</p>
+      )}
+      {training.olderRuns ? <p className="text-small text-on-dark-muted">{training.olderRuns}</p> : null}
+      {training.notCounted.length > 0 ? <NotCountedList lines={training.notCounted} /> : null}
+    </section>
+  )
+}
+
+/** The sessions and runs training load leaves out, each with why, so none is simply missing. */
+function NotCountedList({ lines }: { lines: string[] }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <h3 className="font-mono text-small font-normal uppercase tracking-[0.22em] text-on-dark-muted">Not counted</h3>
+      <ul className="flex flex-col">
+        {lines.map((line) => (
+          <li key={line} className="border-t border-on-dark-faint py-2 text-small text-on-dark-dim first:border-t-0">
+            {line}
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }

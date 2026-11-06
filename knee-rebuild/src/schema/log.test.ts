@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { IsoDate } from './enums.ts'
 import { REST_MAX, REST_MIN } from '../screens/Settings.helpers.ts'
-import { DEFAULT_KIT, EXTRA_TEXT_MAX, Location, MorningCheck, PLANET_FITNESS_LOCATION_ID, REST_TIMER_MAX, REST_TIMER_MIN, Run, SetLog, Settings, Workout, showsText } from './log.ts'
+import { DEFAULT_KIT, DURATION_MAX, DURATION_MIN, EXTRA_TEXT_MAX, Location, MorningCheck, PLANET_FITNESS_LOCATION_ID, REST_TIMER_MAX, REST_TIMER_MIN, Run, SetLog, Settings, Workout, showsText } from './log.ts'
 
 describe('IsoDate', () => {
   it('accepts real dates and rejects impossible ones', () => {
@@ -163,5 +163,34 @@ describe('rows stored before M4b still parse (M4b fields are optional)', () => {
     const run = { id: 'r1', date: '2026-11-04', type: 'elliptical-swap', miles: 0, minutes: 35, effort: 'easy', maxPain: 1 } as const
     expect(Run.parse(run).locationId).toBeUndefined()
     expect(Run.parse({ ...run, locationId: 'loc-1' }).locationId).toBe('loc-1')
+  })
+})
+
+describe('metrics phase 1: a run’s RPE, a session’s RPE and minutes are optional whole numbers', () => {
+  const run = { id: 'r1', date: '2026-11-04', type: 'easy', miles: 3, minutes: 30, effort: 'easy', maxPain: 1 } as const
+  const workout = { id: 'w1', date: '2026-11-03', templateId: 'p1-a', phase: 1, week: 1, isDeload: false, status: 'finished' } as const
+  it('rows stored before it still parse: a run with only its effort word, a workout with neither', () => {
+    expect(Run.parse(run).rpe).toBeUndefined()
+    expect(Workout.parse(workout).sessionRpe).toBeUndefined()
+    expect(Workout.parse(workout).durationMinutes).toBeUndefined()
+  })
+  it('takes RPE 1 to 10 whole, and refuses 0, 11 and a half', () => {
+    for (const rpe of [1, 6, 10]) {
+      expect(Run.safeParse({ ...run, rpe }).success, String(rpe)).toBe(true)
+      expect(Workout.safeParse({ ...workout, sessionRpe: rpe }).success, String(rpe)).toBe(true)
+    }
+    for (const rpe of [0, 11, 6.5]) {
+      expect(Run.safeParse({ ...run, rpe }).success, String(rpe)).toBe(false)
+      expect(Workout.safeParse({ ...workout, sessionRpe: rpe }).success, String(rpe)).toBe(false)
+    }
+  })
+  it('takes whole minutes inside the stepper’s range, the same bounds Finish uses', () => {
+    expect([DURATION_MIN, DURATION_MAX]).toEqual([1, 300])
+    for (const m of [DURATION_MIN, 48, DURATION_MAX]) expect(Workout.safeParse({ ...workout, durationMinutes: m }).success, String(m)).toBe(true)
+    for (const m of [0, DURATION_MAX + 1, 7.5]) expect(Workout.safeParse({ ...workout, durationMinutes: m }).success, String(m)).toBe(false)
+  })
+  it('still refuses a key it doesn’t know', () => {
+    expect(Workout.safeParse({ ...workout, minutes: 40 }).success).toBe(false)
+    expect(Run.safeParse({ ...run, sessionRpe: 4 }).success).toBe(false)
   })
 })

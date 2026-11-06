@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { activityDate, candidates, classify, effortFromExertion, importedStravaIds, stravaActivityUrl, stravaIdFromUrl, syncAfter, type ClassifyContext, type StravaActivity } from './stravaImport.ts'
+import { activityDate, candidates, classify, rpeFromExertion, importedStravaIds, stravaActivityUrl, stravaIdFromUrl, syncAfter, type ClassifyContext, type StravaActivity } from './stravaImport.ts'
 
 const DATES = ['2026-11-04', '2026-11-05', '2026-11-06']
 const ctx: ClassifyContext = { dates: DATES, scheduledRun: (d) => (d === '2026-11-05' ? 'mbr' : null) }
@@ -24,11 +24,15 @@ describe('the day', () => {
 })
 
 describe('effort', () => {
-  it('reads Strava’s 1–10 exertion as easy, moderate or hard, and none as none', () => {
-    expect([1, 3, 4, 6, 7, 10].map(effortFromExertion)).toEqual(['easy', 'easy', 'moderate', 'moderate', 'hard', 'hard'])
-    expect(effortFromExertion(null)).toBeNull()
-    expect(effortFromExertion(undefined)).toBeNull()
-    expect(effortFromExertion(0)).toBeNull()
+  it('reads Strava’s exertion as a whole RPE from 1 to 10, rounded and kept inside the scale, and none as none', () => {
+    expect([1, 3, 3.4, 3.5, 6, 10].map(rpeFromExertion)).toEqual([1, 3, 3, 4, 6, 10])
+    expect(rpeFromExertion(11)).toBe(10)
+    expect(rpeFromExertion(0.4)).toBe(1)
+    expect(rpeFromExertion(null)).toBeNull()
+    expect(rpeFromExertion(undefined)).toBeNull()
+    expect(rpeFromExertion(0)).toBeNull()
+    expect(rpeFromExertion(-2)).toBeNull()
+    expect(rpeFromExertion(Number.NaN)).toBeNull()
   })
 })
 
@@ -38,15 +42,20 @@ describe('classify', () => {
     expect(c).toEqual({
       kind: 'run',
       activityId: '1234567890',
-      draft: { date: '2026-11-05', type: 'mbr', miles: 3.11, minutes: 1633 / 60, effort: null, stravaUrl: 'https://www.strava.com/activities/1234567890', notes: 'Morning Run' },
-      needs: ['max pain'],
-      guessed: ['effort'],
+      draft: { date: '2026-11-05', type: 'mbr', miles: 3.11, minutes: 1633 / 60, rpe: null, stravaUrl: 'https://www.strava.com/activities/1234567890', notes: 'Morning Run' },
+      needs: ['max pain', 'effort'],
+      guessed: [],
     })
   })
 
+  it('takes Strava’s exertion as the effort when there is one; without it, effort waits for Shawn and is never guessed', () => {
+    expect(classify(act({ perceived_exertion: 6.6 }), ctx)).toMatchObject({ draft: { rpe: 7 }, needs: ['max pain'], guessed: [] })
+    expect(classify(act({ perceived_exertion: null }), ctx)).toMatchObject({ draft: { rpe: null }, needs: ['max pain', 'effort'], guessed: [] })
+  })
+
   it('takes Strava’s long-run mark, and on a day with no run planned guesses easy and asks the type', () => {
-    expect(classify(act({ workout_type: 2, start_date_local: '2026-11-06T07:00:00Z' }), ctx)).toMatchObject({ draft: { type: 'long' }, needs: ['max pain'], guessed: ['effort'] })
-    expect(classify(act({ start_date_local: '2026-11-06T07:00:00Z', perceived_exertion: 5 }), ctx)).toMatchObject({ draft: { type: 'easy', effort: 'moderate' }, needs: ['max pain'], guessed: ['type'] })
+    expect(classify(act({ workout_type: 2, start_date_local: '2026-11-06T07:00:00Z' }), ctx)).toMatchObject({ draft: { type: 'long' }, needs: ['max pain', 'effort'], guessed: [] })
+    expect(classify(act({ start_date_local: '2026-11-06T07:00:00Z', perceived_exertion: 5 }), ctx)).toMatchObject({ draft: { type: 'easy', rpe: 5 }, needs: ['max pain'], guessed: ['type'] })
   })
 
   it('makes elliptical and rowing the swaps, at no miles', () => {
