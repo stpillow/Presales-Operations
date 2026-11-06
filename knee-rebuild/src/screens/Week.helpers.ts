@@ -7,6 +7,7 @@ import { morningCheckApplies, worst } from '../rules/reading.ts'
 import { stopMessage } from '../rules/redFlags.ts'
 import { readingsInWeek, runTypeFor, weekDays, weekMilesSummary, type DayStatus, type WeekDay, type WeekMiles } from '../rules/weekPlan.ts'
 import type { Day, DaySession, IsoDate, MorningCheck, Program, ReadingResult, SessionMove, SessionTemplate, Settings, WeeklyTemplate, Workout } from '../schema/index.ts'
+import { timeWords } from './RunLogger.helpers.ts'
 import { runLabel, sessionLabel, shortDateWords, workoutLabel } from './Today.helpers.ts'
 
 /**
@@ -161,7 +162,7 @@ export function dayAction(day: Pick<WeekDay, 'date' | 'session' | 'status' | 'wo
 /** What was logged on a day, in words: "Session A finished", "Run: easy, 3 miles", "Rower swap, 35 minutes". */
 export function loggedWords(day: Pick<WeekDay, 'runs' | 'workouts'>, templates: readonly SessionTemplate[]): string[] {
   const workouts = day.workouts.map((w) => `${workoutLabel(w, templates)} ${w.status === 'finished' ? 'finished' : 'left early'}`)
-  const runs = day.runs.map((r) => (isSwap(r) ? `${runLabel(r.type)}, ${plural(r.minutes, 'minute')}` : `${runLabel(r.type)}, ${plural(r.miles, 'mile')}`))
+  const runs = day.runs.map((r) => (isSwap(r) ? `${runLabel(r.type)}, ${timeWords(r.minutes)}` : `${runLabel(r.type)}, ${plural(r.miles, 'mile')}`))
   return [...workouts, ...runs]
 }
 
