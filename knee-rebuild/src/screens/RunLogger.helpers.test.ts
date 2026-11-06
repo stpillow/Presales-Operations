@@ -121,26 +121,28 @@ describe('dateChoices', () => {
   it('is empty before the program starts', () => {
     expect(dateChoices('2026-11-01', START)).toEqual([])
   })
-  it('runs from this program week’s Monday up to today', () => {
+  it('runs from the program start up to today in week 1', () => {
     expect(dateChoices('2026-11-02', START)).toEqual(['2026-11-02'])
     expect(dateChoices('2026-11-05', START)).toEqual(['2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05'])
-    expect(dateChoices('2026-11-11', START)).toEqual(['2026-11-09', '2026-11-10', '2026-11-11'])
   })
-  it('on a Monday also offers yesterday, the last day of the week before, so a Sunday run keeps its date and week', () => {
-    expect(dateChoices('2026-11-09', START)).toEqual(['2026-11-08', '2026-11-09'])
-    expect(dateChoices('2026-11-16', START)).toEqual(['2026-11-15', '2026-11-16'])
-    expect(dateChoices('2026-11-10', START)).toEqual(['2026-11-09', '2026-11-10'])
-    // Week 1's Monday: yesterday is before the program.
-    expect(dateChoices('2026-11-02', START)).toEqual(['2026-11-02'])
-    expect(dayChoiceWords('2026-11-08', '2026-11-09')).toBe('Sun')
+  it('reaches back the last 14 days across program weeks (Nov 6: log after the fact), oldest first', () => {
+    const days = dateChoices('2026-11-20', START)
+    expect(days).toHaveLength(15)
+    expect(days[0]).toBe('2026-11-06')
+    expect(days.at(-1)).toBe('2026-11-20')
+    // A Sunday run logged the next morning still keeps its date and week.
+    expect(dateChoices('2026-11-09', START)).toContain('2026-11-08')
   })
-  it('says which days can be logged', () => {
-    expect(dayChoicesNote('2026-11-09', START)).toBe('Yesterday, the last day of last week, can still be logged; later days cannot.')
-    expect(dayChoicesNote('2026-11-05', START)).toBe('Earlier days of this program week can be logged; later ones cannot.')
+  it('says which days can be logged, and how a late run reads', () => {
+    expect(dayChoicesNote()).toBe('The last 14 days can be logged. A run logged late is read like any other: with no morning check the day after, it reads hold.')
   })
   it('names each choice by its weekday, and today as Today', () => {
     expect(dayChoiceWords('2026-11-05', '2026-11-05')).toBe('Today')
     expect(dayChoiceWords('2026-11-02', '2026-11-05')).toBe('Mon')
+  })
+  it('adds the date once a weekday could name two days', () => {
+    expect(dayChoiceWords('2026-11-09', '2026-11-16')).toBe('Mon Nov 9')
+    expect(dayChoiceWords('2026-11-10', '2026-11-16')).toBe('Tue')
   })
 })
 
@@ -203,15 +205,17 @@ describe('loggerView', () => {
     expect(formView({ ...base, today: '2026-11-09', picked: { date: '2026-11-08', type: 'easy' } })).toMatchObject({ date: '2026-11-08', week: 1, dateLost: null })
   })
   it('a pinned date that is no longer a choice is said in words and blocks Save until a day is picked again', () => {
-    // Opened Saturday, still open on Monday: Saturday is in last week and not yesterday.
+    // Opened Saturday Nov 7, still open 15 days later: past the 14-day window.
     const form = { ...openForm('2026-11-07'), type: 'easy' as const, miles: 3, maxPain: 1 }
-    const view = formView({ ...base, today: '2026-11-09', picked: { date: form.date, type: form.type } })
-    expect(view).toMatchObject({ dateLost: '2026-11-07', dates: ['2026-11-08', '2026-11-09'] })
+    const view = formView({ ...base, today: '2026-11-22', picked: { date: form.date, type: form.type } })
+    expect(view.dateLost).toBe('2026-11-07')
+    expect(view.dates[0]).toBe('2026-11-08')
+    expect(view.dates).toHaveLength(15)
     expect(toRun(resolveForm(form, view), 'r', GYM)).toEqual({ ok: false, blocker: 'Pick the day first' })
     expect(leadWords(view)).toBe('Pick the day this run happened')
-    const repicked = formView({ ...base, today: '2026-11-09', picked: { date: '2026-11-09', type: form.type } })
+    const repicked = formView({ ...base, today: '2026-11-22', picked: { date: '2026-11-22', type: form.type } })
     expect(repicked.dateLost).toBeNull()
-    expect(toRun(resolveForm({ ...form, date: '2026-11-09' }, repicked), 'r', GYM).ok).toBe(true)
+    expect(toRun(resolveForm({ ...form, date: '2026-11-22' }, repicked), 'r', GYM).ok).toBe(true)
   })
   it('on Monday, a run picked for Sunday logs into the week it happened', () => {
     // Fri long and Sun off swapped in week 1; the long run happened Sunday, at a pain that reads hold.
@@ -315,7 +319,7 @@ describe('a run swap logged for an earlier day (M4b review)', () => {
     expect(loggedDate('2026-11-03', START, '2026-11-02')).toBe('2026-11-02')
     expect(loggedDate('2026-11-03', START, null)).toBe('2026-11-03')
     // A pinned date no longer a choice is the view's dateLost; until a day is picked again the gym follows today.
-    expect(loggedDate('2026-11-10', START, '2026-11-06')).toBe('2026-11-10')
+    expect(loggedDate('2026-11-25', START, '2026-11-06')).toBe('2026-11-25')
     expect(formView({ ...base, today: '2026-11-03', picked: { date: '2026-11-02', type: null } }).date).toBe(loggedDate('2026-11-03', START, '2026-11-02'))
   })
   it('says which gym the swap is stored at, and that another is a tap away', () => {
@@ -338,7 +342,7 @@ describe('openForm', () => {
 describe('words for the date', () => {
   it('says which pinned day can no longer be logged, and what to do', () => {
     expect(dateLostWords('2026-11-07')).toBe(
-      'Saturday Nov 7, the day this run was started for, can no longer be logged: runs log for this program week up to today, and on a Monday for yesterday too. Pick a day to save it.',
+      'Saturday Nov 7, the day this run was started for, can no longer be logged: runs log for the last 14 days up to today. Pick a day to save it.',
     )
   })
   it('Save names the day when it is not today', () => {

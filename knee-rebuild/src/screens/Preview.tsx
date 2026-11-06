@@ -1,12 +1,15 @@
+import { useState } from 'react'
 import { navigate } from '../app/router.ts'
 import { PROGRAM, planSession, type SlotPlan } from '../app/session.ts'
 import { useToday } from '../app/today.ts'
 import { Button } from '../components/Button.tsx'
 import { Screen } from '../components/Screen.tsx'
 import { useActiveLocation, useHistory, useLocations, useSettings } from '../db/hooks.ts'
+import { putWorkout } from '../db/repo.ts'
 import { exerciseById } from '../program/program.ts'
-import { liftGym } from '../rules/gymDay.ts'
-import type { IsoDate } from '../schema/index.ts'
+import { gymToOffer, lastLoggedGym, liftGym } from '../rules/gymDay.ts'
+import { lateLift } from '../rules/retro.ts'
+import type { IsoDate, Location } from '../schema/index.ts'
 import { previewSlots, previewView, type PreviewSlot, type PreviewView } from './Preview.helpers.ts'
 import { shortDateWords } from './Today.helpers.ts'
 
@@ -18,7 +21,8 @@ const nameOf = (exerciseId: string) => exerciseById(exerciseId).name
 /**
  * A read-only look at one day's session before it comes round: every exercise with the sets, reps
  * and load the engine would prescribe from what's logged so far, at the gym it would run at, with
- * its cues. Nothing here writes; Start stays on Today. Every number comes from planSession.
+ * its cues. Today's Start stays on Today; a past lift day can be logged after the fact from here
+ * (`lateLift`, PROGRAM-QUESTIONS 141). Every number comes from planSession.
  */
 export function Preview({ date }: { date: IsoDate }) {
   const today = useToday()
@@ -115,6 +119,16 @@ export function Preview({ date }: { date: IsoDate }) {
               Go to Today to start
             </Button>
           ) : null}
+          {date < today && !body.logged && body.template ? (
+            <LogLate
+              date={date}
+              today={today}
+              letter={body.template.letter}
+              gym={gymToOffer(lastLoggedGym(history.workouts, new Set(history.setLogs.map((s) => s.workoutId)), locations), active)}
+              settings={settings}
+              workouts={history.workouts}
+            />
+          ) : null}
         </section>
       )}
 
@@ -122,6 +136,57 @@ export function Preview({ date }: { date: IsoDate }) {
         Back to the week
       </Button>
     </Screen>
+  )
+}
+
+/**
+ * "Log this session" on a past lift day (Nov 6): the session is made for that day (`lateLift`: its
+ * week and deload from the date, stamped late) at the gym the last lift ran at, and the runner opens
+ * on it to enter the sets as they went. Outside the window it says why instead.
+ */
+function LogLate({
+  date,
+  today,
+  letter,
+  gym,
+  settings,
+  workouts,
+}: {
+  date: IsoDate
+  today: IsoDate
+  letter: 'A' | 'B' | 'C'
+  gym: Location
+  settings: { startDate: IsoDate; currentPhase: number; phaseEnteredWeek: number }
+  workouts: Parameters<typeof lateLift>[0]['workouts']
+}) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const made = lateLift({ date, today, startDate: settings.startDate, currentPhase: settings.currentPhase, phaseEnteredWeek: settings.phaseEnteredWeek, letter, templates: PROGRAM.templates, workouts, locationId: gym.id })
+  if (!made.ok) return <p className="text-body text-on-dark-dim">{made.reason}</p>
+  const log = async () => {
+    setBusy(true)
+    setError(null)
+    try {
+      await putWorkout(made.workout)
+      navigate({ name: 'session', workoutId: made.workout.id })
+    } catch (e: unknown) {
+      setError(`Could not start the late entry: ${e instanceof Error ? e.message : String(e)}.`)
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <div className="flex flex-col gap-2">
+      <Button variant="primary" wide disabled={busy} onClick={() => void log()}>
+        {busy ? 'Saving…' : `Log this session after the fact at ${gym.name}`}
+      </Button>
+      <p className="text-small text-on-dark-muted">You can change the gym before the first set. A session logged late is read like any other: with no morning check the day after, it reads hold.</p>
+      {error ? (
+        <p role="alert" className="text-body text-on-dark">
+          {error}
+        </p>
+      ) : null}
+    </div>
   )
 }
 

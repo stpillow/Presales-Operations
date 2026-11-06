@@ -191,7 +191,7 @@ function Logger({ today, settings, history, active, locations }: { today: IsoDat
               <Choice key={date} compact label={dayChoiceWords(date, today)} selected={!view.dateLost && view.date === date} onSelect={() => set({ date })} />
             ))}
           </div>
-          <Note>{dayChoicesNote(today, settings.startDate)}</Note>
+          <Note>{dayChoicesNote()}</Note>
         </Section>
       ) : null}
 

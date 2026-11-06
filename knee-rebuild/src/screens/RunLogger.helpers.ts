@@ -1,5 +1,6 @@
+import { RETRO_DAYS, retroDates } from '../rules/retro.ts'
 import type { History } from '../db/repo.ts'
-import { addDays, dateOf, dayOf, daysBetween, scheduledSession, weekOf } from '../rules/calendar.ts'
+import { addDays, dayOf, daysBetween, scheduledSession, weekOf } from '../rules/calendar.ts'
 import { runSwapsHere, type Available, type RunSwapHere } from '../rules/equipment.ts'
 import { swapCallAt, type SwapCall } from '../rules/gymDay.ts'
 import { attachChecks, runReading, subjectReadings } from '../rules/history.ts'
@@ -64,30 +65,32 @@ export function effortWords(effort: Effort): string {
 
 const SHORT_DAY: Record<Day, string> = { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' }
 
-/** "Today", else the weekday ("Mon"): inside one program week the weekday names the date. */
+/** "Today"; else the weekday ("Mon") inside the last week, where it names one date; else the weekday and date ("Mon Oct 26"). */
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+function monthAndDayOf(date: IsoDate): { month: string; day: number } {
+  return { month: MONTHS[Number(date.slice(5, 7)) - 1] ?? '', day: Number(date.slice(8, 10)) }
+}
+
 export function dayChoiceWords(date: IsoDate, today: IsoDate): string {
-  return date === today ? 'Today' : SHORT_DAY[dayOf(date)]
+  if (date === today) return 'Today'
+  if (daysBetween(date, today) < 7) return SHORT_DAY[dayOf(date)]
+  const { month, day } = monthAndDayOf(date)
+  return `${SHORT_DAY[dayOf(date)]} ${month} ${day}`
 }
 
 /**
- * The dates a run can be logged for: this program week's Monday up to today and, on a Monday,
- * yesterday too, the last day of the week before, so a Sunday run logged the next morning keeps its
- * date and counts in the week it happened (PROGRAM-QUESTIONS 62). Empty before the program starts.
+ * The dates a run can be logged for: today and the RETRO_DAYS before it, never before the program
+ * starts (`retroDates`; Shawn's Nov 6 ask to log after the fact widens PROGRAM-QUESTIONS 62's
+ * this-week-only window, PROGRAM-QUESTIONS 141). Empty before the program starts.
  */
 export function dateChoices(today: IsoDate, startDate: IsoDate): IsoDate[] {
-  const week = weekOf(today, startDate)
-  if (week < 1) return []
-  const monday = dateOf(startDate, week, 'mon')
-  const thisWeek = Array.from({ length: daysBetween(monday, today) + 1 }, (_, i) => addDays(monday, i))
-  return week > 1 && today === monday ? [addDays(today, -1), ...thisWeek] : thisWeek
+  if (weekOf(today, startDate) < 1) return []
+  return [...retroDates(today, startDate), today]
 }
 
-/** The note under the day choices: which days can be logged. */
-export function dayChoicesNote(today: IsoDate, startDate: IsoDate): string {
-  const week = weekOf(today, startDate)
-  return week > 1 && today === dateOf(startDate, week, 'mon')
-    ? 'Yesterday, the last day of last week, can still be logged; later days cannot.'
-    : 'Earlier days of this program week can be logged; later ones cannot.'
+/** The note under the day choices: which days can be logged, and how a late one reads. */
+export function dayChoicesNote(): string {
+  return `The last ${RETRO_DAYS} days can be logged. A run logged late is read like any other: with no morning check the day after, it reads hold.`
 }
 
 /**
@@ -222,7 +225,7 @@ export function leadWords(view: { date: IsoDate; dateLost?: IsoDate | null; sche
 
 /** What happened when the pinned date dropped out of the choices, and what to do. */
 export function dateLostWords(lost: IsoDate): string {
-  return `${shortDateWords(lost)}, the day this run was started for, can no longer be logged: runs log for this program week up to today, and on a Monday for yesterday too. Pick a day to save it.`
+  return `${shortDateWords(lost)}, the day this run was started for, can no longer be logged: runs log for the last ${RETRO_DAYS} days up to today. Pick a day to save it.`
 }
 
 /** The Save button: it names the day when that is not today, since the date stays as the logger opened. */

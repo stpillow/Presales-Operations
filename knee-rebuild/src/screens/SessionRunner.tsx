@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { navigate } from '../app/router.ts'
 import { availableAt, planSession, PROGRAM, sessionExtensions, windowFit, withExtensions, type Gym, type SlotPlan } from '../app/session.ts'
 import { isExtraSlotId } from '../rules/extensions.ts'
+import { isLateEntry } from '../rules/retro.ts'
 import { TimeWindow } from '../components/TimeWindow.tsx'
 import { useToday } from '../app/today.ts'
 import { Button } from '../components/Button.tsx'
@@ -258,7 +259,9 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
   const held = activePlan !== undefined && editing === null && notHere.has(activePlan.slot.id)
   const fallback = nextStep(steps, done, stopped, last ? setStepKey(last) : null, notHere)
 
-  const restStart = last?.loggedAt && restAfter(steps, setStepKey(last), done, stopped, notHere) ? Date.parse(last.loggedAt) : null
+  // A session entered after the fact (`isLateEntry`) has no live clock: no rest timer, no time window, no warm-up, and Finish stamps no finish time.
+  const late = isLateEntry(workout)
+  const restStart = !late && last?.loggedAt && restAfter(steps, setStepKey(last), done, stopped, notHere) ? Date.parse(last.loggedAt) : null
   const timer: ReactNode =
     restStart !== null && restStart !== skippedRest ? (
       <RestTimer startedAt={restStart} seconds={settings.restTimerSeconds} hideAfterSeconds={SHOW_GO_FOR_SECONDS} onSkip={() => setSkippedRest(restStart)} />
@@ -481,7 +484,7 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
   function finish(maxPain: number | null) {
     if (sets.length === 0) return discard()
     void write(async () => {
-      await updateWorkout(workout.id, { ...(maxPain !== null ? { maxPainDuring: maxPain } : {}), finishedAt: new Date().toISOString(), status: 'finished' })
+      await updateWorkout(workout.id, { ...(maxPain !== null ? { maxPainDuring: maxPain } : {}), ...(late ? {} : { finishedAt: new Date().toISOString() }), status: 'finished' })
       writeStored(storageKey, null)
       writeStored(anywayKey, null)
     })
@@ -491,7 +494,7 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
     if (sets.length === 0) return discard()
     void write(
       async () => {
-        await updateWorkout(workout.id, { finishedAt: new Date().toISOString(), status: 'abandoned' })
+        await updateWorkout(workout.id, { ...(late ? {} : { finishedAt: new Date().toISOString() }), status: 'abandoned' })
         writeStored(storageKey, null)
         writeStored(anywayKey, null)
       },
@@ -576,7 +579,7 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
         </Button>
         {workout.isDeload ? <span className="font-mono text-small uppercase tracking-[0.22em] text-on-dark">Deload week: fewer sets, same loads</span> : null}
       </div>
-      {sets.length === 0 && workout.status === 'in-progress' ? (
+      {!late && sets.length === 0 && workout.status === 'in-progress' ? (
         <TimeWindow
           minutes={minutes}
           onChange={(m) => {
@@ -591,7 +594,9 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
       {settings.redFlag.active ? <p className="text-body text-on-dark">Red-flag state: progression is suspended; loads repeat the last session.</p> : null}
       {staleDay ? (
         <div className="flex flex-col gap-2">
-          <p className="text-body text-on-dark">Started {shortDateWords(workout.date)}. Finish it or end it.</p>
+          <p className="text-body text-on-dark">
+            {late ? `Logging ${shortDateWords(workout.date)} after the fact: enter the sets as they went, then finish it.` : `Started ${shortDateWords(workout.date)}. Finish it or end it.`}
+          </p>
           <div className="flex flex-wrap gap-2">
             <Button onClick={() => openPanel('finish')}>Finish session</Button>
             <Button variant="quiet" onClick={() => openPanel('end')}>
@@ -601,7 +606,7 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
         </div>
       ) : null}
 
-      {sets.length === 0 || showWarmUp ? (
+      {!late && (sets.length === 0 || showWarmUp) ? (
         <section aria-label="Warm-up" className="flex flex-col gap-2">
           <p className="flex items-center justify-between gap-3 text-body text-on-dark">
             {warmUp.line}
