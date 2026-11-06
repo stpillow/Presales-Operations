@@ -2,6 +2,7 @@ import type { History } from '../db/repo.ts'
 import { addDays, daysBetween, weekOf } from '../rules/calendar.ts'
 import { attachChecks, subjectReadings, type SubjectReading, type WorkoutRecord } from '../rules/history.ts'
 import { awaitingMorningCheck, consecutiveCleanDays, loadSeries, milesSeries, symmetryLeftOut, symmetrySeries, type LoadPoint, type MilesWeek, type SymmetryLeftOut, type SymmetryPoint } from '../rules/progress.ts'
+import { ACUTE_HIGH, ACUTE_LOW, acuteChronic, trainingLoads, weeklyTrainingLoads, type AcuteChronic, type Band, type TrainingLoadEntry, type TrainingLoadWeek } from '../rules/trainingLoad.ts'
 import { LOWER_BODY_PATTERNS } from '../rules/wholeKnee.ts'
 import type { Exercise, Gate, IsoDate, MileageWeek, MorningCheck, Program, Run, SessionTemplate, SetLog, SetSide, Settings, Side } from '../schema/index.ts'
 import { runLabel, shortDateWords, workoutLabel } from './Today.helpers.ts'
@@ -976,6 +977,149 @@ export function milesTable(view: MilesView): NumbersTable {
 }
 
 // ---------------------------------------------------------------------------------------------
+// 5. Weekly training load (metrics phase 1)
+// ---------------------------------------------------------------------------------------------
+
+/** A training load as the screen prints it, in words and in the table: rounded, with a thousands separator. */
+export function trainingLoadNumber(n: number): string {
+  return Math.round(n).toLocaleString('en-US')
+}
+
+/**
+ * The ratio as the words print it, to one decimal. Where one decimal would print the line itself on
+ * the other side of it (1.53 printed 1.5 but reading high), it says "just over 1.5×" or "just under",
+ * so the number never contradicts the word. The band is decided on the exact ratio (src/rules).
+ */
+export function ratioWords(ratio: number, band: Band): string {
+  const printed = Math.round(ratio * 10) / 10
+  if (printed === ACUTE_HIGH && ratio !== ACUTE_HIGH) return `just ${band === 'high' ? 'over' : 'under'} ${ACUTE_HIGH}×`
+  if (printed === ACUTE_LOW && ratio !== ACUTE_LOW) return `just ${band === 'low' ? 'under' : 'over'} ${ACUTE_LOW}×`
+  return `${printed}×`
+}
+
+const ACUTE_WORDS = 'the 7 days through yesterday'
+const CHRONIC_WORDS = 'the 4 weeks before'
+
+/** The warning: a mark (an arrow and a word, never a color) and its sentence. */
+export function trainingLoadWarning(ac: AcuteChronic): { mark: string | null; text: string } {
+  if (ac.band === 'too-early') {
+    return ac.startsOn === null
+      ? { mark: null, text: 'Nothing logged yet. The comparison starts 35 days after the first session or run.' }
+      : { mark: null, text: `No comparison yet: it needs 4 weeks logged before ${ACUTE_WORDS}. It starts ${shortDateWords(ac.startsOn)}.` }
+  }
+  if (ac.band === 'none' || ac.ratio === null || ac.chronicWeek === null) {
+    return { mark: null, text: `No training load is counted in ${CHRONIC_WORDS} ${ACUTE_WORDS}, so there is nothing to compare against yet.` }
+  }
+  const compared = `The 7 days through yesterday carried ${ratioWords(ac.ratio, ac.band)} your average week of ${CHRONIC_WORDS} (${trainingLoadNumber(ac.acute)} against ${trainingLoadNumber(ac.chronicWeek)})`
+  if (ac.band === 'high') return { mark: '↑ High', text: `${compared}. A warning only: no session or run changes because of it.` }
+  if (ac.band === 'low') return { mark: '↓ Low', text: `${compared}: a drop. A note only: nothing changes because of it.` }
+  return { mark: '– Steady', text: `${compared}.` }
+}
+
+/** What pushes the ratio, and which way, one sentence each (src/rules' `skews`, in its order). */
+export function skewLines(ac: AcuteChronic): string[] {
+  return ac.skews.map((skew) => {
+    const where = skew.window === 'acute' ? ACUTE_WORDS : CHRONIC_WORDS
+    if (skew.why === 'deload') {
+      return skew.window === 'acute'
+        ? `The 7 days through yesterday include deload days, planned lighter, so the ratio reads ${skew.reads}.`
+        : `The 4 weeks before include a deload week, planned lighter, so the ratio reads ${skew.reads}.`
+    }
+    const n = (skew.window === 'acute' ? ac.notCountedAcute : ac.notCountedChronic).length
+    return `${n} ${n === 1 ? 'session' : 'sessions'} in ${where} ${n === 1 ? 'isn’t' : 'aren’t'} counted, so the ratio reads ${skew.reads} than it is.`
+  })
+}
+
+/** Each session or run not counted, newest first: its day, what it was, what it lacks, and how to add it where that can be done. */
+export function notCountedLines(entries: readonly TrainingLoadEntry[], templates: readonly SessionTemplate[]): string[] {
+  return entries
+    .filter((e) => e.load === null)
+    .reverse()
+    .map((e) => {
+      const what = e.kind === 'workout' ? workoutLabel({ templateId: e.templateId ?? '' }, templates) : runLabel(e.runType ?? 'easy')
+      const lacks =
+        e.kind === 'run'
+          ? 'no time logged'
+          : e.missing
+              .map((m) => (m === 'rpe' ? 'no RPE (no set rated)' : 'no minutes'))
+              .join(' and ')
+              .concat(`: add ${e.missing.length === 1 && e.missing[0] === 'rpe' ? 'it' : 'them'} from the session’s summary`)
+      return `${shortDateWords(e.date)} · ${what} · ${lacks}`
+    })
+}
+
+export interface TrainingLoadView {
+  /** Program weeks 1 to 12, or to this week once past 12. */
+  weeks: TrainingLoadWeek[]
+  /** The index of this program week, or null before the program. */
+  current: number | null
+  /** The week the readout opens on. */
+  opening: number
+  /** Any session or run logged at all. */
+  any: boolean
+  labelAt: number[]
+  warning: { mark: string | null; text: string }
+  skews: string[]
+  notCounted: string[]
+  /** Said when an older run's effort word stands in for its RPE. */
+  olderRuns: string | null
+}
+
+export function trainingLoadView(input: { records: readonly WorkoutRecord[]; runs: readonly Run[]; startDate: IsoDate; today: IsoDate; templates: readonly SessionTemplate[] }): TrainingLoadView {
+  const { startDate, today } = input
+  const entries = trainingLoads(input.records, input.runs)
+  const week = weekOf(today, startDate)
+  const weeks = weeklyTrainingLoads(entries, startDate, Math.max(12, week))
+  const i = weeks.findIndex((w) => w.week === week)
+  const current = i === -1 ? null : i
+  const withLoad = weeks.map((w, k) => (w.load > 0 ? k : -1)).filter((k) => k >= 0)
+  const latest = withLoad.at(-1)
+  const marks = labelledPoints(weeks.map((w) => w.load))
+  const labelAt = latest === undefined ? [] : [latest, ...(marks.extreme !== null && marks.extreme !== latest && (weeks[marks.extreme]?.load ?? 0) > (weeks[latest]?.load ?? 0) ? [marks.extreme] : [])]
+  const ac = acuteChronic(entries, today, startDate)
+  return {
+    weeks,
+    current,
+    opening: current ?? (week < 1 ? 0 : Math.max(0, weeks.length - 1)),
+    any: entries.length > 0,
+    labelAt,
+    warning: trainingLoadWarning(ac),
+    skews: skewLines(ac),
+    notCounted: notCountedLines(
+      entries.filter((e) => weekOf(e.date, startDate) >= 1),
+      input.templates,
+    ),
+    olderRuns: entries.some((e) => e.rpeSource === 'word') ? 'Runs logged before effort was rated 1 to 10 read their effort word as RPE 3, 5 or 8.' : null,
+  }
+}
+
+const weekNotes = (view: TrainingLoadView, index: number, w: TrainingLoadWeek) =>
+  [w.isDeload ? 'deload' : null, view.current === index ? 'this week' : null].filter((n): n is string => n !== null)
+
+export function trainingLoadReadout(view: TrainingLoadView, index: number): Readout | null {
+  const w = view.weeks[index]
+  if (!w) return null
+  const counts = [w.sessions > 0 ? `${w.sessions} counted` : null, w.notCounted > 0 ? `${w.notCounted} not counted` : null].filter((n): n is string => n !== null)
+  return { parts: [{ value: trainingLoadNumber(w.load), name: 'training load', mark: 'column' }], when: [`Week ${w.week}`, ...counts, ...weekNotes(view, index, w)].join(', ') }
+}
+
+export function trainingLoadAria(view: TrainingLoadView): string {
+  const first = view.weeks[0]?.week ?? 1
+  const last = view.weeks.at(-1)?.week ?? first
+  const now = view.current === null ? null : view.weeks[view.current]
+  const current = now ? `; this week, week ${now.week}, ${trainingLoadNumber(now.load)}` : ''
+  return `Column chart of training load, RPE times minutes, each week, weeks ${first} to ${last}${current}.`
+}
+
+export function trainingLoadTable(view: TrainingLoadView): NumbersTable {
+  return {
+    caption: 'Weekly training load, RPE times minutes',
+    head: ['Week', 'Training load', 'Counted', 'Not counted', 'Note'],
+    rows: view.weeks.map((w, i) => [String(w.week), trainingLoadNumber(w.load), String(w.sessions), String(w.notCounted), weekNotes(view, i, w).join(', ')]),
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
 // The screen
 // ---------------------------------------------------------------------------------------------
 
@@ -994,6 +1138,7 @@ export interface ProgressView {
   exercises: ExerciseRow[]
   refs: SymmetryRef[]
   miles: MilesView
+  training: TrainingLoadView
   records: WorkoutRecord[]
 }
 
@@ -1007,6 +1152,7 @@ export function progressView(input: { today: IsoDate; settings: Settings; histor
     exercises: loggedExercises(records, program.exercises),
     refs: symmetryRefs(program.gates),
     miles: milesView(program.mileagePlan, history.runs, settings.startDate, today),
+    training: trainingLoadView({ records, runs: history.runs, startDate: settings.startDate, today, templates: program.templates }),
     records,
   }
 }

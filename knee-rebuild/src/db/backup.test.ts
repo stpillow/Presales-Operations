@@ -131,6 +131,8 @@ async function seedHistory(): Promise<void> {
           miles: swap ? 0 : type === 'long' ? 4 + week * 0.5 : 3,
           minutes: swap ? 35 : 30 + week,
           effort: type === 'long' ? 'moderate' : 'easy',
+          // Runs from week 5 on carry their RPE (metrics phase 1); the earlier ones only the word, as older builds logged them.
+          ...(week >= 5 ? { rpe: type === 'long' ? 5 : 3 } : {}),
           maxPain: week % 3,
           strides: type === 'easy' && week > 2,
           tempo: type === 'long' && week === 6,
@@ -155,6 +157,9 @@ async function seedHistory(): Promise<void> {
           isDeload: week === 4,
           startedAt: `${date}T16:00:00.000Z`,
           ...(last ? {} : { finishedAt: `${date}T17:05:00.000Z`, maxPainDuring: week % 4 }),
+          // From week 5 on, Finish and End store the minutes, and Shawn rates some sessions (metrics phase 1).
+          ...(!last && week >= 5 ? { durationMinutes: 60 + week } : {}),
+          ...(!last && week >= 5 && letter !== 'C' ? { sessionRpe: letter === 'A' ? 7 : 6 } : {}),
           ...(week === 5 && letter === 'A' ? { notes: 'Left after the leg press; knee “off”' } : {}),
           status: last ? 'in-progress' : week === 5 && letter === 'A' ? 'abandoned' : 'finished',
           ...(atHotel ? { locationId: hotel.id } : week >= 3 ? { locationId: PLANET_FITNESS_LOCATION_ID } : {}),
@@ -345,8 +350,8 @@ describe('import is all or nothing', () => {
     await seedHistory()
     const { backup } = await exportBackup(T1)
     const before = await rawDump()
-    const newer = { ...backup, schemaVersion: 6 } as unknown as Backup
-    await expect(replaceAll(newer, program, TODAY)).rejects.toThrow('This backup is from a newer version of the app (schema version 6; this one reads up to 5).')
+    const newer = { ...backup, schemaVersion: 7 } as unknown as Backup
+    await expect(replaceAll(newer, program, TODAY)).rejects.toThrow('This backup is from a newer version of the app (schema version 7; this one reads up to 6).')
     const twice = { ...backup, runs: [...backup.runs, ...backup.runs.slice(0, 1)] }
     await expect(replaceAll(twice, program, TODAY)).rejects.toThrow('twice')
     expect(await rawDump()).toEqual(before)

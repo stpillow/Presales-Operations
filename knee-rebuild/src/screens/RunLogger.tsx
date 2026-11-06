@@ -4,7 +4,7 @@ import { PROGRAM, availableAt } from '../app/session.ts'
 import { takeDraft } from '../app/strava.ts'
 import { useToday } from '../app/today.ts'
 import { Button } from '../components/Button.tsx'
-import { PAIN_SCALE, ScalePicker } from '../components/ScalePicker.tsx'
+import { PAIN_SCALE, RPE_1_10, ScalePicker } from '../components/ScalePicker.tsx'
 import { Screen } from '../components/Screen.tsx'
 import { Stepper } from '../components/Stepper.tsx'
 import { Tap } from '../components/Tap.tsx'
@@ -15,7 +15,6 @@ import { listedLocations } from '../rules/locations.ts'
 import type { IsoDate, Location, Run, RunType, Settings } from '../schema/index.ts'
 import { noSwapSuggestedWords, runLabel } from './Today.helpers.ts'
 import {
-  EFFORTS,
   MILES_MAX,
   MILES_STEP,
   MINUTES_MAX,
@@ -27,7 +26,6 @@ import {
   dateLostWords,
   dayChoiceWords,
   dayChoicesNote,
-  effortWords,
   errorWords,
   isSwapType,
   leadWords,
@@ -40,6 +38,7 @@ import {
   openForm,
   reasonSentence,
   resolveForm,
+  rpeNote,
   rowerCue,
   rowerCueFor,
   runPlanWords,
@@ -66,7 +65,7 @@ const ROWER_CUE = rowerCue(PROGRAM.running.rules)
 
 /**
  * One run, one hand, under ten seconds: the type preselected from the day's session, the engine's
- * suggestion in words (a swap is offered, never switched to), miles, minutes, effort, max pain, the
+ * suggestion in words (a swap is offered, never switched to), miles, minutes, effort (RPE 1 to 10), max pain, the
  * strides and tempo toggles, a Strava link and a note, with the week's miles against its target
  * updating as you type. Every decision comes from src/rules through loggerView; this file renders.
  */
@@ -237,11 +236,8 @@ function Logger({ today, settings, history, active, locations }: { today: IsoDat
       </Section>
 
       <Section label="Effort">
-        <div role="radiogroup" aria-label="Effort" className="grid grid-cols-3 gap-2">
-          {EFFORTS.map((effort) => (
-            <Choice key={effort} compact label={effortWords(effort)} selected={resolved.effort === effort} onSelect={() => set({ effort })} />
-          ))}
-        </div>
+        <ScalePicker label="Effort (RPE)" value={resolved.rpe} options={RPE_1_10} onChange={(rpe) => set({ rpe })} />
+        <Note>{rpeNote(resolved.rpe)}</Note>
       </Section>
 
       <Section label="Pain">

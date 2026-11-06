@@ -204,7 +204,7 @@ Method: a loose-ends pass over the builders' leftovers first, then the same five
 | 106 | (verifier) Gates promised a prefill no session could produce when an edit put a single-leg test exercise on a both-legs slot | Says so and asks for the test's loads (PROGRAM-QUESTIONS 134) |
 | 107 | (verifier) Reset all data and an import kept the Program editor's unsaved drafts | Both let them go |
 
-Rollback: after the first export M6 can be rolled back to M5 (the export stamp has its own row); builds before M4b can't be returned to once Dexie version 3 has run, because Dexie refuses to open a newer database with an older schema. Builds are forward-only from M4b; the export file is the way back to any state.
+Rollback: after the first export M6 can be rolled back to M5 (the export stamp has its own row); an older build still opens a newer database: Dexie 4.4.7 retries a VersionError without a version and opens it with the older schema (checked Nov 6; PROGRAM-QUESTIONS 149). What stops an older build is its strict parse on write, and its refusal of a newer backup file, so builds are still treated as forward-only from M4b; the export file is the way back to any state.
 
 Not fixed, logged: the import confirm doesn't name changes to the active gym, rest timer, pain logging or kit; a single-leg exercise swapped onto a both-legs slot logs once as both (PROGRAM-QUESTIONS 134, for Shawn); the per-screen error boundary is proven by a render test, since no forced bad row reaches it.
 

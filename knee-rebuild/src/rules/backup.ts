@@ -29,7 +29,7 @@ export const BACKUP_APP = 'knee-rebuild'
  * The shape of the file's tables: the Dexie version they were read from (src/db/db.ts). A test in
  * src/db/backup.test.ts holds the two together, so a new Dexie version has to bring a step here.
  */
-export const BACKUP_SCHEMA_VERSION = 5
+export const BACKUP_SCHEMA_VERSION = 6
 
 /**
  * The oldest shape a file can be carried forward from. Version 1 was the empty M0 database. No file
@@ -242,13 +242,16 @@ export function sizeProblem(bytes: number): string | null {
  * One step per older version, each carrying a file one version forward. Version 2's tables are
  * version 3's without the gyms (the home gym is written at launch, as on a phone that ran version
  * 2); version 3's are version 4's without the Program screen's edits; version 4's are version 5's
- * without the exercises Shawn adds to a session. A list the file already has
- * is left for the schema to judge, never replaced.
+ * without the exercises Shawn adds to a session; version 5's are version 6's as they stand (metrics
+ * phase 1 adds only optional fields: a run's RPE, a session's RPE and minutes; an older run keeps its
+ * effort word, which training load reads as 3, 5 or 8). A list the file already has is left for the
+ * schema to judge, never replaced.
  */
 export const MIGRATIONS: Readonly<Record<number, (file: FileObject) => FileObject>> = {
   2: (file) => ({ ...withList(file, 'locations'), schemaVersion: 3 }),
   3: (file) => ({ ...withList(file, 'programOverrides'), schemaVersion: 4 }),
   4: (file) => ({ ...withList(file, 'addedSlots'), schemaVersion: 5 }),
+  5: (file) => ({ ...file, schemaVersion: 6 }),
 }
 
 function withList(file: FileObject, key: BackupTable): FileObject {

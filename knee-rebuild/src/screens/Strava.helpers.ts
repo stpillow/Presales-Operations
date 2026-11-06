@@ -20,10 +20,10 @@ export function resultWords(result: string | undefined): string | null {
   }
 }
 
-/** What Save waits on, and what was filled in by default for him to check. */
-export function needsWords(needs: readonly string[], guessed: readonly ('type' | 'effort')[] = []): string {
+/** What Save waits on (max pain, and the effort when Strava had none), and what was filled in by default for him to check. */
+export function needsWords(needs: readonly string[], guessed: readonly 'type'[] = []): string {
   const waits = needs.length === 0 ? 'Nothing to fill in.' : `${needs.join(' and ').replace(/^./, (c) => c.toUpperCase())} to rate before it saves.`
-  const checks = guessed.map((g) => (g === 'type' ? 'the run type is a guess' : 'effort is set to easy'))
+  const checks = guessed.map(() => 'the run type is a guess')
   return checks.length === 0 ? waits : `${waits} Check it: ${checks.join(' and ')}.`
 }
 

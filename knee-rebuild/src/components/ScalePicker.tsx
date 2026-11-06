@@ -43,4 +43,7 @@ export function ScalePicker({
 }
 
 export const PAIN_SCALE: readonly number[] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+/** A set's RPE: reps in reserve, 5 to 10, decimals allowed in storage. */
 export const RPE_SCALE: readonly number[] = [5, 6, 7, 8, 9, 10]
+/** A run's or a whole session's RPE, 1 to 10 whole (metrics phase 1): an easy run is a 2 or 3, which the set scale has no room for. */
+export const RPE_1_10: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]

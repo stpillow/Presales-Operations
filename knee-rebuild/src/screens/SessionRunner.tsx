@@ -61,6 +61,8 @@ import {
   todayGymWords,
   todayTooLabel,
   warmUpWords,
+  warmUpMinutes,
+  timedSets,
   withoutEnginePicks,
   type GymMark,
   type HoldsOff,
@@ -141,9 +143,22 @@ export function SessionRunner({ workoutId }: { workoutId: string }) {
     )
   }
   if (workout.status === 'finished' || workout.status === 'abandoned') {
+    const summaryTemplate = withExtensions(template, history, sessionExtensions(template, history, settings, workout.week))
     return (
       <Screen title={`Session ${template.letter}`} lead={lead}>
-        <Summary workout={workout} template={withExtensions(template, history, sessionExtensions(template, history, settings, workout.week))} sets={sets} injuredSide={settings.injuredSide} />
+        <Summary
+          workout={workout}
+          template={summaryTemplate}
+          sets={sets}
+          injuredSide={settings.injuredSide}
+          timing={{
+            workout,
+            sets: timedSets(sets, (slotId) => summaryTemplate.slots.find((s) => s.id === slotId)?.repUnit),
+            restSeconds: settings.restTimerSeconds,
+            // No gym is opened for a summary: the estimate counts the bike as the warm-up row does where there is one.
+            warmUpMinutes: warmUpMinutes(PROGRAM.warmUp.lift.circuitMinutesByPhase[String(workout.phase)], true),
+          }}
+        />
       </Screen>
     )
   }
@@ -481,20 +496,27 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
     )
   }
 
-  function finish(maxPain: number | null) {
+  /** Max pain and the session's RPE only when rated; the minutes as the stepper holds them (metrics phase 1). */
+  function finish(maxPain: number | null, sessionRpe: number | null, durationMinutes: number | null) {
     if (sets.length === 0) return discard()
     void write(async () => {
-      await updateWorkout(workout.id, { ...(maxPain !== null ? { maxPainDuring: maxPain } : {}), ...(late ? {} : { finishedAt: new Date().toISOString() }), status: 'finished' })
+      await updateWorkout(workout.id, {
+        ...(maxPain !== null ? { maxPainDuring: maxPain } : {}),
+        ...(sessionRpe !== null ? { sessionRpe } : {}),
+        ...(durationMinutes !== null ? { durationMinutes } : {}),
+        ...(late ? {} : { finishedAt: new Date().toISOString() }),
+        status: 'finished',
+      })
       writeStored(storageKey, null)
       writeStored(anywayKey, null)
     })
   }
 
-  function end() {
+  function end(durationMinutes: number | null) {
     if (sets.length === 0) return discard()
     void write(
       async () => {
-        await updateWorkout(workout.id, { ...(late ? {} : { finishedAt: new Date().toISOString() }), status: 'abandoned' })
+        await updateWorkout(workout.id, { ...(durationMinutes !== null ? { durationMinutes } : {}), ...(late ? {} : { finishedAt: new Date().toISOString() }), status: 'abandoned' })
         writeStored(storageKey, null)
         writeStored(anywayKey, null)
       },
@@ -542,6 +564,13 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
   const busy = saving || cooling
   const lift = PROGRAM.warmUp.lift
   const warmUp = warmUpWords(lift.circuitMinutesByPhase[String(workout.phase)], available.has(WARM_UP_BIKE))
+  // What Finish and End preset the session's minutes from: the sets' times, or for a late entry an estimate of them (metrics phase 1).
+  const timing = {
+    workout,
+    sets: timedSets(sets, (slotId) => plans.find((p) => p.slot.id === slotId)?.prescriptions[0]?.repUnit),
+    restSeconds: settings.restTimerSeconds,
+    warmUpMinutes: warmUpMinutes(lift.circuitMinutesByPhase[String(workout.phase)], available.has(WARM_UP_BIKE)),
+  }
 
   const stopOfActive = activePlan && stopped.has(activePlan.slot.id) ? slotSetsOf(activePlan.slot.id).find((s) => s.stopped) : undefined
   const nextName = fallback ? (plans.find((p) => p.slot.id === fallback.slotId)?.exercise.name ?? 'the next slot') : null
@@ -630,9 +659,20 @@ function Runner({ workout, template, sets, settings, history, today, lead, locat
 
       <div ref={topRef} className="scroll-mt-4">
         {panel === 'finish' ? (
-          <FinishPanel notHere={notHereLine} notLogged={notLogged} loggedCount={sets.length} loggedMax={loggedMaxPain(sets)} busy={busy} error={sessionError} onFinish={finish} onBack={() => setPanel(null)} />
+          <FinishPanel
+            notHere={notHereLine}
+            notLogged={notLogged}
+            loggedCount={sets.length}
+            loggedMax={loggedMaxPain(sets)}
+            timing={timing}
+            late={late}
+            busy={busy}
+            error={sessionError}
+            onFinish={finish}
+            onBack={() => setPanel(null)}
+          />
         ) : panel === 'end' ? (
-          <EndPanel loggedCount={sets.length} busy={busy} error={sessionError} onEnd={end} onBack={() => setPanel(null)} />
+          <EndPanel loggedCount={sets.length} timing={timing} late={late} busy={busy} error={sessionError} onEnd={end} onBack={() => setPanel(null)} />
         ) : activePlan ? (
           <ActiveCard
             key={`${editing ? `edit:${editing.id}` : (current?.slotId === activePlan.slot.id ? current.key : `view:${activePlan.slot.id}`)}:${activePlan.prescriptions[0]?.exerciseId ?? ''}`}

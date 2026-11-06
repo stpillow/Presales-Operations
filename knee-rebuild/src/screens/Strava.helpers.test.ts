@@ -15,8 +15,8 @@ describe('resultWords', () => {
 describe('needsWords', () => {
   it('says what Save waits on, and what was filled in by default to check', () => {
     expect(needsWords(['max pain'])).toBe('Max pain to rate before it saves.')
-    expect(needsWords(['max pain'], ['effort'])).toBe('Max pain to rate before it saves. Check it: effort is set to easy.')
-    expect(needsWords(['max pain'], ['type', 'effort'])).toBe('Max pain to rate before it saves. Check it: the run type is a guess and effort is set to easy.')
+    expect(needsWords(['max pain', 'effort'])).toBe('Max pain and effort to rate before it saves.')
+    expect(needsWords(['max pain'], ['type'])).toBe('Max pain to rate before it saves. Check it: the run type is a guess.')
     expect(needsWords([])).toBe('Nothing to fill in.')
   })
 })
@@ -30,11 +30,11 @@ describe('disconnectWords', () => {
 
 describe('candidateWords', () => {
   it('names a run by day and name, with its miles and time', () => {
-    const words = candidateWords({ kind: 'run', activityId: '1', draft: { date: '2026-11-05', type: 'easy', miles: 3.11, minutes: joinTime(27, 13), effort: null, stravaUrl: 'https://www.strava.com/activities/1', notes: 'Morning Run' }, needs: ['max pain'], guessed: [] })
-    expect(words).toEqual({ title: 'Thursday Nov 5 · Morning Run', detail: 'Run: easy, 3.11 miles, 27:13. Max pain to rate before it saves.' })
+    const words = candidateWords({ kind: 'run', activityId: '1', draft: { date: '2026-11-05', type: 'easy', miles: 3.11, minutes: joinTime(27, 13), rpe: null, stravaUrl: 'https://www.strava.com/activities/1', notes: 'Morning Run' }, needs: ['max pain', 'effort'], guessed: [] })
+    expect(words).toEqual({ title: 'Thursday Nov 5 · Morning Run', detail: 'Run: easy, 3.11 miles, 27:13. Max pain and effort to rate before it saves.' })
   })
   it('gives a swap its time only, and a strength or left-out activity its reason', () => {
-    expect(candidateWords({ kind: 'run', activityId: '1', draft: { date: '2026-11-05', type: 'rower-swap', miles: 0, minutes: 30, effort: 'easy', stravaUrl: '', notes: '' }, needs: ['max pain'], guessed: [] }).detail).toBe('Rower swap, 30 minutes. Max pain to rate before it saves.')
+    expect(candidateWords({ kind: 'run', activityId: '1', draft: { date: '2026-11-05', type: 'rower-swap', miles: 0, minutes: 30, rpe: 3, stravaUrl: '', notes: '' }, needs: ['max pain'], guessed: [] }).detail).toBe('Rower swap, 30 minutes. Max pain to rate before it saves.')
     expect(candidateWords({ kind: 'lift', activityId: '2', date: '2026-11-05', name: 'Lift' }).detail).toMatch(/preview/)
     expect(candidateWords({ kind: 'skip', activityId: '3', date: '2026-11-05', name: 'Commute', reason: 'Ride isn’t a run.' }).detail).toBe('Left out. Ride isn’t a run.')
   })

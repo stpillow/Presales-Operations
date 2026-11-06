@@ -129,7 +129,7 @@ test('Session A at week 1, the morning check, and Session A at week 2', async ({
   // Finish: max pain during the session, then the summary with each exercise's reading in words.
   await bar.button.click()
   const finish = page.getByRole('region', { name: 'Finish session' })
-  await finish.getByRole('button', { name: '6', exact: true }).click()
+  await finish.getByRole('group', { name: 'Max pain during the session' }).getByRole('button', { name: '6', exact: true }).click()
   await finish.getByRole('button', { name: 'Finish session' }).click()
   const summary = page.getByRole('region', { name: 'Summary' })
   await expect(summary.getByText('Finished · max pain 6.')).toBeVisible()

@@ -439,6 +439,25 @@ export function notInBagWords(ids: readonly EquipmentId[], items: readonly ItemL
   return `Not in your bag: ${ids.map((id) => itemInSentence(itemOf(id, items).name)).join(' and ')}. "In your bag" in Where you train adds ${ids.length > 1 ? 'them' : 'it'}.`
 }
 
+/** The warm-up's minutes, as the row says them: the circuit for the phase, and the bike's 5 where there is one. Training load's estimate of a late session adds them. */
+export function warmUpMinutes(circuitMinutes: number | undefined, bikeHere: boolean): number {
+  return (circuitMinutes ?? 5) + (bikeHere ? 5 : 0)
+}
+
+/**
+ * The logged sets as the minutes stepper reads them: each with its unit (the slot's, or seconds for
+ * a set logged in seconds; reps when the slot is no longer in the plan), when it was logged, and its RPE.
+ */
+export function timedSets(sets: readonly SetLog[], repUnitOf: (slotId: string) => RepUnit | undefined): { reps?: number; seconds?: number; repUnit: RepUnit; loggedAt?: string; rpe?: number }[] {
+  return sets.map((s) => ({
+    ...(s.reps !== undefined ? { reps: s.reps } : {}),
+    ...(s.seconds !== undefined ? { seconds: s.seconds } : {}),
+    repUnit: s.seconds !== undefined ? 'seconds' : (repUnitOf(s.slotId) ?? 'reps'),
+    ...(s.loggedAt !== undefined ? { loggedAt: s.loggedAt } : {}),
+    ...(s.rpe !== undefined ? { rpe: s.rpe } : {}),
+  }))
+}
+
 /** The warm-up row: "Warm-up · bike 5 min · knee circuit 5 min", without the bike where there is none, and the line that says so. */
 export function warmUpWords(circuitMinutes: number | undefined, bikeHere: boolean): { line: string; noBike: string | null } {
   const circuit = `knee circuit ${circuitMinutes ?? 5} min`
