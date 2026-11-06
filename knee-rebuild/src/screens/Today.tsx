@@ -10,7 +10,8 @@ import { Screen } from '../components/Screen.tsx'
 import { useActiveLocation, useHistory, useLocations, useSettings } from '../db/hooks.ts'
 import { clearMarkOff, putWorkout, reopenWorkout, setActiveLocation, writeWindow, type History } from '../db/repo.ts'
 import { addDays, nextLiftDate, scheduledSession } from '../rules/calendar.ts'
-import { liftGym } from '../rules/gymDay.ts'
+import { gymToOffer, lastLoggedGym, liftGym } from '../rules/gymDay.ts'
+import { listedLocations } from '../rules/locations.ts'
 import type { EquipmentId, IsoDate, Location, Settings } from '../schema/index.ts'
 import { nextLiftWords } from './Preview.helpers.ts'
 import { openSettingsAtExport } from './Settings.tsx'
@@ -282,8 +283,14 @@ function LiftBlock({
   /** The minutes Shawn says he has; null is the full session. Remembered for the session at Start. */
   const [minutes, setMinutes] = useState<number | null>(null)
   const { template, workout, label, letter } = body
-  // A session already started stays at its own gym; one still to start runs at the active gym.
-  const gym = liftGym(workout, active, locations)
+  /** The gym picked on the "Where are you training?" prompt; null keeps the one offered. */
+  const [pickedId, setPickedId] = useState<string | null>(null)
+  const loggedIds = useMemo(() => new Set(history.setLogs.map((s) => s.workoutId)), [history.setLogs])
+  const listed = listedLocations(locations)
+  // A session already started stays at its own gym. One still to start is offered at the gym the last
+  // logged lift ran at (Nov 6), else the active gym, and Shawn can pick another here before Start.
+  const offered = gymToOffer(lastLoggedGym(history.workouts, loggedIds, locations), active)
+  const gym = workout === null ? (listed.find((l) => l.id === pickedId) ?? offered) : liftGym(workout, active, locations)
 
   const start = async () => {
     if (!template) return
@@ -319,9 +326,11 @@ function LiftBlock({
           week: body.week,
           isDeload: body.isDeload,
           startedAt: new Date().toISOString(),
-          locationId: active.id,
+          locationId: gym.id,
         }),
       )
+      // Where he trains is where he is: the runs, the morning check and Today follow the gym he started at.
+      if (gym.id !== active.id) await setActiveLocation(gym.id)
       writeWindow(id, minutes)
       navigate({ name: 'session', workoutId: id })
     } catch (e: unknown) {
@@ -363,6 +372,7 @@ function LiftBlock({
               See the session first
             </Button>
           ) : null}
+          {workout === null && listed.length > 1 ? <WhereBlock gyms={listed} chosen={gym.id} onPick={setPickedId} /> : null}
           {workout?.status !== 'in-progress' ? (
             <FitBlock template={template} week={workout?.week ?? body.week} before={workout?.date ?? today} gym={gym} settings={settings} history={history} minutes={minutes} onChange={setMinutes} />
           ) : null}
@@ -416,6 +426,33 @@ function MovesBlock({
         </ul>
       ) : null}
     </div>
+  )
+}
+
+/** "Where are you training?" before Start: every listed gym, the chosen one marked with a word and a tick. */
+function WhereBlock({ gyms, chosen, onPick }: { gyms: readonly Location[]; chosen: string; onPick: (id: string) => void }) {
+  return (
+    <section aria-label="Where you are training" className="flex flex-col gap-2">
+      <h3 className="font-mono text-small font-normal uppercase tracking-[0.22em] text-on-dark-muted">Where are you training?</h3>
+      <div role="radiogroup" aria-label="Where you are training" className="flex flex-col gap-2">
+        {gyms.map((g) => {
+          const selected = g.id === chosen
+          return (
+            <button
+              key={g.id}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              onClick={() => onPick(g.id)}
+              className={`tap flex w-full items-center gap-2 rounded-sm border px-3 py-3 text-left text-body ${selected ? 'border-paper bg-navy-lift text-on-dark' : 'border-on-dark-faint bg-transparent text-on-dark-dim'}`}
+            >
+              <span className="shrink-0 font-mono text-small uppercase tracking-[0.22em]">{selected ? '✓' : '○'}</span>
+              <span className="min-w-0 wrap-anywhere">{g.name}</span>
+            </button>
+          )
+        })}
+      </div>
+    </section>
   )
 }
 

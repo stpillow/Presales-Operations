@@ -15,6 +15,10 @@ import {
   loggedWords,
   loggerView,
   milesWords,
+  MILES_STEP,
+  joinTime,
+  splitTime,
+  timeWords,
   morningFor,
   newRunId,
   noSuggestionWords,
@@ -406,6 +410,44 @@ describe('milesWords', () => {
   })
 })
 
+describe('time in minutes and seconds (Nov 6)', () => {
+  it('stores 27:13 as minutes with the seconds a fraction of one, and reads it back exactly', () => {
+    const stored = joinTime(27, 13)
+    expect(stored).toBeCloseTo(27 + 13 / 60, 10)
+    expect(splitTime(stored)).toEqual({ minutes: 27, seconds: 13 })
+  })
+  it('reads an old whole-minute run as so many minutes and no seconds', () => {
+    expect(splitTime(35)).toEqual({ minutes: 35, seconds: 0 })
+  })
+  it('carries seconds past 59 into the minutes, and never goes below zero', () => {
+    expect(splitTime(joinTime(10, 75))).toEqual({ minutes: 11, seconds: 15 })
+    expect(joinTime(0, -5)).toBe(0)
+    expect(splitTime(-1)).toEqual({ minutes: 0, seconds: 0 })
+  })
+  it('round-trips every second of a long run without drift', () => {
+    for (let total = 0; total <= 3 * 3600; total += 7) {
+      const m = Math.floor(total / 60)
+      const sec = total % 60
+      expect(splitTime(joinTime(m, sec))).toEqual({ minutes: m, seconds: sec })
+    }
+  })
+  it('says whole minutes in words, and minutes with seconds as a clock reads them', () => {
+    expect(timeWords(35)).toBe('35 minutes')
+    expect(timeWords(1)).toBe('1 minute')
+    expect(timeWords(joinTime(27, 13))).toBe('27:13')
+    expect(timeWords(joinTime(62, 5))).toBe('1:02:05')
+    expect(timeWords(joinTime(8, 3))).toBe('8:03')
+  })
+})
+
+describe('distance in hundredths of a mile (Nov 6)', () => {
+  it('steps by 0.01 mile and keeps two decimals', () => {
+    expect(MILES_STEP).toBe(0.01)
+    expect(milesWords(3.17)).toBe('3.17 miles')
+    expect(milesWords(0.01)).toBe('0.01 miles')
+  })
+})
+
 describe('weekLine', () => {
   const fromPlan = { miles: 3, target: { target: 10, capped: false, reason: 'from the plan' } }
   it('reads like the brief: miles against the target, with this run, and where the target came from', () => {
@@ -496,7 +538,7 @@ describe('toRun', () => {
   })
   it('a swap’s only measure is its minutes, so Save waits on them instead of storing 0', () => {
     const swap: ResolvedForm = { ...ready, type: 'rower-swap', swap: true, miles: 0, minutes: 0, strides: false }
-    expect(toRun(swap, 'r', GYM)).toEqual({ ok: false, blocker: 'Set the minutes first' })
+    expect(toRun(swap, 'r', GYM)).toEqual({ ok: false, blocker: 'Set the time first' })
     expect(toRun({ ...swap, maxPain: null }, 'r', GYM)).toEqual({ ok: false, blocker: 'Rate max pain first' })
     expect(toRun({ ...swap, minutes: 35 }, 'r', GYM).ok).toBe(true)
   })

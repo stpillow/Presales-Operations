@@ -25,11 +25,36 @@ export type ProgramLike = Pick<Program, 'weeklyTemplate' | 'weeklyTemplateRows' 
 export const RUN_TYPES: readonly RunType[] = RunType.options
 export const EFFORTS: readonly Effort[] = Effort.options
 
-export const MILES_STEP = 0.25
+/** Distance in hundredths of a mile, as a watch reports it (Shawn, Nov 6). */
+export const MILES_STEP = 0.01
 /** One run's ceiling: far over any run in the plan, low enough that a stray extra digit can't save as typed. */
 export const MILES_MAX = 30
-export const MINUTES_STEP = 5
+export const MINUTES_STEP = 1
 export const MINUTES_MAX = 600
+export const SECONDS_MAX = 59
+
+/**
+ * A run's time is entered as minutes and seconds and stored as minutes, the seconds a fraction of one
+ * (Run.minutes; 27:13 is 27 + 13/60), so a stored run, a backup and the mileage rules read it as before.
+ */
+export function splitTime(minutes: number): { minutes: number; seconds: number } {
+  const total = Math.max(0, Math.round(minutes * 60))
+  return { minutes: Math.floor(total / 60), seconds: total % 60 }
+}
+
+/** Minutes and seconds back to the stored minutes; seconds past 59 carry into the minutes. */
+export function joinTime(minutes: number, seconds: number): number {
+  const total = Math.max(0, Math.round(minutes) * 60 + Math.round(seconds))
+  return total / 60
+}
+
+/** "35 minutes", "1 minute", or with seconds "27:13" (and "1:02:05" past an hour). */
+export function timeWords(minutes: number): string {
+  const { minutes: m, seconds: s } = splitTime(minutes)
+  if (s === 0) return `${m} ${m === 1 ? 'minute' : 'minutes'}`
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return m >= 60 ? `${Math.floor(m / 60)}:${pad(m % 60)}:${pad(s)}` : `${m}:${pad(s)}`
+}
 
 const EFFORT_WORDS: Record<Effort, string> = { easy: 'Easy', moderate: 'Moderate', hard: 'Hard' }
 
@@ -401,7 +426,7 @@ export function toRun(form: ResolvedForm, id: string, locationId: string): RunDr
   if (maxPain === null) return { ok: false, blocker: 'Rate max pain first' }
   if (type === null) return { ok: false, blocker: 'Pick the type first' }
   // A swap logs no miles, so its minutes are all it measures: an untouched 0 would store a session as nothing.
-  if (form.swap && form.minutes === 0) return { ok: false, blocker: 'Set the minutes first' }
+  if (form.swap && form.minutes === 0) return { ok: false, blocker: 'Set the time first' }
   if (stravaProblem(form.stravaUrl)) return { ok: false, blocker: 'Fix or clear the Strava link first' }
   const link = form.stravaUrl.trim()
   const notes = form.notes.trim()

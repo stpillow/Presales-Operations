@@ -19,6 +19,9 @@ import {
   MILES_STEP,
   MINUTES_MAX,
   MINUTES_STEP,
+  SECONDS_MAX,
+  joinTime,
+  splitTime,
   RUN_TYPES,
   dateLostWords,
   dayChoiceWords,
@@ -216,14 +219,15 @@ function Logger({ today, settings, history, active, locations }: { today: IsoDat
 
       <Section label="Distance and time">
         {resolved.swap ? (
-          <p className="text-body text-on-dark-dim">A swap is logged as 0 miles: it counts as the session and adds no miles. Its minutes are what it measures, so set them to save.</p>
+          <p className="text-body text-on-dark-dim">A swap is logged as 0 miles: it counts as the session and adds no miles. Its time is what it measures, so set it to save.</p>
         ) : (
           <Stepper label="Distance" unit="miles" decimal step={MILES_STEP} min={0} max={MILES_MAX} value={resolved.miles} onChange={(miles) => set({ miles })} />
         )}
         <p role="status" aria-live="polite" className="text-body text-on-dark">
           {weekLine(view.summary, { type: resolved.type, miles: resolved.miles })}
         </p>
-        <Stepper label="Time" unit="minutes" step={MINUTES_STEP} min={0} max={MINUTES_MAX} value={resolved.minutes} onChange={(minutes) => set({ minutes })} />
+        <Stepper label="Minutes" step={MINUTES_STEP} min={0} max={MINUTES_MAX} value={splitTime(resolved.minutes).minutes} onChange={(m) => set({ minutes: joinTime(m, splitTime(resolved.minutes).seconds) })} />
+        <Stepper label="Seconds" step={1} min={0} max={SECONDS_MAX} value={splitTime(resolved.minutes).seconds} onChange={(s) => set({ minutes: joinTime(splitTime(resolved.minutes).minutes, s) })} />
       </Section>
 
       <Section label="Effort">

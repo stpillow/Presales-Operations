@@ -19,6 +19,33 @@ export function liftGym(workout: Pick<Workout, 'status' | 'locationId'> | null, 
   return active
 }
 
+/**
+ * The gym the last logged lift ran at (Shawn's Nov 6 ask): the most recent workout with a set logged
+ * or a finish on it, by date, then by start, its stamped gym (none means Planet Fitness). Null when
+ * nothing is logged yet, or when that gym is archived and no list offers it: the caller then falls
+ * back to the active gym.
+ */
+export function lastLoggedGym(
+  workouts: readonly Pick<Workout, 'id' | 'date' | 'status' | 'startedAt' | 'locationId'>[],
+  loggedWorkoutIds: ReadonlySet<string>,
+  locations: readonly Location[],
+): Location | null {
+  const logged = workouts.filter((w) => w.status === 'finished' || loggedWorkoutIds.has(w.id))
+  const last = [...logged].sort((a, b) => b.date.localeCompare(a.date) || (b.startedAt ?? '').localeCompare(a.startedAt ?? ''))[0]
+  if (!last) return null
+  const gym = locations.find((l) => l.id === locationIdOf(last))
+  return gym && !gym.archived ? gym : null
+}
+
+/**
+ * Where a lift still to start is offered first (Nov 6): the gym the last logged lift ran at, else the
+ * active gym. Shawn can pick another on Today before Start; a session already started stays where it
+ * was stamped (`liftGym`).
+ */
+export function gymToOffer(lastLogged: Location | null, active: Location): Location {
+  return lastLogged ?? active
+}
+
 export type SwapCall = { kind: 'take'; type: RunSwapType } | { kind: 'neither' }
 
 /**

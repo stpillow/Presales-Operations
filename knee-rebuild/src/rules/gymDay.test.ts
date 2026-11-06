@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { PLANET_FITNESS_LOCATION_ID, type Location, type Workout } from '../schema/index.ts'
-import { liftGym, runSwapGym, swapCallAt } from './gymDay.ts'
+import { gymToOffer, lastLoggedGym, liftGym, runSwapGym, swapCallAt } from './gymDay.ts'
 
 const home: Location = {
   id: PLANET_FITNESS_LOCATION_ID,
@@ -37,6 +37,31 @@ describe('the gym a day’s lift runs at', () => {
   })
   it('a stamped gym with no row and no Planet Fitness row falls back to the active gym', () => {
     expect(liftGym(session('in-progress', 'loc-9'), hotel, [hotel]).id).toBe('loc-1')
+  })
+})
+
+describe('the gym a lift still to start is offered at (Nov 6)', () => {
+  const w = (id: string, date: string, status: Workout['status'], locationId?: string, startedAt?: string) => ({ id, date, status, ...(locationId ? { locationId } : {}), ...(startedAt ? { startedAt } : {}) })
+  const logged = (...ids: string[]) => new Set(ids)
+
+  it('is the gym the last logged lift ran at, by date, then by start', () => {
+    const workouts = [w('a', '2026-11-03', 'finished', 'loc-1'), w('b', '2026-11-05', 'finished'), w('c', '2026-11-04', 'finished', 'loc-1')]
+    expect(lastLoggedGym(workouts, logged(), [home, hotel])?.id).toBe(PLANET_FITNESS_LOCATION_ID)
+    const sameDay = [w('a', '2026-11-05', 'finished', 'loc-1', '2026-11-05T22:00:00Z'), w('b', '2026-11-05', 'finished', undefined, '2026-11-05T12:00:00Z')]
+    expect(lastLoggedGym(sameDay, logged(), [home, hotel])?.id).toBe('loc-1')
+  })
+
+  it('counts a session left early or still open only once a set is logged on it', () => {
+    const workouts = [w('a', '2026-11-03', 'finished'), w('b', '2026-11-05', 'abandoned', 'loc-1'), w('c', '2026-11-06', 'in-progress', 'loc-1')]
+    expect(lastLoggedGym(workouts, logged(), [home, hotel])?.id).toBe(PLANET_FITNESS_LOCATION_ID)
+    expect(lastLoggedGym(workouts, logged('b'), [home, hotel])?.id).toBe('loc-1')
+  })
+
+  it('is nothing before the first lift, or when the last gym is archived, and the active gym is offered instead', () => {
+    expect(lastLoggedGym([], logged(), [home, hotel])).toBeNull()
+    expect(lastLoggedGym([w('a', '2026-11-03', 'finished', 'loc-2')], logged(), [home, cabin])).toBeNull()
+    expect(gymToOffer(null, hotel).id).toBe('loc-1')
+    expect(gymToOffer(home, hotel).id).toBe(PLANET_FITNESS_LOCATION_ID)
   })
 })
 

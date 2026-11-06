@@ -169,7 +169,7 @@ export function fitToWindow(slots: readonly WindowSlot[], minutes: number | null
       total += seconds
     }
   }
-  const out = new Set([...dropped])
+  const out = new Set(dropped)
   const addedIds = new Set(added)
   return {
     keep: slots.filter((s) => (s.extra ? addedIds.has(s.slotId) : !out.has(s.slotId))).map((s) => s.slotId),
