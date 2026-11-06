@@ -109,6 +109,7 @@ Done when export, wipe, import restores everything, and a full Session B gets lo
 
 | Date | Decision | Why |
 |---|---|---|
+| 2026-11-06 | Strava import on tap, through one Vercel function (`api/strava.ts`) that holds the client secret and keeps nothing; logging after the fact up to 14 days back | Shawn's Nov 6 ask. Amends PROMPT sections 2, 7 and 8, CLAUDE.md and the review plan's security pass. Max pain is never imported: an activity opens the run logger filled in. Barriers and setup in docs/integrations.md |
 | 2026-11-02 | A read-only session preview (`#/preview/:date`): any day's session with the sets, reps and loads the engine would prescribe from what's logged so far, at the gym it would run at; from Week's lift days and Today | Shawn: "I want to be able to see the workouts before I get to them." It plans with the same `planSession` call the runner opens with, so its numbers are Start's if nothing is logged in between |
 | 2026-10-31 | The app lives in `knee-rebuild/` inside Presales-Operations, not in its own repo | This session can only push to this repo. `git subtree split --prefix=knee-rebuild` moves it out later with history intact. Shawn to confirm or ask for the split. |
 | 2026-10-31 | Vercel project `knee-rebuild` in the SPDC team, root directory `knee-rebuild`, framework Vite, builds skipped when the folder didn't change | Preview on every push, production from `main`, and pushes to the skills library don't burn builds |

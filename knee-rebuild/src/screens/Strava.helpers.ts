@@ -1,0 +1,50 @@
+import type { Candidate } from '../rules/stravaImport.ts'
+import { milesWords, timeWords } from './RunLogger.helpers.ts'
+import { runLabel, shortDateWords } from './Today.helpers.ts'
+
+/** What came back from Strava's consent page, in words (the function's `?result=`). */
+export function resultWords(result: string | undefined): string | null {
+  switch (result) {
+    case undefined:
+      return null
+    case 'connected':
+      return 'Connected to Strava.'
+    case 'denied':
+      return 'Strava was not connected: the consent page was declined.'
+    case 'scope':
+      return 'Strava was not connected: reading your activities was left unticked, and the import needs it. Connect again and leave it ticked.'
+    case 'state':
+      return 'Strava was not connected: the sign-in came back without the check this app sent. Connect again from this screen.'
+    default:
+      return 'Strava was not connected: it would not hand over access. Try again in a minute.'
+  }
+}
+
+/** What Save waits on, and what was filled in by default for him to check. */
+export function needsWords(needs: readonly string[], guessed: readonly ('type' | 'effort')[] = []): string {
+  const waits = needs.length === 0 ? 'Nothing to fill in.' : `${needs.join(' and ').replace(/^./, (c) => c.toUpperCase())} to rate before it saves.`
+  const checks = guessed.map((g) => (g === 'type' ? 'the run type is a guess' : 'effort is set to easy'))
+  return checks.length === 0 ? waits : `${waits} Check it: ${checks.join(' and ')}.`
+}
+
+/** After Disconnect: whether Strava confirmed it, and where to remove the app by hand when it didn't. */
+export function disconnectWords(revoked: boolean): string {
+  return revoked
+    ? 'Disconnected: this app can no longer read your Strava.'
+    : 'Disconnected here, but Strava did not confirm it. To be sure, remove the app under Strava, Settings, My Apps.'
+}
+
+/** One line for an activity: its day, its name, and what it would log as. */
+export function candidateWords(c: Candidate): { title: string; detail: string } {
+  switch (c.kind) {
+    case 'run': {
+      const d = c.draft
+      const what = d.miles > 0 ? `${runLabel(d.type)}, ${milesWords(d.miles)}, ${timeWords(d.minutes)}` : `${runLabel(d.type)}, ${timeWords(d.minutes)}`
+      return { title: `${shortDateWords(d.date)} · ${d.notes || 'Strava activity'}`, detail: `${what}. ${needsWords(c.needs, c.guessed)}` }
+    }
+    case 'lift':
+      return { title: `${shortDateWords(c.date)} · ${c.name}`, detail: 'A strength session: log it from that day’s preview, with its sets.' }
+    case 'skip':
+      return { title: `${shortDateWords(c.date)} · ${c.name}`, detail: `Left out. ${c.reason}` }
+  }
+}

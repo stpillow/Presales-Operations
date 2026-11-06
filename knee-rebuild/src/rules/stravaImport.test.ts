@@ -1,0 +1,88 @@
+import { describe, expect, it } from 'vitest'
+import { activityDate, candidates, classify, effortFromExertion, importedStravaIds, stravaActivityUrl, stravaIdFromUrl, syncAfter, type ClassifyContext, type StravaActivity } from './stravaImport.ts'
+
+const DATES = ['2026-11-04', '2026-11-05', '2026-11-06']
+const ctx: ClassifyContext = { dates: DATES, scheduledRun: (d) => (d === '2026-11-05' ? 'mbr' : null) }
+const act = (over: Partial<StravaActivity> = {}): StravaActivity => ({ id: 1234567890, name: 'Morning Run', sport_type: 'Run', distance: 5000, moving_time: 1633, start_date_local: '2026-11-05T06:30:00Z', ...over })
+
+describe('Strava links', () => {
+  it('reads the activity id out of a link the logger stored, and nothing else', () => {
+    expect(stravaActivityUrl(42)).toBe('https://www.strava.com/activities/42')
+    expect(stravaIdFromUrl('https://www.strava.com/activities/42')).toBe('42')
+    expect(stravaIdFromUrl('https://strava.com/activities/42/overview')).toBe('42')
+    expect(stravaIdFromUrl('https://www.strava.com/athletes/42')).toBeNull()
+    expect(stravaIdFromUrl('http://www.strava.com/activities/42')).toBeNull()
+    expect(stravaIdFromUrl(undefined)).toBeNull()
+    expect(importedStravaIds([{ stravaUrl: 'https://www.strava.com/activities/7' }, {}, { stravaUrl: 'nope' }])).toEqual(new Set(['7']))
+  })
+})
+
+describe('the day', () => {
+  it('is the athlete’s own clock: a run at 11:30 pm stays on its day despite the Z', () => {
+    expect(activityDate({ start_date_local: '2026-11-05T23:30:00Z' })).toBe('2026-11-05')
+  })
+})
+
+describe('effort', () => {
+  it('reads Strava’s 1–10 exertion as easy, moderate or hard, and none as none', () => {
+    expect([1, 3, 4, 6, 7, 10].map(effortFromExertion)).toEqual(['easy', 'easy', 'moderate', 'moderate', 'hard', 'hard'])
+    expect(effortFromExertion(null)).toBeNull()
+    expect(effortFromExertion(undefined)).toBeNull()
+    expect(effortFromExertion(0)).toBeNull()
+  })
+})
+
+describe('classify', () => {
+  it('makes a run a draft for the run logger: miles to the hundredth, time to the second, the day’s planned run, and always asks max pain', () => {
+    const c = classify(act(), ctx)
+    expect(c).toEqual({
+      kind: 'run',
+      activityId: '1234567890',
+      draft: { date: '2026-11-05', type: 'mbr', miles: 3.11, minutes: 1633 / 60, effort: null, stravaUrl: 'https://www.strava.com/activities/1234567890', notes: 'Morning Run' },
+      needs: ['max pain'],
+      guessed: ['effort'],
+    })
+  })
+
+  it('takes Strava’s long-run mark, and on a day with no run planned guesses easy and asks the type', () => {
+    expect(classify(act({ workout_type: 2, start_date_local: '2026-11-06T07:00:00Z' }), ctx)).toMatchObject({ draft: { type: 'long' }, needs: ['max pain'], guessed: ['effort'] })
+    expect(classify(act({ start_date_local: '2026-11-06T07:00:00Z', perceived_exertion: 5 }), ctx)).toMatchObject({ draft: { type: 'easy', effort: 'moderate' }, needs: ['max pain'], guessed: ['type'] })
+  })
+
+  it('makes elliptical and rowing the swaps, at no miles', () => {
+    expect(classify(act({ sport_type: 'Elliptical', distance: 4000 }), ctx)).toMatchObject({ kind: 'run', draft: { type: 'elliptical-swap', miles: 0 } })
+    expect(classify(act({ sport_type: 'Rowing' }), ctx)).toMatchObject({ kind: 'run', draft: { type: 'rower-swap', miles: 0 } })
+    expect(classify(act({ sport_type: 'VirtualRow' }), ctx)).toMatchObject({ kind: 'run', draft: { type: 'rower-swap', miles: 0 } })
+  })
+
+  it('reads the older type field when sport_type is absent, and treadmill and trail runs as runs', () => {
+    const { sport_type: _s, ...old } = act()
+    void _s
+    expect(classify({ ...old, type: 'Run' }, ctx).kind).toBe('run')
+    expect(classify(act({ sport_type: 'TrailRun' }), ctx).kind).toBe('run')
+    expect(classify(act({ sport_type: 'VirtualRun' }), ctx).kind).toBe('run')
+  })
+
+  it('points a strength activity at logging the session after the fact', () => {
+    expect(classify(act({ sport_type: 'WeightTraining', name: 'Lift' }), ctx)).toEqual({ kind: 'lift', activityId: '1234567890', date: '2026-11-05', name: 'Lift' })
+  })
+
+  it('leaves out what the program doesn’t log, and a run older than the days that can be logged, with the reason', () => {
+    expect(classify(act({ sport_type: 'Ride', name: 'Commute' }), ctx)).toMatchObject({ kind: 'skip', reason: 'Ride isn’t a run, swap or lift the program logs.' })
+    expect(classify(act({ start_date_local: '2026-10-01T07:00:00Z' }), ctx)).toMatchObject({ kind: 'skip', reason: 'It is older than the days a run can be logged for.' })
+  })
+})
+
+describe('candidates', () => {
+  it('offers newest first and never one already logged', () => {
+    const list = [act({ id: 1, start_date_local: '2026-11-04T07:00:00Z' }), act({ id: 2, start_date_local: '2026-11-06T07:00:00Z' }), act({ id: 3 })]
+    expect(candidates(list, new Set(['3']), ctx).map((c) => c.activityId)).toEqual(['2', '1'])
+  })
+})
+
+describe('syncAfter', () => {
+  it('asks from a day before the earliest loggable day, so a time zone never cuts one off', () => {
+    expect(syncAfter(DATES)).toBe(Date.parse('2026-11-03T00:00:00Z') / 1000)
+    expect(syncAfter([])).toBeNull()
+  })
+})
